@@ -1,10 +1,39 @@
+from pathlib import Path
 from pydantic import BaseModel, Field
 from docx import Document
+from docx.oxml.ns import qn
 import json
+import re
 
 from llm_client import llm_invoke, llm_model_invoke
 from agent_core import AgentState
 from document_agent.write_tool.word_tool import convert_node,replace_node_with_data,ParagraphItem,TableItem,DocxRoot
+
+def extract_json_strings(text):
+    """
+    从一段文本中提取出所有的 JSON 对象或数组。
+    """
+    results = []
+    # 匹配最外层的 { 或 [ 的位置
+    pattern = re.compile(r'[\{\[]')
+    
+    for match in pattern.finditer(text):
+        start_index = match.start()
+        try:
+            # 使用 raw_decode 尝试从该位置解析 JSON
+            # raw_decode 会返回 (解析出的对象, 解析结束的索引)
+            decoder = json.JSONDecoder()
+            obj, end_index = decoder.raw_decode(text, start_index)
+            
+            # 提取出完整的 JSON 字符串
+            json_str = text[start_index:end_index]
+            results.append(json_str)
+            
+        except json.JSONDecodeError:
+            # 如果解析失败，说明这个 { 或 [ 只是普通文本，跳过
+            continue
+            
+    return results
 
 class DocxAction(BaseModel):# 定义一次写文档的动作
     action_type : str =Field(description="文档写作的类型，new表示全新的写作，last表示改写前一次生成的文档，rewrite表示重写或改写用户指定的文档")
@@ -31,19 +60,27 @@ def create_new_docx_node(llm):#从零编写文档的节点
         section_str=getattr(res,"content")
         if section_str is None:
             return {**state,"state":"error","error":"规划文档章节时，模型输出错误"}
-        print("分解结果：",section_str)
+        matches = extract_json_strings(section_str)
+        print("分解结果：",matches)
+        if len(matches)<=0:
+            print("章节内容输出不包含json格式的数据")
         try:
-            sections=json.loads(section_str)
+            sections=json.loads(matches[0])
         except Exception as e:
+            print("解析分段json数据失败：",e)
             return {**state,"state":"error","error":f"{e}"}
             
         doc=Document()
+        style = doc.styles['Normal']
+        style.font.name = 'Times New Roman'
+        style.element.rPr.rFonts.set(qn('w:eastAsia'), '宋体')
         for section in sections:
             print(f"编写{section}章节")
             prompt=(
                 "你是一个写作系统的智能助手，需要根据章节主旨以及源信息进行文档生成，包括段落和表格\n"
                 "文档字体上，除了用户的特殊要求，正文不加粗，标题加粗\n"
-                f"章节主旨：{section}\n"
+                f"整个文档的大纲：\n{section_str}\n"
+                f"当前要编写的章节内容：{section}\n"
                 f"{retrieved_info}\n"
             )
             res=llm_model_invoke(llm,prompt,DocxRoot)
@@ -57,7 +94,13 @@ def create_new_docx_node(llm):#从零编写文档的节点
                 elif item.type=="table":
                     node=doc.add_table(rows=0,cols=0)
                     replace_node_with_data(node,item.Table)
-        doc.save("1.docx")
+        file_id=1
+        save_path="data"/Path(f"{file_id}.docx")
+        while save_path.exists():
+            file_id+=1
+            save_path="data"/Path(f"{file_id}.docx")
+        print("保存到：",str(save_path))
+        doc.save(str(save_path))
             
         # if action is None:
         #     print("识别用户写作意图失败")
