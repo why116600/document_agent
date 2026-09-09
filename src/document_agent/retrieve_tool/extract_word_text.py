@@ -23,7 +23,7 @@ def extract_text_with_tables(docx_path):
     # 遍历文档 body 的所有子元素，按顺序处理段落和表格
     for child in doc.element.body:
         tag = child.tag
-        print("经过的tag:",tag)
+        # print("经过的tag:",tag)
         if tag == qn('w:p'):  # 段落
             # 使用 local-name() 避免命名空间参数问题
             # texts = child.xpath('.//*[local-name()="t"]')
