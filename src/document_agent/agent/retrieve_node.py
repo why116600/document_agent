@@ -25,6 +25,20 @@ def create_retrieve_node(llm):
                 retrived_conent_str="目前已知：\n"+"\n".join(retrived_conent)
             else:
                 retrived_conent_str="目前已知：\n无"
+            think_prompt = (
+                "你是一个文档检索助手，你的任务是根据用户提供的参考内容，检索出与用户问题相关的内容。\n"
+                f"{retrived_conent_str}\n"
+                f"用户提供的文件参考内容：{summaries_prompt}\n"
+                f"要检索的内容：{s}\n"
+                "你有以下工具可以使用：\n"
+                "file为检索用户提供的文件内容的工具，参数path为文件路径，参数query为检索的关键内容。\n"
+                "end为结束检索的工具，如果你认为已经检索到足够的内容，可以调用end工具结束检索。\n"
+                f"{tool_response}\n"
+                "请分析后续使用工具的思路"
+            )
+            res=llm_invoke(llm,think_prompt)
+            analysis=getattr(res,"content","无")
+            print("检索智能体的分析：",analysis)
             prompt = (
                 "你是一个文档检索助手，你的任务是根据用户提供的参考内容，检索出与用户问题相关的内容。\n"
                 f"{retrived_conent_str}\n"
@@ -33,7 +47,8 @@ def create_retrieve_node(llm):
                 "你有以下工具可以使用：\n"
                 "file为检索用户提供的文件内容的工具，参数path为文件路径，参数query为检索的关键内容。\n"
                 "end为结束检索的工具，如果你认为已经检索到足够的内容，可以调用end工具结束检索。\n"
-                f"{tool_response}"
+                f"{tool_response}\n"
+                f"请严格按照以下分析选择使用的工具：\n{analysis}"
             )
             tool=llm_model_invoke(llm, prompt, RetrieveFuncCallable)
             if tool is None:
