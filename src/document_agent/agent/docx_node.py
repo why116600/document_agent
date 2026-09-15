@@ -1,4 +1,3 @@
-from pathlib import Path
 from pydantic import BaseModel, Field
 from docx import Document
 from docx.oxml.ns import qn
@@ -7,7 +6,7 @@ import re
 
 from llm_client import llm_invoke, llm_model_invoke
 from agent_core import AgentState
-from document_agent.write_tool.word_tool import convert_node,replace_node_with_data,ParagraphItem,TableItem,DocxRoot
+from document_agent.write_tool.word_tool import convert_node,replace_node_with_data,ParagraphItem,TableItem,DocxRoot,resolve_save_path,save_document
 
 def extract_json_strings(text):
     """
@@ -94,13 +93,9 @@ def create_new_docx_node(llm):#从零编写文档的节点
                 elif item.type=="table":
                     node=doc.add_table(rows=0,cols=0)
                     replace_node_with_data(node,item.Table)
-        file_id=1
-        save_path="data"/Path(f"{file_id}.docx")
-        while save_path.exists():
-            file_id+=1
-            save_path="data"/Path(f"{file_id}.docx")
+        save_path=resolve_save_path(state.get("save_path"))
         print("保存到：",str(save_path))
-        doc.save(str(save_path))
+        save_document(doc, save_path)
             
         # if action is None:
         #     print("识别用户写作意图失败")
@@ -125,6 +120,6 @@ def create_new_docx_node(llm):#从零编写文档的节点
         #             node=doc.add_table(rows=0,cols=0)
         #             replace_node_with_data(node,item.Table)
         #     doc.save(action.save_path)
-        return {**state,"state":"succeeded"}
+        return {**state,"state":"succeeded","save_path":str(save_path)}
     return docx_node
             

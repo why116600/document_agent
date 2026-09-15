@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 from typing import Union, Optional, List
 from pydantic import BaseModel, Field
 from docx import Document
@@ -11,21 +13,28 @@ from lxml import etree
 import officemath2latex
 import math2docx
 
+#未指定格式时写回文档所使用的默认值
+DEFAULT_FONT_SIZE = 12
+DEFAULT_FONT_COLOR = "#000000"
+DEFAULT_ALIGNMENT = "left"
+DEFAULT_SPACING = 0
+DEFAULT_LINE_SPACING = 1.0
+
 class TextRunItem(BaseModel):
     text: str = Field(description="文本内容")
     text_type: str = Field(description="文本类型，text表示普通文本，latex表示latex格式的公式")
-    bold: bool = Field(default=False, description="是否加粗")
-    italic: bool = Field(default=False, description="是否斜体")
-    underline: bool = Field(default=False, description="是否下划线")
-    font_size: int = Field(default=12, description="字体大小，单位为磅")
-    font_color: str = Field(default="#000000", description="字体颜色，使用十六进制颜色代码")
+    bold: Optional[bool] = Field(default=None, description="是否加粗，None表示未指定，改写时沿用原文格式")
+    italic: Optional[bool] = Field(default=None, description="是否斜体，None表示未指定，改写时沿用原文格式")
+    underline: Optional[bool] = Field(default=None, description="是否下划线，None表示未指定，改写时沿用原文格式")
+    font_size: Optional[int] = Field(default=None, description="字体大小，单位为磅，None表示未指定，改写时沿用原文格式")
+    font_color: Optional[str] = Field(default=None, description="字体颜色，使用十六进制颜色代码，None表示未指定，改写时沿用原文格式")
     
 class ParagraphItem(BaseModel):
     runs: List[TextRunItem] = Field(description="文本运行列表")
-    alignment: str = Field(default="left", description="段落对齐方式，可选值：left, center, right, justify")
-    spacing_before: int = Field(default=0, description="段前间距，单位为磅")
-    spacing_after: int = Field(default=0, description="段后间距，单位为磅")
-    line_spacing: float = Field(default=1.0, description="行间距倍数，例如 1.0 表示单倍行距，2.0 表示双倍行距")
+    alignment: Optional[str] = Field(default=None, description="段落对齐方式，可选值：left, center, right, justify，None表示未指定，改写时沿用原文格式")
+    spacing_before: Optional[int] = Field(default=None, description="段前间距，单位为磅，None表示未指定，改写时沿用原文格式")
+    spacing_after: Optional[int] = Field(default=None, description="段后间距，单位为磅，None表示未指定，改写时沿用原文格式")
+    line_spacing: Optional[float] = Field(default=None, description="行间距倍数，例如 1.0 表示单倍行距，None表示未指定，改写时沿用原文格式")
     
 class GridItem(BaseModel):
     content: List[ParagraphItem] = Field(description="单元格内容，包含一个或多个段落")
@@ -238,22 +247,21 @@ def fill_table_from_grid(table: Table, grid_items):
         for para_item in grid_item.content:
             p = cell.add_paragraph()
             # 设置段落格式
-            p.paragraph_format.alignment = alignment_str_to_enum(para_item.alignment)
-            p.paragraph_format.space_before = Pt(para_item.spacing_before)
-            p.paragraph_format.space_after = Pt(para_item.spacing_after)
-            p.paragraph_format.line_spacing = para_item.line_spacing
+            p.paragraph_format.alignment = alignment_str_to_enum(para_item.alignment or DEFAULT_ALIGNMENT)
+            p.paragraph_format.space_before = Pt(para_item.spacing_before or DEFAULT_SPACING)
+            p.paragraph_format.space_after = Pt(para_item.spacing_after or DEFAULT_SPACING)
+            p.paragraph_format.line_spacing = para_item.line_spacing or DEFAULT_LINE_SPACING
             # 添加 runs
             for run_item in para_item.runs:
                 if run_item.text_type=="latex":
                     math2docx.add_math(p, run_item.text)
                     continue
                 run = p.add_run(run_item.text)
-                run.font.bold = run_item.bold
-                run.font.italic = run_item.italic
-                run.font.underline = run_item.underline
-                run.font.size = Pt(run_item.font_size)
-                if run_item.font_color:
-                    run.font.color.rgb = hex_to_rgb(run_item.font_color)
+                run.font.bold = run_item.bold or False
+                run.font.italic = run_item.italic or False
+                run.font.underline = run_item.underline or False
+                run.font.size = Pt(run_item.font_size or DEFAULT_FONT_SIZE)
+                run.font.color.rgb = hex_to_rgb(run_item.font_color or DEFAULT_FONT_COLOR)
     # 处理合并（必须在内容填充之后，因为合并会改变单元格引用）
     for grid_item in grid_items:
         row, col = grid_item.row, grid_item.col
@@ -291,10 +299,10 @@ def replace_node_with_data(node, new_data, doc=None):
         node._element.clear_content()
         # 设置段落格式
         pf = node.paragraph_format
-        pf.alignment = alignment_str_to_enum(new_data.alignment)
-        pf.space_before = Pt(new_data.spacing_before)
-        pf.space_after = Pt(new_data.spacing_after)
-        pf.line_spacing = new_data.line_spacing
+        pf.alignment = alignment_str_to_enum(new_data.alignment or DEFAULT_ALIGNMENT)
+        pf.space_before = Pt(new_data.spacing_before or DEFAULT_SPACING)
+        pf.space_after = Pt(new_data.spacing_after or DEFAULT_SPACING)
+        pf.line_spacing = new_data.line_spacing or DEFAULT_LINE_SPACING
         # 添加新的 runs
         for run_item in new_data.runs:
             if run_item.text_type=="latex":
@@ -302,11 +310,11 @@ def replace_node_with_data(node, new_data, doc=None):
                 math2docx.add_math(node, run_item.text)
                 continue
             run = node.add_run(run_item.text)
-            run.font.bold = run_item.bold
-            run.font.italic = run_item.italic
-            run.font.underline = run_item.underline
-            run.font.size = Pt(run_item.font_size)
-            run.font.color.rgb = hex_to_rgb(run_item.font_color)
+            run.font.bold = run_item.bold or False
+            run.font.italic = run_item.italic or False
+            run.font.underline = run_item.underline or False
+            run.font.size = Pt(run_item.font_size or DEFAULT_FONT_SIZE)
+            run.font.color.rgb = hex_to_rgb(run_item.font_color or DEFAULT_FONT_COLOR)
         return node  # 返回原段落对象（已更新）
 
     # ----- 替换表格 -----
@@ -338,3 +346,47 @@ def replace_node_with_data(node, new_data, doc=None):
 
     else:
         raise TypeError(f"节点类型 {type(node)} 与数据 {type(new_data)} 不匹配")
+    
+# ---------- 保存相关 ----------
+
+def resolve_save_path(save_path: Optional[str] = None, data_dir: str = "data",
+                      name_template: str = "{index}", stem: str = "doc") -> Path:
+    """
+    计算文档的保存路径。
+
+    参数：
+        save_path: 用户指定的保存路径，为空时在 data_dir 目录下自动生成
+        data_dir: 自动生成时使用的输出目录
+        name_template: 自动生成时使用的文件名模板，可使用 {index} 和 {stem} 占位符
+        stem: 文件名模板中 {stem} 的取值
+    返回：
+        保存路径（Path 对象），目录已创建
+    """
+    if save_path:
+        path = Path(save_path)
+        if path.suffix.lower() != ".docx":
+            path = path.with_suffix(".docx")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+    dir_path = Path(data_dir)
+    dir_path.mkdir(parents=True, exist_ok=True)
+    index = 1
+    candidate = dir_path / (name_template.format(index=index, stem=stem) + ".docx")
+    while candidate.exists():
+        index += 1
+        candidate = dir_path / (name_template.format(index=index, stem=stem) + ".docx")
+    return candidate
+
+
+def save_document(doc: Document, save_path) -> Path:
+    """保存文档到指定路径，自动创建不存在的目录。
+
+    先写到同目录下的临时文件，再原子替换目标文件：
+    这样即使保存过程中失败，目标文件也只会是原来的完整文件，不会留下半截损坏的文档。
+    """
+    path = Path(save_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(path.name + ".tmp")
+    doc.save(str(tmp_path))
+    os.replace(tmp_path, path)
+    return path

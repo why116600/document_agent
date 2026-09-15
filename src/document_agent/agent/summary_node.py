@@ -3,11 +3,28 @@ from llm_client import llm_invoke, llm_model_invoke
 from agent_core import AgentState
 from document_agent.retrieve_tool.extract_document import extract_document_content
 
+
+def get_last_user_text(messages) -> str:
+    """取出最后一条用户消息的文本，兼容消息对象与字典两种形式。"""
+    for message in reversed(list(messages or [])):
+        if isinstance(message, dict):
+            if message.get("role") == "user":
+                return str(message.get("content") or "")
+        elif getattr(message, "type", "") == "human":
+            return str(getattr(message, "content", "") or "")
+    return ""
+
+
 def create_summary_node(llm):
     def summary_node(state : AgentState) -> AgentState:
         s=state["messages"]
-        files_to_summarize=state['input_file_path']
-        summary_result={}
+        files_to_summarize=state.get('input_file_path') or []
+        if not files_to_summarize and not state.get('file_summaries'):
+            #没有参考文件时不需要生成摘要，直接用用户的要求作为检索目标
+            retrieve_target=get_last_user_text(s)
+            print("没有提供参考文件，跳过摘要，检索目标：",retrieve_target)
+            return {**state,"file_summaries":{},"retrieve_target":retrieve_target}
+        summary_result=dict(state.get('file_summaries') or {})
         for path in files_to_summarize:
             if path in state['file_summaries']:
                 print(f"文件已存在摘要，跳过：{path}")
