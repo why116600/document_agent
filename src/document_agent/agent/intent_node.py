@@ -1,9 +1,13 @@
+from pathlib import Path
 from typing import List
 
 from pydantic import BaseModel, Field
 
 from llm_client import llm_model_invoke
 from agent_core import AgentState
+
+#参考文件支持的后缀，与 extract_document 的解析能力保持一致
+SUPPORTED_REFERENCE_SUFFIXES = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".txt", ".json", ".csv", ".md"}
 
 
 class WriteIntent(BaseModel):#用户的写作意图
@@ -30,6 +34,27 @@ def resolve_rewrite_file(rewrite_path: str, input_files) -> tuple:
     if not docx_files:
         return "", "识别到改写意图，但没有可用的docx文档，请在需求里说明需要改写的文档路径"
     return "", f"识别到改写意图，但有多个docx文档：{docx_files}，请在需求里说明需要改写哪一个"
+
+
+def validate_reference_paths(reference_paths) -> tuple:
+    """校验用户指定的参考文件路径，返回 (有效路径列表, 错误信息)。
+
+    逐一检查路径是否存在、后缀是否受支持；任一路径无效就返回错误信息，
+    避免路径写错时被静默忽略，导致在缺少用户指定资料的情况下继续生成文档。
+    """
+    valid = []
+    for raw in reference_paths or []:
+        path = str(raw).strip()
+        if not path:
+            continue
+        path_obj = Path(path)
+        if not path_obj.exists():
+            return valid, f"用户指定的参考文件不存在：{path}，请确认路径后重试"
+        if path_obj.suffix.lower() not in SUPPORTED_REFERENCE_SUFFIXES:
+            return valid, (f"用户指定的参考文件类型不支持：{path}"
+                           f"（支持的类型：{'、'.join(sorted(SUPPORTED_REFERENCE_SUFFIXES))}）")
+        valid.append(path)
+    return valid, ""
 
 
 def create_intent_node(llm):
@@ -72,7 +97,11 @@ def create_intent_node(llm):
             rewrite_path, error = resolve_rewrite_file(rewrite_path, input_files)
             if error:
                 return {**state, "user_intent": "rewrite", "rewrite_file": None, "state": "error", "error": error}
-        reference_paths = [str(path).strip() for path in (intent.reference_paths or []) if str(path).strip()]
+        reference_paths, reference_error = validate_reference_paths(intent.reference_paths)
+        if reference_error:
+            print(reference_error)
+            return {**state, "user_intent": intent.intent, "rewrite_file": rewrite_path or None,
+                    "state": "error", "error": reference_error}
         print("识别用户意图：", intent.intent, "改写文件：", rewrite_path,
               "参考文件：", reference_paths, "保存路径：", intent.save_path)
         return {

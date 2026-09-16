@@ -444,7 +444,9 @@ def build_document_description(doc: Document):
         nodes.append(node)
         if isinstance(node, Paragraph):
             try:
-                item = convert_node(node)
+                #preserve_none=True：未直接设置的格式保留为None，
+                #改写时才能区分"原文没设置（由样式决定）"和"原文显式写了默认值"
+                item = convert_node(node, preserve_none=True)
             except Exception as e:
                 print(f"解析第{index}个段落失败，按纯文本处理：{e}")
                 item = ParagraphItem(runs=[TextRunItem(text=node.text, text_type="text")])
@@ -526,12 +528,16 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits) -> int:
                     if not isinstance(edit.table, TableItem):
                         print(f"第{edit.index}个元素是表格，但模型没有给出表格内容，跳过")
                         continue
-                    replace_node_with_data(node, edit.table, doc)
+                    #表格替换会重建表格对象，必须把新对象写回nodes，
+                    #否则同一下标的insert_after会拿到已被移除的旧表格元素，插入被静默丢弃
+                    node = replace_node_with_data(node, edit.table, doc, write_defaults=False)
+                    nodes[edit.index] = node
                 else:
                     if not isinstance(edit.paragraph, ParagraphItem):
                         print(f"第{edit.index}个元素是段落，但模型没有给出段落内容，跳过")
                         continue
-                    replace_node_with_data(node, _inherit_paragraph_format(edit.paragraph, base_item), doc)
+                    #write_defaults=False：模型没指定的格式沿用原文样式，避免把标题等格式覆盖成默认值
+                    replace_node_with_data(node, _inherit_paragraph_format(edit.paragraph, base_item), doc, write_defaults=False)
                 applied += 1
                 print(f"已改写第{edit.index}个元素")
             elif action == "insert_after":
@@ -539,7 +545,7 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits) -> int:
                     print(f"第{edit.index}个元素的插入内容为空，跳过")
                     continue
                 new_paragraph = doc.add_paragraph("")
-                replace_node_with_data(new_paragraph, _inherit_paragraph_format(edit.paragraph, base_item))
+                replace_node_with_data(new_paragraph, _inherit_paragraph_format(edit.paragraph, base_item), write_defaults=False)
                 # add_paragraph 会把段落追加到文档末尾，这里移动到目标元素之后
                 node._element.addnext(new_paragraph._element)
                 applied += 1

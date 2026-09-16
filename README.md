@@ -9,6 +9,9 @@ An intelligent agent capable of writing documents based on the content of an org
 D:\Conda\envs\docx_agent\python.exe -m pip install -e .
 ```
 
+解析 PDF 参考文件时，若文件中含表格，会调用 `camelot` 提取表格（已随上面的依赖一起安装）。
+`camelot` 的 `lattice` 模式还需要系统安装 Ghostscript；如果环境中没有 `camelot`，解析 PDF 时会自动降级为只提取文本，不会直接报错。
+
 模型配置（DeepSeek，OpenAI 兼容接口），使用前需设置环境变量：
 ```bash
 set MODEL_API_KEY=你的密钥
