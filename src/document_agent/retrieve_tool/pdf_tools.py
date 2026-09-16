@@ -1,6 +1,11 @@
 import sys
 import pdfplumber
-import camelot
+
+try:
+    import camelot
+except ImportError:
+    #未安装camelot时降级为只提取文本，避免整个PDF解析直接失败
+    camelot = None
 
 def extract_pdf_to_html(pdf_path : str) -> str:
     html_parts = []
@@ -15,21 +20,22 @@ def extract_pdf_to_html(pdf_path : str) -> str:
                 for para in paragraphs:
                     html_parts.append(f"<p>{para}</p>")
             
-            # 2. 使用 Camelot 提取当前页的表格
+            # 2. 使用 Camelot 提取当前页的表格（未安装camelot时跳过表格提取）
             # 注意：Camelot 按页码提取，页码从 1 开始
-            try:
-                tables = camelot.read_pdf(pdf_path, pages=str(page_num + 1), flavor='lattice')
-                # 如果 lattice 没找到，尝试 stream 模式
-                if len(tables) == 0:
-                    tables = camelot.read_pdf(pdf_path, pages=str(page_num + 1), flavor='stream')
-                
-                for table in tables:
-                    # Camelot 可以直接导出为 HTML 字符串
-                    html_table = table.df.to_html(index=False, border=1)
-                    html_parts.append(html_table)
-            except Exception as e:
-                # 如果当前页没有表格或解析出错，跳过
-                pass
+            if camelot is not None:
+                try:
+                    tables = camelot.read_pdf(pdf_path, pages=str(page_num + 1), flavor='lattice')
+                    # 如果 lattice 没找到，尝试 stream 模式
+                    if len(tables) == 0:
+                        tables = camelot.read_pdf(pdf_path, pages=str(page_num + 1), flavor='stream')
+
+                    for table in tables:
+                        # Camelot 可以直接导出为 HTML 字符串
+                        html_table = table.df.to_html(index=False, border=1)
+                        html_parts.append(html_table)
+                except Exception as e:
+                    # 如果当前页没有表格或解析出错，跳过
+                    pass
             
             html_parts.append('<hr style="border: 1px dashed #ccc;">')
     

@@ -19,6 +19,10 @@ def create_retrieve_node(llm):
         file_retrived_item_set=set()#已经检索过的内容，避免重复检索
         tool_response=""
         summaries_prompt="\n".join([f"文件路径：{path}\n文件摘要：{summary}" for path, summary in state["file_summaries"].items()])
+        if not state["file_summaries"]:
+            #没有参考文件（也没有知识库内容）时直接跳过检索
+            print("没有可检索的参考文件，跳过检索")
+            return {**state, "retrieved_content": []}
         # retrieve_llm=llm.with_structured_output(RetrieveFuncCallable,method="function_calling", include_raw=True)
         for _ in range(10):
             if len(retrived_conent)>0:
