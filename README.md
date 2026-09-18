@@ -42,3 +42,6 @@ python -m document_agent.console_app
 `intent`（识别写作意图）→ `summary`（参考文件摘要）→ `retrieve`（检索相关素材）→ 按意图分流：
 - `new_docx`：规划章节并逐章生成新文档
 - `rewrite_docx`：解析原文档结构，由模型给出"逐元素修改方案"并原地改写，保留原有格式、表格与页面设置
+
+使用以下命令将文档录入知识库中
+python -m document_agent.knowledge_base_record <file1> <file2> ...
