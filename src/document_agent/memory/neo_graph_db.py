@@ -32,7 +32,7 @@ class MemgraphNodeManager:
         """文本 -> 嵌入向量"""
         return self.model.encode(text).tolist()
 
-    def _build_where(self, label: str, conditions: dict):
+    def _build_where(self, label: str, conditions: dict, only_root: bool = False):
         """
         根据条件字典构造 WHERE 子句。
         规则：
@@ -79,6 +79,9 @@ class MemgraphNodeManager:
                 key = f"p{i}"
                 clauses.append(f"n.{field} = ${key}")
                 params[key] = value
+                
+        if only_root:
+            clauses.append("NOT EXISTS { ()-->(n) }")
 
         where_clause = "WHERE " + " AND ".join(clauses)
         return where_clause, params
@@ -358,7 +361,8 @@ class MemgraphNodeManager:
                          top_k: int = 10,
                          embedding_field: str = "embedding",
                          extra_conditions: dict = None,
-                         order_by_distance: bool = True) -> list:
+                         order_by_distance: bool = True,
+                         only_root: bool = False) -> list:
         """
         向量相似度检索
         优先使用向量索引（如果提供 index_name），否则在全量节点上计算距离。
@@ -393,7 +397,7 @@ class MemgraphNodeManager:
             return items[:top_k]
 
         # ---- 无索引：全量拉取后本地计算 ----
-        where_clause, params = self._build_where(label, extra_conditions or {})
+        where_clause, params = self._build_where(label, extra_conditions or {},only_root=only_root)
         query = f"""
             MATCH (n:{label})
             {where_clause}
