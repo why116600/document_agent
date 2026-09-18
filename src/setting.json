@@ -1,0 +1,4 @@
+{
+    "embedding_model":"all-MiniLM-L6-v2",
+    "gdb_uri":"bolt://localhost:7687"
+}
