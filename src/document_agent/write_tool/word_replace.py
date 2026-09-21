@@ -2,54 +2,58 @@ import re
 from typing import Dict, List, Tuple
 from docx import Document
 from docx.text.paragraph import Paragraph
+from docx.text.run import Run
 from docx.table import Table
+
+
+def _get_paragraph_runs(p: Paragraph) -> List[Run]:
+    """获取段落内的所有 Run（包括顶级 Run 及超链接等容器内的 Run）。"""
+    r_elements = p._p.xpath("w:r | w:hyperlink/w:r")
+    return [Run(r, p) for r in r_elements]
 
 
 def replace_in_paragraph(p: Paragraph, old_text: str, new_text: str) -> int:
     """在单个段落中安全替换文本，支持跨 Run（多个文本分块）的文本替换。
 
+    采用单趟逆序替换，彻底避免递归死循环，并保持未替换文本的 Run 格式。
     返回该段落中成功替换的次数。
     """
     if not old_text or old_text not in p.text:
         return 0
 
-    count = 0
-    # 循环查找替换，直到该段落中不再包含 old_text
-    while old_text in p.text:
-        # 1. 尝试在单个 Run 内部替换，100% 保持该 Run 原格式
-        single_run_replaced = False
-        for run in p.runs:
-            if old_text in run.text:
-                run.text = run.text.replace(old_text, new_text, 1)
-                count += 1
-                single_run_replaced = True
-                break
+    runs = _get_paragraph_runs(p)
+    if not runs:
+        return 0
 
-        if single_run_replaced:
-            continue
+    full_text = p.text
+    char_map: List[Tuple[int, int]] = []
+    for r_idx, run in enumerate(runs):
+        for c_idx in range(len(run.text)):
+            char_map.append((r_idx, c_idx))
 
-        # 2. 如果 old_text 跨越了多个 Run，进行跨 Run 映射替换
-        # 构建字符索引到 (run_idx, offset_in_run) 的映射
-        char_map: List[Tuple[int, int]] = []
-        for r_idx, run in enumerate(p.runs):
-            for c_idx in range(len(run.text)):
-                char_map.append((r_idx, c_idx))
+    if len(char_map) != len(full_text):
+        return 0
 
-        full_text = p.text
-        start_pos = full_text.find(old_text)
-        if start_pos < 0:
+    match_indices = []
+    start = 0
+    while True:
+        pos = full_text.find(old_text, start)
+        if pos < 0:
             break
+        match_indices.append(pos)
+        start = pos + len(old_text)
 
+    if not match_indices:
+        return 0
+
+    # 倒序处理各个匹配项，避免对后方 Run 的修改影响前面匹配项在 run 内部的起始偏移
+    for start_pos in reversed(match_indices):
         end_pos = start_pos + len(old_text)
         start_run_idx, start_char_idx = char_map[start_pos]
         end_run_idx, end_char_idx = char_map[end_pos - 1]
 
-        # 跨 Run 拼接处理：
-        # - start_run: 保留其前面部分，并追加 new_text
-        # - 中间 runs: 清空其文本
-        # - end_run: 保留其匹配终点后面的文本
-        start_run = p.runs[start_run_idx]
-        end_run = p.runs[end_run_idx]
+        start_run = runs[start_run_idx]
+        end_run = runs[end_run_idx]
 
         prefix = start_run.text[:start_char_idx]
         suffix = end_run.text[end_char_idx + 1:]
@@ -60,12 +64,10 @@ def replace_in_paragraph(p: Paragraph, old_text: str, new_text: str) -> int:
             start_run.text = prefix + new_text
             # 清空中间的 Run 文本
             for mid_idx in range(start_run_idx + 1, end_run_idx):
-                p.runs[mid_idx].text = ""
+                runs[mid_idx].text = ""
             end_run.text = suffix
 
-        count += 1
-
-    return count
+    return len(match_indices)
 
 
 def replace_in_table(table: Table, old_text: str, new_text: str) -> int:

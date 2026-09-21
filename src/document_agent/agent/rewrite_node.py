@@ -770,8 +770,10 @@ def _tool_edit(description, arguments, edited) -> str:
         for single in edits_list:
             if isinstance(single, dict):
                 results.append(_record_single_edit(description, single, edited))
+        feedback_details = "\n".join(results)
         return (
-            f"edit工具反馈：批量处理完成（共成功暂存 {len(edited)} 项修改）。\n"
+            f"edit工具反馈：批量处理完成（共成功暂存 {len(edited)} 项修改）：\n"
+            f"{feedback_details}\n"
             f"【注意】：若已完成全部改写规划，请立即调用 end 工具结束改写并应用生效！"
         )
     return _record_single_edit(description, arguments, edited)
@@ -834,9 +836,6 @@ def _rewrite_with_tools(llm, dialog, nodes, description, base_items):
         history.append(f"调用{tool.tool_name}({tool.arguments}) -> {_clip_feedback(result)}")
         if (tool.tool_name or "").strip().lower() == "end":
             return edited, ""
-    if edited:
-        print(f"【改写调度】达到最大轮数上限，自动提交已成功暂存的 {len(edited)} 条修改并生效")
-        return edited, ""
     return edited, f"改写超过{MAX_TOOL_ROUNDS}轮仍未结束，请把改写要求拆成更小的任务"
 
 

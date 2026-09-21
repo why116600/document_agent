@@ -34,7 +34,11 @@ PROTECTED_PARA_TAGS = (
     "w:pict",
     "w:object",
     "w:fldSimple",
+    "w:fldChar",
+    "w:instrText",
     "w:txbxContent",
+    "m:oMath",
+    "m:oMathPara",
     f"{{{MC_NS}}}AlternateContent",
 )
 
@@ -401,17 +405,22 @@ def fill_table_from_grid(table: Table, grid_items, write_defaults: bool = True):
     for grid_item in grid_items:
         row, col = grid_item.row, grid_item.col
         cell = table.cell(row, col)
-        # 清空单元格原有段落（默认有一个空段落）
-        for p in cell.paragraphs:
-            p._element.clear_content()
-        # 添加新的段落
-        for para_item in grid_item.content:
-            p = cell.add_paragraph()
+        # 移除多余段落，复用首个段落以避免留下空白首行
+        first_p = cell.paragraphs[0]
+        first_p._element.clear_content()
+        for extra_p in list(cell.paragraphs[1:]):
+            cell._tc.remove(extra_p._element)
+
+        if not grid_item.content:
+            continue
+
+        for i, para_item in enumerate(grid_item.content):
+            p = first_p if i == 0 else cell.add_paragraph()
             # 设置段落格式
             _apply_paragraph_format(p.paragraph_format, para_item, write_defaults)
             # 添加 runs
             for run_item in para_item.runs:
-                if run_item.text_type=="latex":
+                if run_item.text_type == "latex":
                     math2docx.add_math(p, run_item.text)
                     continue
                 run = p.add_run(run_item.text)
@@ -515,12 +524,18 @@ def _replace_text_runs_keep_protected(node: Paragraph, new_data: ParagraphItem,
                                       write_defaults: bool) -> None:
     """只重建段落的纯文本 run，保留图片等受保护元素（用于含图片段落的改写）。"""
     element = node._element
+    has_new_math = any(r.text_type == "latex" for r in new_data.runs)
     for child in list(element):
         if child.tag == qn("w:pPr"):
             continue
         if child.tag == qn("w:hyperlink"):
             #超链接文字整体移除，避免与新增文本重复
             element.remove(child)
+            continue
+        if child.tag in (qn("m:oMath"), qn("m:oMathPara")):
+            # 如果新内容显式提供了新的公式，则移除旧公式；否则原样保留
+            if has_new_math:
+                element.remove(child)
             continue
         if child.tag != qn("w:r"):
             continue
