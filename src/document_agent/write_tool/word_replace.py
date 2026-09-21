@@ -1,9 +1,35 @@
 import re
 from typing import Dict, List, Tuple
 from docx import Document
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from docx.text.paragraph import Paragraph
 from docx.text.run import Run
 from docx.table import Table
+
+try:
+    from document_agent.write_tool.word_tool import element_has_protected_content
+except ImportError:
+    from word_tool import element_has_protected_content
+
+
+def _set_run_text_keep_children(run: Run, new_text: str) -> None:
+    """仅修改或清空 Run 内的 w:t 文本节点，保留其中的 drawing、pict、fldChar、oMath 等非文本子元素。"""
+    r_elem = run._r
+    t_elems = r_elem.findall(qn("w:t"))
+    if t_elems:
+        t_elems[0].text = new_text
+        if new_text.startswith(" ") or new_text.endswith(" "):
+            t_elems[0].set(qn("xml:space"), "preserve")
+        for extra_t in t_elems[1:]:
+            r_elem.remove(extra_t)
+    else:
+        if new_text:
+            t = OxmlElement("w:t")
+            t.text = new_text
+            if new_text.startswith(" ") or new_text.endswith(" "):
+                t.set(qn("xml:space"), "preserve")
+            r_elem.append(t)
 
 
 def _get_paragraph_runs(p: Paragraph) -> List[Run]:
@@ -15,7 +41,7 @@ def _get_paragraph_runs(p: Paragraph) -> List[Run]:
 def replace_in_paragraph(p: Paragraph, old_text: str, new_text: str) -> int:
     """在单个段落中安全替换文本，支持跨 Run（多个文本分块）的文本替换。
 
-    采用单趟逆序替换，彻底避免递归死循环，并保持未替换文本的 Run 格式。
+    采用单趟逆序替换，彻底避免递归死循环，并保持未替换文本的 Run 格式及非文本内嵌元素（图片、公式、域代码）。
     返回该段落中成功替换的次数。
     """
     if not old_text or old_text not in p.text:
@@ -46,11 +72,21 @@ def replace_in_paragraph(p: Paragraph, old_text: str, new_text: str) -> int:
     if not match_indices:
         return 0
 
+    replaced_count = 0
     # 倒序处理各个匹配项，避免对后方 Run 的修改影响前面匹配项在 run 内部的起始偏移
     for start_pos in reversed(match_indices):
         end_pos = start_pos + len(old_text)
         start_run_idx, start_char_idx = char_map[start_pos]
         end_run_idx, end_char_idx = char_map[end_pos - 1]
+
+        # 若跨 Run 匹配项跨越了包含受保护元素（图片/公式/域代码等）的中间 Run，跳过该匹配避免破坏结构
+        if start_run_idx != end_run_idx:
+            has_protected_mid = any(
+                element_has_protected_content(runs[mid]._r)
+                for mid in range(start_run_idx + 1, end_run_idx)
+            )
+            if has_protected_mid:
+                continue
 
         start_run = runs[start_run_idx]
         end_run = runs[end_run_idx]
@@ -59,15 +95,17 @@ def replace_in_paragraph(p: Paragraph, old_text: str, new_text: str) -> int:
         suffix = end_run.text[end_char_idx + 1:]
 
         if start_run_idx == end_run_idx:
-            start_run.text = prefix + new_text + suffix
+            _set_run_text_keep_children(start_run, prefix + new_text + suffix)
         else:
-            start_run.text = prefix + new_text
-            # 清空中间的 Run 文本
+            _set_run_text_keep_children(start_run, prefix + new_text)
+            # 清空中间 Run 的文本，保留非文本子节点
             for mid_idx in range(start_run_idx + 1, end_run_idx):
-                runs[mid_idx].text = ""
-            end_run.text = suffix
+                _set_run_text_keep_children(runs[mid_idx], "")
+            _set_run_text_keep_children(end_run, suffix)
 
-    return len(match_indices)
+        replaced_count += 1
+
+    return replaced_count
 
 
 def replace_in_table(table: Table, old_text: str, new_text: str) -> int:

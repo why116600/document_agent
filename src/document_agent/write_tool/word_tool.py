@@ -594,6 +594,11 @@ def replace_node_with_data(node, new_data, doc=None, write_defaults: bool = True
 
     # ----- 替换表格 -----
     elif isinstance(node, Table) and isinstance(new_data, TableItem):
+        # 校验表格有效性，防止空数据或0维表格导致原表格被破坏性删除
+        if new_data.rows <= 0 or new_data.cols <= 0 or not new_data.grid:
+            print(f"【警告】表格数据无效 (rows={new_data.rows}, cols={new_data.cols}, grid={len(new_data.grid)})，跳过替换以保留原表格")
+            return node
+
         # 1. 在文档末尾创建新表格（填充内容）
         old_table = node
         new_table = doc.add_table(rows=new_data.rows, cols=new_data.cols)

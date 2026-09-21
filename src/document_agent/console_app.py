@@ -101,6 +101,9 @@ def main():
     if (args.find_text is None) != (args.replace_with is None):
         print("[错误] --find 与 --replace-with 必须同时提供")
         sys.exit(2)
+    if args.find_text is not None and not args.find_text.strip():
+        print("[错误] --find 查找内容不能为空或纯空白字符")
+        sys.exit(2)
     if args.find_text is not None and not args.rewrite_file:
         print("[错误] 全局查找替换必须通过 -w/--rewrite 指定改写目标文档")
         sys.exit(2)

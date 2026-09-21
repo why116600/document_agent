@@ -1099,8 +1099,8 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
                 print(f"已删除第{edit.index}个元素")
             elif action == "replace":
                 if isinstance(node, Table):
-                    if not isinstance(edit.table, TableItem):
-                        print(f"第{edit.index}个元素是表格，但模型没有给出表格内容，跳过")
+                    if not isinstance(edit.table, TableItem) or edit.table.rows <= 0 or edit.table.cols <= 0 or not edit.table.grid:
+                        print(f"第{edit.index}个元素是表格，但模型未提供有效的表格内容(rows>0, cols>0, grid非空)，跳过替换以保留原表格")
                         continue
                     #表格替换会重建表格对象，必须把新对象写回nodes，
                     #否则同一下标的insert_after会拿到已被移除的旧表格元素，插入被静默丢弃
@@ -1423,9 +1423,21 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
                 chunk_failed = True
                 continue
 
+            # 过滤出真正可渲染的有效项，防止空载荷导致原内容被错误清空
+            valid_items = [
+                item for item in res.items
+                if (item.type == "paragraph" and item.Paragraph) or (
+                    item.type == "table" and item.Table and item.Table.rows > 0 and item.Table.cols > 0 and item.Table.grid
+                )
+            ]
+            if not valid_items:
+                print(f"大章节 {s['title']}（下标 {chunk_start}~{chunk_end}）重写未能生成可渲染的有效内容，保留原内容")
+                chunk_failed = True
+                continue
+
             target_element = nodes[chunk_start]._element
             # 将新生成的段落和表格依次插入到旧内容首个元素之前
-            for item in res.items:
+            for item in valid_items:
                 if item.type == "paragraph" and item.Paragraph:
                     new_node = doc.add_paragraph("")
                     replace_node_with_data(new_node, item.Paragraph, doc=doc, write_defaults=False)
