@@ -1,58 +1,80 @@
+from pathlib import Path
 
-from llm_client import llm_invoke, llm_model_invoke
-from agent_core import AgentState
+try:
+    from document_agent.agent.llm_client import llm_invoke, llm_model_invoke
+    from document_agent.agent.agent_core import AgentState, get_last_user_text
+except ImportError:
+    from llm_client import llm_invoke, llm_model_invoke
+    from agent_core import AgentState, get_last_user_text
 from document_agent.retrieve_tool.extract_document import extract_document_content
 
-
-def get_last_user_text(messages) -> str:
-    """取出最后一条用户消息的文本，兼容消息对象与字典两种形式。"""
-    for message in reversed(list(messages or [])):
-        if isinstance(message, dict):
-            if message.get("role") == "user":
-                return str(message.get("content") or "")
-        elif getattr(message, "type", "") == "human":
-            return str(getattr(message, "content", "") or "")
-    return ""
+# 参考文件总字数阈值：低于该阈值时直接全文注入上下文，免去繁琐的摘要与检索 Agent 循环（约 3000~4000 tokens）
+MAX_DIRECT_REF_CHARS = 6000
 
 
 def create_summary_node(llm):
-    def summary_node(state : AgentState) -> AgentState:
-        s=state["messages"]
-        files_to_summarize=state.get('input_file_path') or []
-        if not files_to_summarize and not state.get('file_summaries'):
-            #没有参考文件时不需要生成摘要，直接用用户的要求作为检索目标
-            retrieve_target=get_last_user_text(s)
-            print("没有提供参考文件，跳过摘要，检索目标：",retrieve_target)
-            return {**state,"file_summaries":{},"retrieve_target":retrieve_target}
-        summary_result=dict(state.get('file_summaries') or {})
+    def summary_node(state: AgentState) -> AgentState:
+        s = state["messages"]
+        files_to_summarize = state.get("input_file_path") or []
+        user_query = get_last_user_text(s)
+
+        if not files_to_summarize and not state.get("file_summaries"):
+            print("【参考资料】未提供外部参考文件，跳过摘要与检索")
+            return {**state, "file_summaries": {}, "retrieved_content": [], "retrieve_target": user_query}
+
+        # 1. 先尝试直接提取所有参考文件的完整文本
+        raw_contents = {}
+        total_chars = 0
         for path in files_to_summarize:
-            if path in state['file_summaries']:
-                print(f"文件已存在摘要，跳过：{path}")
+            content = extract_document_content(path)
+            if content:
+                raw_contents[path] = content
+                total_chars += len(content)
+            else:
+                print(f"【参考资料】无法提取文件内容或不支持的格式：{path}")
+
+        if not raw_contents:
+            print("【参考资料】未能提取到有效的参考文件内容，跳过检索")
+            return {**state, "file_summaries": {}, "retrieved_content": [], "retrieve_target": user_query}
+
+        # 2. 短/中型参考文件直通车：字数适中时，直接作为全文素材注入，避免信息损耗与多轮检索开销
+        if total_chars <= MAX_DIRECT_REF_CHARS:
+            retrieved_items = [
+                f"【参考文件：{Path(p).name}】\n{c}" for p, c in raw_contents.items()
+            ]
+            print(f"【参考资料】已加载 {len(raw_contents)} 份参考文件（共约 {total_chars} 字），直接载入全文供写作/改写使用（免去检索中间环节）")
+            file_summaries = {p: f"(全文直接载入，共约{len(c)}字)" for p, c in raw_contents.items()}
+            return {
+                **state,
+                "file_summaries": file_summaries,
+                "retrieved_content": retrieved_items,
+                "retrieve_target": user_query,
+            }
+
+        # 3. 超长参考文件：采用分篇大模型摘要 + 后续智能检索
+        print(f"【参考资料】参考文件总字数约 {total_chars} 字，超过直通阈值（{MAX_DIRECT_REF_CHARS}字），启用大文档摘要压缩与分段检索")
+        summary_result = dict(state.get("file_summaries") or {})
+        for path, content in raw_contents.items():
+            if path in summary_result:
                 continue
-            content=extract_document_content(path)
-            if content is None:
-                print(f"不支持的文件类型：{path}")
-                continue
-            prompt=(
+            prompt = (
                 "你是一个文档摘要助手，你的任务是根据用户提供的文档内容，生成该文档的摘要。\n"
                 f"用户提供的文档内容：{content}\n"
-                "请生成该文档的摘要，仅输出结果。"
+                "请生成该文档的摘要，涵盖核心论点与关键数据，仅输出结果。"
             )
-            res=llm_invoke(llm, prompt)
-            result=getattr(res,"content",None)
-            if result is None:
-                print(f"摘要生成失败：{path}")
-                continue
-            summary_result[path]=result
-        summaries_prompt="\n".join([f"文件路径：{path}\n文件摘要：{summary}" for path, summary in summary_result.items()])
-        prompt=(
-            "你是一个文档检索助手，你的任务是根据用户对话和用户提供的文档及其摘要判断用户想要检索的目标内容。\n"
-            f"{summaries_prompt}"
-            f"用户对话内容：{s}\n"
-            "仅输出结果，不要输出其他内容。"
-        )
-        res=llm_invoke(llm, prompt)
-        result=getattr(res,"content","")
-        print("检索目标内容：", result)
-        return {**state, "file_summaries": summary_result,"retrieve_target":result}
+            res = llm_invoke(llm, prompt)
+            result = getattr(res, "content", None)
+            if result:
+                summary_result[path] = result
+            else:
+                summary_result[path] = content[:500] + "..."
+
+        # 检索目标直接采用用户真实需求，无需再空转一次大模型复读
+        return {
+            **state,
+            "file_summaries": summary_result,
+            "retrieved_content": [],
+            "retrieve_target": user_query,
+        }
+
     return summary_node

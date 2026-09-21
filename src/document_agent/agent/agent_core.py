@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import sys
-from typing import Any, Callable, Dict, List, Optional, TypedDict, Tuple, Annotated
+from typing import Dict, List, Optional, TypedDict, Annotated
 from langgraph.graph import END, StateGraph
 from langgraph.checkpoint.memory import InMemorySaver
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
-from llm_client import get_deepseek_llm
+try:
+    from document_agent.agent.llm_client import get_deepseek_llm
+except ImportError:
+    from llm_client import get_deepseek_llm
 
 class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
@@ -18,9 +21,22 @@ class AgentState(TypedDict):
     file_summaries: Dict[str, str]#文件路径到文件摘要的映射
     user_intent: Optional[str]#用户写作意图，new表示全新写作，rewrite表示改写
     rewrite_file: Optional[str]#重写文档的文件路径
+    rewrite_mode: Optional[str]#改写模式：patch（局部修补）、replace（查找替换）、global（全局重塑/逐章润色）
+    replace_pairs: Optional[Dict[str, str]]#查找替换模式下的旧新映射字典
     save_path: str#输出文档的保存路径，为空时自动生成
     error: Optional[str]#错误结果
-    
+
+
+def get_last_user_text(messages) -> str:
+    """取出最后一条用户消息的文本，兼容消息对象与字典两种形式。"""
+    for message in reversed(list(messages or [])):
+        if isinstance(message, dict):
+            if message.get("role") == "user":
+                return str(message.get("content") or "")
+        elif getattr(message, "type", "") == "human":
+            return str(getattr(message, "content", "") or "")
+    return ""
+
 def route_intent(state: AgentState) -> str:#检索完成后根据用户意图选择改写已有文档还是从零编写文档
     if state.get("user_intent") == "rewrite" and state.get("rewrite_file"):
         return "rewrite"
@@ -34,11 +50,18 @@ class AgentCore:
         self.checkpointer=InMemorySaver()#使用检查点记录会话内容
         
     def build_graph(self):#构建agent图
-        from intent_node import create_intent_node, route_after_intent
-        from summary_node import create_summary_node
-        from retrieve_node import create_retrieve_node
-        from docx_node import create_new_docx_node
-        from rewrite_node import create_rewrite_node
+        try:
+            from document_agent.agent.intent_node import create_intent_node, route_after_intent
+            from document_agent.agent.summary_node import create_summary_node
+            from document_agent.agent.retrieve_node import create_retrieve_node
+            from document_agent.agent.docx_node import create_new_docx_node
+            from document_agent.agent.rewrite_node import create_rewrite_node
+        except ImportError:
+            from intent_node import create_intent_node, route_after_intent
+            from summary_node import create_summary_node
+            from retrieve_node import create_retrieve_node
+            from docx_node import create_new_docx_node
+            from rewrite_node import create_rewrite_node
         self.graph=StateGraph(AgentState)
         self.graph.add_node("intent", create_intent_node(self.llm))
         self.graph.add_node("summary", create_summary_node(self.llm))
@@ -63,9 +86,11 @@ class AgentCore:
         self.graph.add_edge("rewrite_docx",END)
         self.agent_invoke=self.graph.compile(checkpointer=self.checkpointer)
         
-    def invoke(self,user_input:str, input_file_path:List[str],session_id: str="default_session",
-               rewrite_file: Optional[str]=None, save_path: Optional[str]=None,
-               op: str="auto") -> AgentState:
+    def invoke(self, user_input: str, input_file_path: Optional[List[str]] = None,
+               session_id: str = "default_session",
+               rewrite_file: Optional[str] = None, save_path: Optional[str] = None,
+               rewrite_mode: str = "auto",
+               replace_pairs: Optional[Dict[str, str]] = None) -> AgentState:
         if self.agent_invoke is None:
             raise ValueError("未初始化agent的图")
         config = {"configurable": {"thread_id": session_id}}
@@ -74,11 +99,13 @@ class AgentCore:
                 "messages": [{"role": "user", "content": user_input}],
                 "retrieve_target": "",
                 "state": "start",
-                "input_file_path": input_file_path,
+                "input_file_path": list(input_file_path or []),
                 "file_summaries": {},
                 "retrieved_content": [],
-                "user_intent": "new" if op=="new" else ("rewrite" if (rewrite_file or op=="rewrite") else None),
+                "user_intent": None,
                 "rewrite_file": rewrite_file,
+                "rewrite_mode": rewrite_mode or "auto",
+                "replace_pairs": replace_pairs or {},
                 "save_path": save_path or "",
                 "error": None,
             },

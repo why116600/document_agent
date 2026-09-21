@@ -2,42 +2,14 @@ from pydantic import BaseModel, Field
 from docx import Document
 from docx.oxml.ns import qn
 import json
-import re
 
-from llm_client import llm_invoke, llm_model_invoke
-from agent_core import AgentState
-from document_agent.write_tool.word_tool import convert_node,replace_node_with_data,ParagraphItem,TableItem,DocxRoot,resolve_save_path,save_document
-
-def extract_json_strings(text):
-    """
-    从一段文本中提取出所有的 JSON 对象或数组。
-    """
-    results = []
-    # 匹配最外层的 { 或 [ 的位置
-    pattern = re.compile(r'[\{\[]')
-    
-    for match in pattern.finditer(text):
-        start_index = match.start()
-        try:
-            # 使用 raw_decode 尝试从该位置解析 JSON
-            # raw_decode 会返回 (解析出的对象, 解析结束的索引)
-            decoder = json.JSONDecoder()
-            obj, end_index = decoder.raw_decode(text, start_index)
-            
-            # 提取出完整的 JSON 字符串
-            json_str = text[start_index:end_index]
-            results.append(json_str)
-            
-        except json.JSONDecodeError:
-            # 如果解析失败，说明这个 { 或 [ 只是普通文本，跳过
-            continue
-            
-    return results
-
-class DocxAction(BaseModel):# 定义一次写文档的动作
-    action_type : str =Field(description="文档写作的类型，new表示全新的写作，last表示改写前一次生成的文档，rewrite表示重写或改写用户指定的文档")
-    rewrite_path : str = Field(description="重写或改写的目标文档的路径")
-    save_path : str  = Field(description="要保存的文档路径，如果没有，就默认1.docx")
+try:
+    from document_agent.agent.llm_client import llm_invoke, llm_model_invoke, extract_json_from_text
+    from document_agent.agent.agent_core import AgentState
+except ImportError:
+    from llm_client import llm_invoke, llm_model_invoke, extract_json_from_text
+    from agent_core import AgentState
+from document_agent.write_tool.word_tool import replace_node_with_data,ParagraphItem,TableItem,DocxRoot,resolve_save_path,save_document
 
 def create_new_docx_node(llm):#从零编写文档的节点
     def docx_node(state : AgentState) -> AgentState:#写docx的节点
@@ -59,7 +31,7 @@ def create_new_docx_node(llm):#从零编写文档的节点
         section_str=getattr(res,"content")
         if section_str is None:
             return {**state,"state":"error","error":"规划文档章节时，模型输出错误"}
-        matches = extract_json_strings(section_str)
+        matches = extract_json_from_text(section_str, return_all=True) or []
         print("分解结果：",matches)
         if len(matches)<=0:
             print("章节内容输出不包含json格式的数据")

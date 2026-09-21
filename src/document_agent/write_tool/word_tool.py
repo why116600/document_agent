@@ -4,7 +4,7 @@ import tempfile
 import time
 from pathlib import Path
 from typing import Union, Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from docx import Document
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -27,33 +27,108 @@ DEFAULT_LINE_SPACING = 1.0
 #复制单元格格式时只搬运这些属性；合并信息（w:gridSpan/w:vMerge）保留新表格自己的
 CELL_FORMAT_TAG_NAMES = frozenset([qn("w:tcBorders"), qn("w:shd"), qn("w:tcMar"), qn("w:vAlign")])
 
+#段落/单元格内"模型无法表达、一旦整段清空就会永久丢失"的内容：图片、图形、文本框、域代码、公式对象等
+MC_NS = "http://schemas.openxmlformats.org/markup-compatibility/2006"
+PROTECTED_PARA_TAGS = (
+    "w:drawing",
+    "w:pict",
+    "w:object",
+    "w:fldSimple",
+    "w:txbxContent",
+    f"{{{MC_NS}}}AlternateContent",
+)
+
+
+def _tag_name(tag: str) -> str:
+    #已用Clark记法（{命名空间}标签）的直接使用，其余按docx前缀展开
+    return tag if tag.startswith("{") else qn(tag)
+
 class TextRunItem(BaseModel):
-    text: str = Field(description="文本内容")
-    text_type: str = Field(description="文本类型，text表示普通文本，latex表示latex格式的公式")
+    text: str = Field(default="", description="文本内容")
+    text_type: Optional[str] = Field(default="text", description="文本类型，text表示普通文本，latex表示latex格式的公式")
     bold: Optional[bool] = Field(default=None, description="是否加粗，None表示未指定，改写时沿用原文格式")
     italic: Optional[bool] = Field(default=None, description="是否斜体，None表示未指定，改写时沿用原文格式")
     underline: Optional[bool] = Field(default=None, description="是否下划线，None表示未指定，改写时沿用原文格式")
     font_size: Optional[int] = Field(default=None, description="字体大小，单位为磅，None表示未指定，改写时沿用原文格式")
     font_color: Optional[str] = Field(default=None, description="字体颜色，使用十六进制颜色代码，None表示未指定，改写时沿用原文格式")
-    
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_run(cls, data):
+        if isinstance(data, str):
+            return {"text": data, "text_type": "text"}
+        if isinstance(data, dict):
+            if "text_type" not in data or data["text_type"] is None:
+                data["text_type"] = "text"
+            if "text" not in data:
+                data["text"] = ""
+        return data
+
 class ParagraphItem(BaseModel):
-    runs: List[TextRunItem] = Field(description="文本运行列表")
+    runs: List[TextRunItem] = Field(default_factory=list, description="文本运行列表")
     alignment: Optional[str] = Field(default=None, description="段落对齐方式，可选值：left, center, right, justify，None表示未指定，改写时沿用原文格式")
     spacing_before: Optional[int] = Field(default=None, description="段前间距，单位为磅，None表示未指定，改写时沿用原文格式")
     spacing_after: Optional[int] = Field(default=None, description="段后间距，单位为磅，None表示未指定，改写时沿用原文格式")
     line_spacing: Optional[float] = Field(default=None, description="行间距倍数，例如 1.0 表示单倍行距，None表示未指定，改写时沿用原文格式")
-    
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_paragraph(cls, data):
+        if isinstance(data, str):
+            return {"runs": [{"text": data, "text_type": "text"}]}
+        if isinstance(data, dict):
+            if "runs" not in data and "text" in data:
+                return {
+                    "runs": [{"text": str(data["text"]), "text_type": "text", "bold": data.get("bold")}],
+                    "alignment": data.get("alignment"),
+                }
+            if "runs" in data and isinstance(data["runs"], list):
+                coerced_runs = []
+                for r in data["runs"]:
+                    if isinstance(r, str):
+                        coerced_runs.append({"text": r, "text_type": "text"})
+                    elif isinstance(r, dict):
+                        if "text_type" not in r or r["text_type"] is None:
+                            r["text_type"] = "text"
+                        coerced_runs.append(r)
+                    else:
+                        coerced_runs.append(r)
+                data["runs"] = coerced_runs
+        return data
+
 class GridItem(BaseModel):
-    content: List[ParagraphItem] = Field(description="单元格内容，包含一个或多个段落")
+    content: List[ParagraphItem] = Field(default_factory=list, description="单元格内容，包含一个或多个段落")
     row : int = Field(default=0, description="单元格所在的行索引，从0开始")
     col : int = Field(default=0, description="单元格所在的列索引，从0开始")
     row_span: int = Field(default=1, description="单元格跨越的行数")
     col_span: int = Field(default=1, description="单元格跨越的列数")
-    
+
 class TableItem(BaseModel):
-    rows: int = Field(description="表格的行数")
-    cols: int = Field(description="表格的列数")
-    grid: List[GridItem] = Field(description="表格的网格内容，包含每个单元格的内容和位置")
+    rows: int = Field(default=0, description="表格的行数")
+    cols: int = Field(default=0, description="表格的列数")
+    grid: List[GridItem] = Field(default_factory=list, description="表格的网格内容，包含每个单元格的内容和位置")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_table(cls, data):
+        if isinstance(data, dict):
+            if "cells" in data and isinstance(data["cells"], list) and not data.get("grid"):
+                cells = data["cells"]
+                rows = len(cells)
+                cols = len(cells[0]) if rows > 0 and isinstance(cells[0], list) else 0
+                grid = []
+                for r_idx, row in enumerate(cells):
+                    if isinstance(row, list):
+                        for c_idx, cell_text in enumerate(row):
+                            grid.append({
+                                "row": r_idx,
+                                "col": c_idx,
+                                "row_span": 1,
+                                "col_span": 1,
+                                "content": [{"runs": [{"text": str(cell_text), "text_type": "text"}]}],
+                            })
+                return {"rows": rows, "cols": cols, "grid": grid}
+        return data
     
 class DocxItem(BaseModel):
     type: str = Field(description="文档元素类型，paragraph表示段落文本，table表示表格")
@@ -65,11 +140,23 @@ class DocxRoot(BaseModel):
     
 # ---------- 转换辅助函数 ----------
 
-def _rgb_to_hex(rgb: RGBColor) -> str:
-    """将 RGBColor 对象转换为 '#RRGGBB' 格式的十六进制字符串"""
+def _rgb_to_hex(rgb: Union[RGBColor, tuple, str]) -> str:
+    """将 RGBColor 或 (r, g, b) 元组转换为 '#RRGGBB' 格式的十六进制字符串"""
     if rgb is None:
         return "#000000"
-    return f"#{rgb.rgb:06x}"
+    if isinstance(rgb, str):
+        return rgb if rgb.startswith("#") else f"#{rgb}"
+    try:
+        # RGBColor 继承自 tuple: (r, g, b)
+        return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
+    except Exception:
+        pass
+    try:
+        if hasattr(rgb, "rgb"):
+            return f"#{rgb.rgb:06x}"
+    except Exception:
+        pass
+    return "#000000"
 
 def _get_alignment(para: Paragraph) -> str:
     """将 WD_ALIGN_PARAGRAPH 枚举映射为字符串"""
@@ -109,12 +196,25 @@ def alignment_str_to_enum(align_str: str) -> WD_ALIGN_PARAGRAPH:
     }
     return mapping.get(align_str, WD_ALIGN_PARAGRAPH.LEFT)
 
+def _safe_get_font_color(font) -> Optional[Union[RGBColor, str]]:
+    """安全读取 Run 的字体颜色，避免主题色或未初始化属性抛出异常"""
+    if not font:
+        return None
+    try:
+        color = font.color
+        if not color:
+            return None
+        return color.rgb
+    except Exception:
+        return None
+
 def convert_run(run: Run, preserve_none: bool = False) -> TextRunItem:
     """将单个 Run 转换为 TextRunItem。
 
     preserve_none 为 True 时，未直接设置的格式保留为 None（表示"由样式/原文决定"）。
     改写已有文档时用它取得基准格式，避免把样式继承来的格式写成显式默认值而覆盖原样式。
     """
+    run_rgb = _safe_get_font_color(run.font)
     if preserve_none:
         return TextRunItem(
             text=run.text,
@@ -123,7 +223,7 @@ def convert_run(run: Run, preserve_none: bool = False) -> TextRunItem:
             italic=run.font.italic,
             underline=run.font.underline,
             font_size=_get_pt_value(run.font.size) if run.font.size is not None else None,
-            font_color=_rgb_to_hex(run.font.color.rgb) if (run.font.color and run.font.color.rgb is not None) else None,
+            font_color=_rgb_to_hex(run_rgb) if run_rgb is not None else None,
         )
     return TextRunItem(
         text=run.text,
@@ -132,7 +232,7 @@ def convert_run(run: Run, preserve_none: bool = False) -> TextRunItem:
         italic=run.font.italic if run.font.italic is not None else False,
         underline=run.font.underline if run.font.underline is not None else False,
         font_size=_get_pt_value(run.font.size) if run.font.size else 12,
-        font_color=_rgb_to_hex(run.font.color.rgb) if run.font.color else "#000000"
+        font_color=_rgb_to_hex(run_rgb) if run_rgb is not None else "#000000"
     )
 
 def convert_paragraph(para: Paragraph, preserve_none: bool = False) -> ParagraphItem:
@@ -246,23 +346,6 @@ def convert_node(node, preserve_none: bool = False) -> Union[TextRunItem, Paragr
         return convert_table(node)
     else:
         raise TypeError(f"不支持的节点类型: {type(node)}")
-    
-def convert_docx(doc : Document) -> DocxRoot:
-    result=DocxRoot()
-    result.items=[]
-    for node in doc.iter_inner_content():
-        try:
-            item=convert_node(node)
-            if isinstance(item,ParagraphItem):
-                ditem=DocxItem(type="paragraph",Paragraph=item)
-            elif isinstance(item,TableItem):
-                ditem=DocxItem(type="table",Table=item)
-            else:
-                continue
-            result.items.append(ditem)
-        except Exception:
-            continue
-    return result
     
     
 def _apply_paragraph_format(paragraph_format, para_item: ParagraphItem, write_defaults: bool = True) -> None:
@@ -405,6 +488,55 @@ def _copy_table_format(old_table: Table, new_table: Table) -> None:
                 new_tc_pr.append(copy.deepcopy(child))
 
 
+def element_has_protected_content(element) -> bool:
+    """判断元素（段落/表格/单元格）子树内是否含图片、图形、文本框、域代码等受保护内容。
+
+    这类内容无法用 ParagraphItem/TableItem 表达，整段清空重建会永久丢失，因此需要保护。
+    """
+    if element is None:
+        return False
+    for tag in PROTECTED_PARA_TAGS:
+        try:
+            if element.findall(".//" + _tag_name(tag)):
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def paragraph_has_protected_content(para) -> bool:
+    """判断段落内是否包含图片、图形、域代码等模型无法表达的内容。"""
+    if not isinstance(para, Paragraph):
+        return False
+    return element_has_protected_content(para._element)
+
+
+def _replace_text_runs_keep_protected(node: Paragraph, new_data: ParagraphItem,
+                                      write_defaults: bool) -> None:
+    """只重建段落的纯文本 run，保留图片等受保护元素（用于含图片段落的改写）。"""
+    element = node._element
+    for child in list(element):
+        if child.tag == qn("w:pPr"):
+            continue
+        if child.tag == qn("w:hyperlink"):
+            #超链接文字整体移除，避免与新增文本重复
+            element.remove(child)
+            continue
+        if child.tag != qn("w:r"):
+            continue
+        if any(child.findall(".//" + _tag_name(tag)) for tag in PROTECTED_PARA_TAGS):
+            continue  #含图片/域代码的 run 原样保留
+        element.remove(child)
+    _apply_paragraph_format(node.paragraph_format, new_data, write_defaults)
+    for run_item in new_data.runs:
+        if run_item.text_type == "latex":
+            print("生成公式：", run_item.text)
+            math2docx.add_math(node, run_item.text)
+            continue
+        run = node.add_run(run_item.text)
+        _apply_run_format(run, run_item, write_defaults)
+
+
 def replace_node_with_data(node, new_data, doc=None, write_defaults: bool = True):
     """
     原地替换文档中的节点（Paragraph 或 Table）为新数据定义的内容。
@@ -427,6 +559,10 @@ def replace_node_with_data(node, new_data, doc=None, write_defaults: bool = True
 
     # ----- 替换段落 -----
     if isinstance(node, Paragraph) and isinstance(new_data, ParagraphItem):
+        if paragraph_has_protected_content(node):
+            #段内含图片/图形/域代码：整段清空会丢内容，改为只替换纯文本 run
+            _replace_text_runs_keep_protected(node, new_data, write_defaults)
+            return node
         # 清空所有子元素（保留段落本身与 w:pPr，即保留段落样式等原有格式）
         node._element.clear_content()
         # 设置段落格式
