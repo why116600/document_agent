@@ -10,29 +10,79 @@ from pydantic import BaseModel
 
 from langchain_openai import ChatOpenAI
 
+from pathlib import Path
+
 DEFAULT_BASE_URL = "https://api.deepseek.com/v1"
 DEFAULT_MODEL = "deepseek-chat"
 
+def _find_project_root() -> Path:
+    """定位项目根目录（含 pyproject.toml 或 .git 的目录）"""
+    curr = Path(__file__).resolve().parent
+    for parent in [curr] + list(curr.parents):
+        if (parent / "pyproject.toml").exists() or (parent / ".git").exists():
+            return parent
+    return Path.cwd()
+
+def _load_dotenv_if_exists() -> None:
+    """自动探测并加载 .env 配置文件中的环境变量"""
+    search_dirs = [
+        Path.cwd(),
+        _find_project_root(),
+        Path(__file__).resolve().parent,
+    ]
+    seen = set()
+    for d in search_dirs:
+        if d in seen:
+            continue
+        seen.add(d)
+        env_file = d / ".env"
+        if env_file.is_file():
+            try:
+                with open(env_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith("#") or "=" not in line:
+                            continue
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip("'\"")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+            except Exception:
+                pass
+
 def get_api_key(interactive: bool = True) -> str:
     """
-    从环境变量读取 MODEL_API_KEY，未设置时尝试在控制台交互式提示输入。
+    从环境变量或 .env 读取 MODEL_API_KEY，未设置时尝试在控制台交互式提示输入，
+    并可选择将输入的 key 保存到 .env 文件中免去重复输入。
     """
+    _load_dotenv_if_exists()
     api_key = os.getenv("MODEL_API_KEY")
     if not api_key and interactive:
         try:
-            api_key = input("未检测到环境变量 MODEL_API_KEY，请输入 API Key（仅在本次运行中有效）：").strip()
+            api_key = input("未检测到环境变量 MODEL_API_KEY，请输入 API Key：").strip()
             if api_key:
                 os.environ["MODEL_API_KEY"] = api_key
+                try:
+                    save_choice = input("是否将此 API Key 保存到项目根目录的 .env 文件中，下次自动加载免输？(Y/n) ").strip().lower()
+                    if save_choice in ("", "y", "yes"):
+                        root = _find_project_root()
+                        env_file = root / ".env"
+                        with open(env_file, "a", encoding="utf-8") as f:
+                            f.write(f"\nMODEL_API_KEY={api_key}\n")
+                        print(f"已将 API Key 保存至 {env_file}，后续运行无需再次手动输入。")
+                except Exception:
+                    pass
         except (EOFError, KeyboardInterrupt):
             pass
 
     if not api_key:
         raise ValueError(
             "未检测到 MODEL_API_KEY 环境变量。\n"
-            "请通过以下命令设置环境变量后重试：\n"
-            "  PowerShell: $env:MODEL_API_KEY=\"你的API密钥\"\n"
-            "  CMD:        set MODEL_API_KEY=你的API密钥\n"
-            "  Bash:       export MODEL_API_KEY=\"你的API密钥\""
+            "可通过以下方式配置（任选其一）：\n"
+            "  1. 在项目根目录创建 .env 文件，写入：MODEL_API_KEY=你的API密钥\n"
+            "  2. PowerShell 终端设置：$env:MODEL_API_KEY=\"你的API密钥\"\n"
+            "  3. Windows 永久用户环境变量：[System.Environment]::SetEnvironmentVariable('MODEL_API_KEY', '你的密钥', 'User')"
         )
     return api_key
 

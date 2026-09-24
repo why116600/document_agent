@@ -163,24 +163,32 @@ def main():
             else:
                 prompt_text = "请输入文档改写要求（例如：替换某词 / 修改具体条款 / 全文重构润色）："
         else:
-            prompt_text = "请输入文档写作要求："
+            if validated_files:
+                prompt_text = "请输入文档处理要求（系统将根据自然语言自动识别改写目标或全新撰写）："
+            else:
+                prompt_text = "请输入文档写作要求："
         user_input = input(prompt_text).strip()
         while not user_input:
             user_input = input("需求内容不能为空，请重新输入：").strip()
 
     # 4. 解析输出路径与操作类型
     save_path = str(Path(args.save_path).resolve()) if args.save_path else None
-    op = "rewrite" if rewrite_file else "new"
 
-    mode_label = {
-        "auto": "智能识别 (auto)",
-        "patch": "局部微调修补 (patch)",
-        "replace": "全局查找替换 (replace)",
-        "global": "全局重塑润色 (global)",
-    }.get(rewrite_mode, "全新写作")
+    if rewrite_file:
+        mode_label = {
+            "auto": "智能识别策略 (auto)",
+            "patch": "局部微调修补 (patch)",
+            "replace": "全局查找替换 (replace)",
+            "global": "全局重塑润色 (global)",
+        }.get(rewrite_mode, "改写文档")
+        work_mode_str = f"改写文档 -> {mode_label}"
+    elif validated_files:
+        work_mode_str = "智能意图驱动（根据输入指令自动推断改写目标文档、参考资料与保存路径）"
+    else:
+        work_mode_str = "全新写作"
 
     print("\n" + "=" * 50)
-    print(f"工作模式: {'改写文档 -> ' + mode_label if op == 'rewrite' else '全新写作'}")
+    print(f"工作模式: {work_mode_str}")
     if rewrite_file:
         print(f"改写目标: {rewrite_file}")
     if replace_pairs:

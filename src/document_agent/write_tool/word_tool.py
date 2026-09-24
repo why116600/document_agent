@@ -53,7 +53,8 @@ class TextRunItem(BaseModel):
     bold: Optional[bool] = Field(default=None, description="是否加粗，None表示未指定，改写时沿用原文格式")
     italic: Optional[bool] = Field(default=None, description="是否斜体，None表示未指定，改写时沿用原文格式")
     underline: Optional[bool] = Field(default=None, description="是否下划线，None表示未指定，改写时沿用原文格式")
-    font_size: Optional[int] = Field(default=None, description="字体大小，单位为磅，None表示未指定，改写时沿用原文格式")
+    font_name: Optional[str] = Field(default=None, description="字体名称，如'微软雅黑'、'宋体'、'DengXian'，None表示未指定，改写时沿用原文格式")
+    font_size: Optional[Union[float, int]] = Field(default=None, description="字体大小，单位为磅，支持小数如10.5，None表示未指定，改写时沿用原文格式")
     font_color: Optional[str] = Field(default=None, description="字体颜色，使用十六进制颜色代码，None表示未指定，改写时沿用原文格式")
 
     @model_validator(mode="before")
@@ -71,9 +72,12 @@ class TextRunItem(BaseModel):
 class ParagraphItem(BaseModel):
     runs: List[TextRunItem] = Field(default_factory=list, description="文本运行列表")
     alignment: Optional[str] = Field(default=None, description="段落对齐方式，可选值：left, center, right, justify，None表示未指定，改写时沿用原文格式")
-    spacing_before: Optional[int] = Field(default=None, description="段前间距，单位为磅，None表示未指定，改写时沿用原文格式")
-    spacing_after: Optional[int] = Field(default=None, description="段后间距，单位为磅，None表示未指定，改写时沿用原文格式")
+    spacing_before: Optional[Union[float, int]] = Field(default=None, description="段前间距，单位为磅，None表示未指定，改写时沿用原文格式")
+    spacing_after: Optional[Union[float, int]] = Field(default=None, description="段后间距，单位为磅，None表示未指定，改写时沿用原文格式")
     line_spacing: Optional[float] = Field(default=None, description="行间距倍数，例如 1.0 表示单倍行距，None表示未指定，改写时沿用原文格式")
+    first_line_indent: Optional[Union[float, int]] = Field(default=None, description="首行缩进，单位为磅，None表示未指定，改写时沿用原文格式")
+    left_indent: Optional[Union[float, int]] = Field(default=None, description="左侧缩进，单位为磅，None表示未指定，改写时沿用原文格式")
+    right_indent: Optional[Union[float, int]] = Field(default=None, description="右侧缩进，单位为磅，None表示未指定，改写时沿用原文格式")
 
     @model_validator(mode="before")
     @classmethod
@@ -176,13 +180,16 @@ def _get_alignment(para: Paragraph) -> str:
     else:
         return "left"  # 默认
 
-def _get_pt_value(val) -> int:
-    """从 python-docx 的长度对象（如 Pt）中提取整数值（磅）"""
+def _get_pt_value(val) -> Optional[float]:
+    """从 python-docx 的长度对象（如 Pt、Twips、Length等）中提取数值（磅）。"""
     if val is None:
-        return 0
-    if isinstance(val, Pt):
-        return int(val.pt)
-    return int(val)  # 兜底
+        return None
+    if hasattr(val, "pt"):
+        return round(float(val.pt), 2)
+    try:
+        return round(float(val), 2)
+    except (ValueError, TypeError):
+        return None
 
 def hex_to_rgb(hex_color: str) -> RGBColor:
     """将 '#RRGGBB' 转为 RGBColor 对象"""
@@ -212,6 +219,23 @@ def _safe_get_font_color(font) -> Optional[Union[RGBColor, str]]:
     except Exception:
         return None
 
+def _safe_get_font_name(run: Run) -> Optional[str]:
+    """安全读取 Run 的字体名称（兼容中西文字体设置）"""
+    if not run:
+        return None
+    try:
+        if run.font and run.font.name:
+            return run.font.name
+        if run._element.rPr is not None and run._element.rPr.rFonts is not None:
+            return (
+                run._element.rPr.rFonts.get(qn('w:eastAsia'))
+                or run._element.rPr.rFonts.get(qn('w:ascii'))
+                or run._element.rPr.rFonts.get(qn('w:hAnsi'))
+            )
+    except Exception:
+        pass
+    return None
+
 def convert_run(run: Run, preserve_none: bool = False) -> TextRunItem:
     """将单个 Run 转换为 TextRunItem。
 
@@ -219,6 +243,7 @@ def convert_run(run: Run, preserve_none: bool = False) -> TextRunItem:
     改写已有文档时用它取得基准格式，避免把样式继承来的格式写成显式默认值而覆盖原样式。
     """
     run_rgb = _safe_get_font_color(run.font)
+    run_font = _safe_get_font_name(run)
     if preserve_none:
         return TextRunItem(
             text=run.text,
@@ -226,6 +251,7 @@ def convert_run(run: Run, preserve_none: bool = False) -> TextRunItem:
             bold=run.font.bold,
             italic=run.font.italic,
             underline=run.font.underline,
+            font_name=run_font,
             font_size=_get_pt_value(run.font.size) if run.font.size is not None else None,
             font_color=_rgb_to_hex(run_rgb) if run_rgb is not None else None,
         )
@@ -235,7 +261,8 @@ def convert_run(run: Run, preserve_none: bool = False) -> TextRunItem:
         bold=run.font.bold if run.font.bold is not None else False,
         italic=run.font.italic if run.font.italic is not None else False,
         underline=run.font.underline if run.font.underline is not None else False,
-        font_size=_get_pt_value(run.font.size) if run.font.size else 12,
+        font_name=run_font or "宋体",
+        font_size=_get_pt_value(run.font.size) or 12,
         font_color=_rgb_to_hex(run_rgb) if run_rgb is not None else "#000000"
     )
 
@@ -254,21 +281,27 @@ def convert_paragraph(para: Paragraph, preserve_none: bool = False) -> Paragraph
             omml_str= etree.tostring(child, encoding='unicode',pretty_print=True)
             latex = officemath2latex.process_math_string(omml_str)
             runs.append(TextRunItem(text=latex,text_type="latex"))
+    para_format = para.paragraph_format
     if preserve_none:
-        para_format = para.paragraph_format
         return ParagraphItem(
             runs=runs,
             alignment=_get_alignment(para) if para_format.alignment is not None else None,
             spacing_before=_get_pt_value(para_format.space_before) if para_format.space_before is not None else None,
             spacing_after=_get_pt_value(para_format.space_after) if para_format.space_after is not None else None,
             line_spacing=para_format.line_spacing,
+            first_line_indent=_get_pt_value(para_format.first_line_indent) if para_format.first_line_indent is not None else None,
+            left_indent=_get_pt_value(para_format.left_indent) if para_format.left_indent is not None else None,
+            right_indent=_get_pt_value(para_format.right_indent) if para_format.right_indent is not None else None,
         )
     return ParagraphItem(
         runs=runs,
         alignment=_get_alignment(para),
-        spacing_before=_get_pt_value(para.paragraph_format.space_before),
-        spacing_after=_get_pt_value(para.paragraph_format.space_after),
-        line_spacing=para.paragraph_format.line_spacing or 1.0  # 若为 None 则默认为 1.0
+        spacing_before=_get_pt_value(para_format.space_before) or 0,
+        spacing_after=_get_pt_value(para_format.space_after) or 0,
+        line_spacing=para_format.line_spacing or 1.0,  # 若为 None 则默认为 1.0
+        first_line_indent=_get_pt_value(para_format.first_line_indent),
+        left_indent=_get_pt_value(para_format.left_indent),
+        right_indent=_get_pt_value(para_format.right_indent),
     )
 
 def convert_cell(cell: _Cell, row_idx: int, col_idx: int) -> GridItem:
@@ -363,6 +396,12 @@ def _apply_paragraph_format(paragraph_format, para_item: ParagraphItem, write_de
         paragraph_format.space_before = Pt(para_item.spacing_before or DEFAULT_SPACING)
         paragraph_format.space_after = Pt(para_item.spacing_after or DEFAULT_SPACING)
         paragraph_format.line_spacing = para_item.line_spacing or DEFAULT_LINE_SPACING
+        if para_item.first_line_indent is not None:
+            paragraph_format.first_line_indent = Pt(para_item.first_line_indent)
+        if para_item.left_indent is not None:
+            paragraph_format.left_indent = Pt(para_item.left_indent)
+        if para_item.right_indent is not None:
+            paragraph_format.right_indent = Pt(para_item.right_indent)
         return
     if para_item.alignment is not None:
         paragraph_format.alignment = alignment_str_to_enum(para_item.alignment)
@@ -372,6 +411,12 @@ def _apply_paragraph_format(paragraph_format, para_item: ParagraphItem, write_de
         paragraph_format.space_after = Pt(para_item.spacing_after)
     if para_item.line_spacing is not None:
         paragraph_format.line_spacing = para_item.line_spacing
+    if para_item.first_line_indent is not None:
+        paragraph_format.first_line_indent = Pt(para_item.first_line_indent)
+    if para_item.left_indent is not None:
+        paragraph_format.left_indent = Pt(para_item.left_indent)
+    if para_item.right_indent is not None:
+        paragraph_format.right_indent = Pt(para_item.right_indent)
 
 
 def _apply_run_format(run: Run, run_item: TextRunItem, write_defaults: bool = True) -> None:
@@ -382,6 +427,13 @@ def _apply_run_format(run: Run, run_item: TextRunItem, write_defaults: bool = Tr
         run.font.underline = bool(run_item.underline)
         run.font.size = Pt(run_item.font_size or DEFAULT_FONT_SIZE)
         run.font.color.rgb = hex_to_rgb(run_item.font_color or DEFAULT_FONT_COLOR)
+        if run_item.font_name:
+            run.font.name = run_item.font_name
+            rPr = run._element.get_or_add_rPr()
+            rFonts = rPr.get_or_add_rFonts()
+            rFonts.set(qn('w:eastAsia'), run_item.font_name)
+            rFonts.set(qn('w:ascii'), run_item.font_name)
+            rFonts.set(qn('w:hAnsi'), run_item.font_name)
         return
     if run_item.bold is not None:
         run.font.bold = run_item.bold
@@ -393,6 +445,13 @@ def _apply_run_format(run: Run, run_item: TextRunItem, write_defaults: bool = Tr
         run.font.size = Pt(run_item.font_size)
     if run_item.font_color is not None:
         run.font.color.rgb = hex_to_rgb(run_item.font_color)
+    if run_item.font_name is not None:
+        run.font.name = run_item.font_name
+        rPr = run._element.get_or_add_rPr()
+        rFonts = rPr.get_or_add_rFonts()
+        rFonts.set(qn('w:eastAsia'), run_item.font_name)
+        rFonts.set(qn('w:ascii'), run_item.font_name)
+        rFonts.set(qn('w:hAnsi'), run_item.font_name)
 
 
 def fill_table_from_grid(table: Table, grid_items, write_defaults: bool = True):

@@ -253,6 +253,8 @@ def _run_to_dict(run: TextRunItem) -> dict:
         result["italic"] = True
     if run.underline:
         result["underline"] = True
+    if run.font_name:
+        result["font_name"] = run.font_name
     if run.font_size and run.font_size != DEFAULT_FONT_SIZE:
         result["font_size"] = run.font_size
     if run.font_color and run.font_color.upper() != DEFAULT_FONT_COLOR:
@@ -392,11 +394,13 @@ def _detect_paragraph_role(node, base_item, text: str, index: int, total_element
 
 def extract_body_profile(base_items) -> dict:
     alignments = []
+    font_names = []
     font_sizes = []
     font_colors = []
     line_spacings = []
     spacing_befores = []
     spacing_afters = []
+    first_line_indents = []
 
     for item in base_items or []:
         if isinstance(item, ParagraphItem) and item.runs:
@@ -412,6 +416,8 @@ def extract_body_profile(base_items) -> dict:
 
             if item.alignment:
                 alignments.append(item.alignment)
+            if first_run.font_name:
+                font_names.append(first_run.font_name)
             if first_run.font_size and 8 <= first_run.font_size <= 24:
                 font_sizes.append(first_run.font_size)
             if first_run.font_color and first_run.font_color.startswith("#"):
@@ -422,21 +428,27 @@ def extract_body_profile(base_items) -> dict:
                 spacing_befores.append(item.spacing_before)
             if item.spacing_after is not None:
                 spacing_afters.append(item.spacing_after)
+            if item.first_line_indent is not None:
+                first_line_indents.append(item.first_line_indent)
 
     default_align = max(set(alignments), key=alignments.count) if alignments else "left"
+    default_fn = max(set(font_names), key=font_names.count) if font_names else None
     default_size = max(set(font_sizes), key=font_sizes.count) if font_sizes else DEFAULT_FONT_SIZE
     default_color = max(set(font_colors), key=font_colors.count) if font_colors else DEFAULT_FONT_COLOR
     default_ls = max(set(line_spacings), key=line_spacings.count) if line_spacings else 1.25
     default_sb = max(set(spacing_befores), key=spacing_befores.count) if spacing_befores else 0
     default_sa = max(set(spacing_afters), key=spacing_afters.count) if spacing_afters else 0
+    default_fli = max(set(first_line_indents), key=first_line_indents.count) if first_line_indents else None
 
     return {
         "alignment": default_align,
+        "font_name": default_fn,
         "font_size": default_size,
         "font_color": default_color,
         "line_spacing": default_ls,
         "spacing_before": default_sb,
         "spacing_after": default_sa,
+        "first_line_indent": default_fli,
     }
 
 
@@ -966,6 +978,7 @@ def _inherit_run_format(new_run: TextRunItem, base_run: Optional[TextRunItem]) -
         bold=base_run.bold if new_run.bold is None else new_run.bold,
         italic=base_run.italic if new_run.italic is None else new_run.italic,
         underline=base_run.underline if new_run.underline is None else new_run.underline,
+        font_name=base_run.font_name if new_run.font_name is None else new_run.font_name,
         font_size=base_run.font_size if new_run.font_size is None else new_run.font_size,
         font_color=base_run.font_color if new_run.font_color is None else new_run.font_color,
     )
@@ -983,11 +996,13 @@ def _inherit_paragraph_format(new_item: ParagraphItem, base_item,
     """
     profile = body_profile or {
         "alignment": "left",
+        "font_name": "宋体",
         "font_size": DEFAULT_FONT_SIZE,
         "font_color": DEFAULT_FONT_COLOR,
         "line_spacing": 1.25,
         "spacing_before": 0,
         "spacing_after": 0,
+        "first_line_indent": None,
     }
 
     if is_insert:
@@ -996,9 +1011,11 @@ def _inherit_paragraph_format(new_item: ParagraphItem, base_item,
         spacing_before = new_item.spacing_before if new_item.spacing_before is not None else profile.get("spacing_before", 0)
         spacing_after = new_item.spacing_after if new_item.spacing_after is not None else profile.get("spacing_after", 0)
         line_spacing = new_item.line_spacing if new_item.line_spacing is not None else profile.get("line_spacing", 1.25)
+        first_line_indent = new_item.first_line_indent if new_item.first_line_indent is not None else profile.get("first_line_indent")
 
         new_runs = []
         for run in new_item.runs:
+            fname = run.font_name if run.font_name is not None else profile.get("font_name")
             fsize = run.font_size if run.font_size is not None else profile.get("font_size", DEFAULT_FONT_SIZE)
             fcolor = run.font_color if run.font_color is not None else profile.get("font_color", DEFAULT_FONT_COLOR)
             bold = run.bold if run.bold is not None else False
@@ -1010,6 +1027,7 @@ def _inherit_paragraph_format(new_item: ParagraphItem, base_item,
                 bold=bold,
                 italic=italic,
                 underline=underline,
+                font_name=fname,
                 font_size=fsize,
                 font_color=fcolor,
             ))
@@ -1019,6 +1037,7 @@ def _inherit_paragraph_format(new_item: ParagraphItem, base_item,
             spacing_before=spacing_before,
             spacing_after=spacing_after,
             line_spacing=line_spacing,
+            first_line_indent=first_line_indent,
         )
 
     # is_insert 为 False：替换原段落（尽量继承原段落格式）
@@ -1031,6 +1050,9 @@ def _inherit_paragraph_format(new_item: ParagraphItem, base_item,
         spacing_before=base_item.spacing_before if new_item.spacing_before is None else new_item.spacing_before,
         spacing_after=base_item.spacing_after if new_item.spacing_after is None else new_item.spacing_after,
         line_spacing=base_item.line_spacing if new_item.line_spacing is None else new_item.line_spacing,
+        first_line_indent=base_item.first_line_indent if new_item.first_line_indent is None else new_item.first_line_indent,
+        left_indent=base_item.left_indent if new_item.left_indent is None else new_item.left_indent,
+        right_indent=base_item.right_indent if new_item.right_indent is None else new_item.right_indent,
     )
 
 
