@@ -5,161 +5,185 @@ from pathlib import Path
 
 try:
     from document_agent.agent.llm_client import llm_invoke, llm_model_invoke
-    from document_agent.agent.agent_core import AgentState
+    from document_agent.agent.agent_core import AgentState, get_last_user_text
 except ImportError:
     from llm_client import llm_invoke, llm_model_invoke
-    from agent_core import AgentState
+    from agent_core import AgentState, get_last_user_text
 from document_agent.retrieve_tool.extract_document import extract_document_content
 
 class RetrieveFuncCallable(BaseModel):
     reason: str = Field(default="", description="检索思路与下一步计划")
-    tool_name: str = Field(description="要调用的工具名称，可选值：file（检索指定文件）或 end（结束检索）")
+    tool_name: str = Field(description="要调用的工具名称，可选值：file（检索指定文件）、knowledge（检索系统知识库）或 end（结束检索）")
     arguments: Dict[str, Any] = Field(default_factory=dict, description="调用工具所需的参数")
 
 
 #检索模块总调度
 def create_retrieve_node(llm):
     def retrive_node(state: AgentState) -> AgentState:
-        # 如果前面 summary_node 已经通过直通车载入了参考资料全文，直接跳过检索 Agent
-        if state.get("retrieved_content"):
-            print(f"【参考资料】已直接载入 {len(state['retrieved_content'])} 份参考素材全文，无需启动检索智能体")
-            return state
+        file_summaries = state.get("file_summaries") or {}
+        gdb_label = state.get("gdb_label")
+        retrieved_content = list(state.get("retrieved_content") or [])
+        file_retrieved_items = dict(state.get("file_retrived_items") or {})
+        retrieve_limit = state.get("retrieve_count_limit")
+        if retrieve_limit is None:
+            retrieve_limit = 5
 
-        s = state["retrieve_target"]
-<<<<<<< HEAD
-        retrived_conent = []
-        file_retrived_item_set = set()  # 已经检索过的内容，避免重复检索
-        tool_response = ""
-        summaries_prompt = "\n".join([f"文件路径：{path}\n文件摘要：{summary}" for path, summary in state.get("file_summaries", {}).items()])
-        if not state.get("file_summaries"):
-            print("没有可检索的参考文件，跳过检索")
-            return {**state, "retrieved_content": []}
+        # 1. 退出条件检查：无参考文件且无图数据库需求，直接结束检索进入后续阶段
+        if not file_summaries and not gdb_label:
+            print("【检索智能体】无参考资料或知识库检索需求，跳过检索直接进入写作阶段")
+            return {
+                **state,
+                "retrieve_tool": "end",
+                "retrieve_params": {},
+                "retrieve_target": "",
+                "error": None,
+            }
 
-        for round_idx in range(5):
-            if len(retrived_conent) > 0:
-                retrived_conent_str = "目前已知：\n" + "\n".join(retrived_conent)
-                end_hint = "【提示】：当前已检索到参考材料。若材料已基本充足，请在 tool_name 中选择 'end' 结束检索并进入写作！\n"
-            else:
-                retrived_conent_str = "目前已知：\n无"
-                end_hint = ""
+        # 2. 退出条件检查：检索次数已达上限
+        if retrieve_limit <= 0:
+            print("【检索智能体】已达到最大检索次数限制，结束检索")
+            return {
+                **state,
+                "retrieve_tool": "end",
+                "retrieve_params": {},
+                "retrieve_target": "",
+                "error": None,
+            }
 
-=======
-        msg=state["messages"]
-        file_summaries=state["file_summaries"]
-        retrieve_limit=state["retrieve_count_limit"]
-        retrived_conent=state.get("retrieved_content",[])
-        file_retrived_item_set=set()#已经检索过的内容，避免重复检索
-        tool_response=""
-        if len(file_summaries)>0:
-            summaries_prompt="\n".join([f"文件路径：{path}\n文件摘要：{summary}" for path, summary in file_summaries.items()])
-            file_prompt_line="用户提供的文件参考内容："+summaries_prompt
+        user_query = get_last_user_text(state.get("messages"))
+
+        # 组装可用参考文件信息
+        if file_summaries:
+            summaries_prompt = "\n".join([f"- 文件路径：{path}\n  文件摘要：{summary}" for path, summary in file_summaries.items()])
+            file_prompt_line = f"用户提供的参考文件清单与摘要：\n{summaries_prompt}"
         else:
-            file_prompt_line="用户没有提供任何文件参考内容，可使用其他工具检索"
-        if retrieve_limit<=0:
-            print("超出检索次数")
-            return {**state, "retrieve_tool":"end"}
-        # retrieve_llm=llm.with_structured_output(RetrieveFuncCallable,method="function_calling", include_raw=True)
-        for _ in range(10):
-            if len(retrived_conent)>0:
-                retrived_conent_str="目前已知：\n"+"\n".join(retrived_conent)
-            else:
-                retrived_conent_str="目前已知：\n无"
-            think_prompt = (
-                "你是一个文档写作辅助检索助手，你的任务是根据用户提供的参考内容，检索出与用户问题相关的内容，以供后续写文档使用。\n"
-                f"{retrived_conent_str}\n"
-                f"{file_prompt_line}\n"
-                f"用户对话内容：{msg}\n"
-                # f"要检索的内容：{s}\n"
-                "你有以下工具可以使用：\n"
-                "file为检索用户提供的文件内容的工具，参数path为文件路径，参数query为检索的关键内容。\n"
-                "knowledge为检索系统知识库的工具，包含行业知识、工作流程、硬性规范，参数key为要检索的关键内容，参数expand为要展开的节点编号。\n"
-                "end为结束检索的工具，如果你认为目前已知的内容已经满足用户要求，可以调用end工具结束检索。\n"
-                f"{tool_response}\n"
-                "请分析后续使用工具的思路"
-            )
-            res=llm_invoke(llm,think_prompt)
-            analysis=getattr(res,"content","无")
-            print("检索智能体的分析：",analysis)
->>>>>>> 418ae08453f505f34528228fa8cf69e129087893
-            prompt = (
-                "你是一个文档写作辅助检索助手，你的任务是根据用户提供的参考内容，检索出与用户问题相关的内容，以供后续写文档使用。\n"
-                f"{retrived_conent_str}\n"
-                f"{file_prompt_line}\n"
-                f"用户对话内容：{msg}\n"
-                # f"要检索的内容：{s}\n"
-                "你有以下工具可以使用：\n"
-<<<<<<< HEAD
-                "1. file: 检索用户提供的文件内容，参数 path 为文件路径，参数 query 为检索的关键内容。\n"
-                "2. end: 结束检索（材料已充足或已完成检索时调用）。\n"
-                f"{end_hint}"
-=======
-                "file为检索用户提供的文件内容的工具，参数path为文件路径，参数query为检索的关键内容。\n"
-                "knowledge为检索系统知识库的工具，包含行业知识、工作流程、硬性规范，参数query为要检索的关键内容，参数expand为要展开的节点编号。\n"
-                "end为结束检索的工具，如果你认为目前已知的内容已经满足用户要求，可以调用end工具结束检索。\n"
->>>>>>> 418ae08453f505f34528228fa8cf69e129087893
-                f"{tool_response}\n"
-                "请在 reason 中写出你的一两句简要思考，并在 tool_name 和 arguments 中指定要调用的工具。"
-            )
+            file_prompt_line = "用户未提供参考文件。"
+
+        # 组装已知信息
+        if retrieved_content:
+            retrieved_content_str = "目前已检索到的参考信息：\n" + "\n".join([f"- {item}" for item in retrieved_content])
+        else:
+            retrieved_content_str = "目前已检索到的参考信息：\n无"
+
+        # 组装工具执行历史反馈
+        tool_response = ""
+        if state.get("error"):
+            tool_response = f"上一轮工具执行反馈：{state['error']}\n"
+
+        # =====================================================================
+        # 【阶段一：先思考（Think）】
+        # 由大模型进行深入的思维链推理：评估当前已知信息完整度、是否需进一步检索、以及工具选择思路
+        # =====================================================================
+        think_prompt = (
+            "你是一个文档写作辅助检索助手，你的任务是根据用户提供的参考内容和对话，检索出与用户写作任务最相关的内容，以供后续写文档使用。\n\n"
+            f"{retrieved_content_str}\n\n"
+            f"{file_prompt_line}\n\n"
+            f"用户对话与指令：{user_query}\n\n"
+            "你有以下工具可以使用：\n"
+            "1. file：检索用户提供的文件内容。参数 path 为文件路径，参数 query 为检索的关键内容。\n"
+            "2. knowledge：检索系统知识库。包含行业知识、工作流程、硬性规范，参数 query 为要检索的关键内容，参数 expand 为要展开的节点编号。\n"
+            "3. end：结束检索的工具。如果你认为目前已知的内容已经满足用户要求，可以调用 end 工具结束检索。\n\n"
+            f"{tool_response}"
+            "请深入分析当前检索状态：目前已知的信息是否充足？是否还需要调用工具进一步检索特定事实/段落？请详细输出你的后续思考与工具调用思路："
+        )
+        think_res = llm_invoke(llm, think_prompt)
+        analysis = getattr(think_res, "content", "信息已足够或无需进一步检索")
+        print("【检索智能体的分析思考】\n", analysis)
+
+        # =====================================================================
+        # 【阶段二：后执行（Act 决策）】
+        # 将上一阶段的思维链分析结果作为强上下文输入，引导大模型进行精准结构化工具调用
+        # =====================================================================
+        prompt = (
+            "你是一个文档写作辅助检索助手，你的任务是根据用户提供的参考内容，检索出与用户问题相关的内容，以供后续写文档使用。\n\n"
+            f"{retrieved_content_str}\n\n"
+            f"{file_prompt_line}\n\n"
+            f"用户对话与指令：{user_query}\n\n"
+            f"你刚刚完成的检索思路分析：\n{analysis}\n\n"
+            "你有以下工具可以使用：\n"
+            "1. file：检索用户提供的文件内容。参数 path 为文件完整路径，参数 query 为要针对该文件检索的关键内容/关键词。\n"
+            "2. knowledge：检索系统知识库。参数 query 为检索关键词，参数 expand 为需要展开的节点ID。\n"
+            "3. end：结束检索。如果你认为目前已知的信息已经充分满足用户写作要求，或者没有更多需要检索的内容，请调用 end 结束检索。\n\n"
+            f"{tool_response}"
+            "请严格结合你前面的思考分析，在 reason 中写出你的一两句简要结论，并在 tool_name 和 arguments 中指定要调用的工具。"
+        )
+
+        for attempt in range(5):
             tool = llm_model_invoke(llm, prompt, RetrieveFuncCallable)
             if tool is None:
-                print("检索工具调用失败，继续尝试...")
+                print(f"【检索智能体】第 {attempt+1} 次工具调用解析失败，重试...")
                 continue
-<<<<<<< HEAD
-            if tool.reason:
-                print(f"【检索思考】{tool.reason}")
-            tool_name = (tool.tool_name or "").strip().lower()
-            print("使用工具：", tool_name, "参数：", tool.arguments)
+
+            tool_name = str(tool.tool_name).strip().lower()
+            reason = tool.reason or ""
+
+            if tool_name == "end":
+                print(f"【检索智能体】决定结束检索。理由: {reason or '参考信息已满足需求'}")
+                return {
+                    **state,
+                    "retrieve_tool": "end",
+                    "retrieve_params": {},
+                    "retrieve_target": "",
+                    "retrieve_count_limit": retrieve_limit - 1,
+                    "error": None,
+                }
+
             if tool_name == "file":
-                path = tool.arguments.get("path") or ""
-                query = tool.arguments.get("query") or ""
-                if (path, query) in file_retrived_item_set:
-                    print(f"重复对文件{path}检索：", query)
-                    # 已检索过该内容，如果已有检索结果则直接结束，避免死循环
-                    if retrived_conent:
-                        print("检测到重复检索且已有检索内容，自动结束检索")
-                        return {**state, "retrieved_content": retrived_conent}
+                args = tool.arguments or {}
+                path = args.get("path", "")
+                query = args.get("query", "")
+                if not path or not query:
+                    print(f"【检索智能体】file 工具参数缺失 (path: {path}, query: {query})，重试...")
                     continue
-                path_obj = Path(path)
-                if len(path) <= 0:
-                    print("文件路径为空，继续尝试...")
-                    tool_response = "file工具反馈：文件路径为空"
-                    continue
-                if not path_obj.exists():
-                    print(f"文件路径不存在：{path}")
-                    tool_response = f"file工具反馈：文件路径不存在：{path}"
-                    continue
-                content = extract_document_content(path)
-                if content is None:
-                    print(f"不支持的文件类型：{path_obj.suffix}")
-                    tool_response = f"file工具反馈：不支持的文件类型：{path_obj.suffix}"
-                    continue
-                file_retrived_item_set.add((path, query))
-                prompt_for_retrieval = (
-                    "你是一个文档检索助手，你的任务是根据用户提供的参考内容和用户对话检索出符合目标的内容。\n"
-                    f"用户提供的文件内容：{content}\n"
-                    f"用户对话内容：{s}\n"
-                    f"要检索的内容：{query}\n"
-                    "仅回答问题，不要输出其他内容。"
-                )
-                res = llm_invoke(llm, prompt_for_retrieval)
-                result = getattr(res, "content", "")
-                if len(result) > 0:
-                    retrived_conent.append(f"使用file工具以{query}为关键内容，对文件{path}的检索结果：{result}")
-            elif tool_name == "end":
-                print("检索结束")
-                return {**state, "retrieved_content": retrived_conent}
-            else:
-                print(f"未知工具：{tool.tool_name}")
-                tool_response = f"未知工具：{tool.tool_name}"
-        print(f"检索轮次结束，共获取 {len(retrived_conent)} 条有效素材，进入后续流程")
-        return {**state, "retrieved_content": retrived_conent}
-=======
-            query=tool.arguments.get("query","")
-            if len(query)<=0 and tool.tool_name!="end":
-                print("无检索参数，继续尝试...")
-                continue
-            print("使用工具：", tool.tool_name, "参数：", tool.arguments)
-            return {**state, "retrieve_tool":tool.tool_name,"retrieve_params":tool.arguments,"retrieve_target":query,"retrieve_count_limit":retrieve_limit-1}
-        return {**state, "retrieved_content": retrived_conent,"state":"error"}
->>>>>>> 418ae08453f505f34528228fa8cf69e129087893
+
+                # 检查是否重复调用相同文件和查询，避免死循环
+                is_duplicate = False
+                for (p, q) in file_retrieved_items.keys():
+                    if Path(str(p)).name.lower() == Path(str(path)).name.lower() and q == query:
+                        is_duplicate = True
+                        break
+
+                if is_duplicate:
+                    print(f"【检索智能体】检测到重复检索需求 ({path}, {query})，参考内容已存在，自动结束检索。")
+                    return {
+                        **state,
+                        "retrieve_tool": "end",
+                        "retrieve_params": {},
+                        "retrieve_target": "",
+                        "retrieve_count_limit": retrieve_limit - 1,
+                        "error": None,
+                    }
+
+                print(f"【检索智能体】调用 file 工具 -> 文件: {path}，检索点: {query} (思路: {reason})")
+                return {
+                    **state,
+                    "retrieve_tool": "file",
+                    "retrieve_params": args,
+                    "retrieve_target": query,
+                    "retrieve_count_limit": retrieve_limit - 1,
+                    "error": None,
+                }
+
+            if tool_name == "knowledge":
+                args = tool.arguments or {}
+                query = args.get("query", "") or args.get("key", "")
+                print(f"【检索智能体】调用 knowledge 工具 -> 检索: {query} (思路: {reason})")
+                return {
+                    **state,
+                    "retrieve_tool": "knowledge",
+                    "retrieve_params": args,
+                    "retrieve_target": query,
+                    "retrieve_count_limit": retrieve_limit - 1,
+                    "error": None,
+                }
+
+        # 多次尝试均未能产生有效工具调用，安全兜底结束检索
+        print("【检索智能体】未产生有效新工具调用，安全兜底结束检索，进入后续写作阶段。")
+        return {
+            **state,
+            "retrieve_tool": "end",
+            "retrieve_params": {},
+            "retrieve_target": "",
+            "error": None,
+        }
     return retrive_node

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from typing import Dict, List, Optional, TypedDict, Annotated
+from typing import Dict, List, Optional, TypedDict, Annotated, Tuple
 from langgraph.graph import END, StateGraph
 from langgraph.checkpoint.memory import InMemorySaver
 from langchain_core.messages import BaseMessage
@@ -48,14 +48,13 @@ def route_intent(state: AgentState) -> str:#检索完成后根据用户意图选
     return "new"
 
 def route_retrieve(state: AgentState) -> str:
-    tool=state["retrieve_tool"]
-    if tool=="end":
-        return route_intent(state)#"end"#
-    elif tool=="file":
+    tool = str(state.get("retrieve_tool", "end")).strip().lower()
+    if tool == "file":
         return "file"
-    elif tool=="knowledge":
+    elif tool == "knowledge":
         return "knowledge"
-    return "end"
+    # 当检索完成或没有有效工具调用时，按用户意图流转至改写或新建节点
+    return route_intent(state)
 
 class AgentCore:
     def __init__(self):
@@ -64,38 +63,57 @@ class AgentCore:
         self.agent_invoke=None
         self.checkpointer=InMemorySaver()#使用检查点记录会话内容
         
-<<<<<<< HEAD
-    def build_graph(self):#构建agent图
+    def build_graph(self, gdb=None): # 构建agent图
         try:
             from document_agent.agent.intent_node import create_intent_node, route_after_intent
             from document_agent.agent.summary_node import create_summary_node
             from document_agent.agent.retrieve_node import create_retrieve_node
             from document_agent.agent.docx_node import create_new_docx_node
             from document_agent.agent.rewrite_node import create_rewrite_node
+            from document_agent.agent.file_retrieve_node import create_file_retrieve_node
         except ImportError:
             from intent_node import create_intent_node, route_after_intent
             from summary_node import create_summary_node
             from retrieve_node import create_retrieve_node
             from docx_node import create_new_docx_node
             from rewrite_node import create_rewrite_node
-=======
-    def build_graph(self,gdb):#构建agent图
-        from intent_node import create_intent_node, route_after_intent
-        from summary_node import create_summary_node
-        from retrieve_node import create_retrieve_node
-        from docx_node import create_new_docx_node
-        from rewrite_node import create_rewrite_node
-        from file_retrieve_node import create_file_retrieve_node
-        from gdb_retrieve_node import create_gdb_retrieve_node
->>>>>>> 418ae08453f505f34528228fa8cf69e129087893
-        self.graph=StateGraph(AgentState)
+            from file_retrieve_node import create_file_retrieve_node
+
+        try:
+            from document_agent.agent.gdb_retrieve_node import create_gdb_retrieve_node
+        except ImportError:
+            try:
+                from gdb_retrieve_node import create_gdb_retrieve_node
+            except ImportError:
+                create_gdb_retrieve_node = None
+
+        self.graph = StateGraph(AgentState)
         self.graph.add_node("intent", create_intent_node(self.llm))
         self.graph.add_node("summary", create_summary_node(self.llm))
         self.graph.add_node("retrieve", create_retrieve_node(self.llm))
         self.graph.add_node("retrieve_file", create_file_retrieve_node(self.llm))
-        self.graph.add_node("retrieve_gdb", create_gdb_retrieve_node(self.llm,gdb))
-        self.graph.add_node("new_docx",create_new_docx_node(self.llm))
-        self.graph.add_node("rewrite_docx",create_rewrite_node(self.llm))
+
+        # =====================================================================
+        # 【gdb 节点可选挂载与平滑降级说明】
+        # 当前为了便于在未接入 Memgraph 或纯本地文档场景下调试，
+        # 当 gdb 为 None 时挂载 dummy 提示节点，避免空指针崩溃。
+        #
+        # >>> 后期若正式部署上线、强制要求图数据库服务时，可将本 if-else 降级代码注释掉，
+        # >>> 恢复为下方原版的强制挂载代码：
+        # self.graph.add_node("retrieve_gdb", create_gdb_retrieve_node(self.llm, gdb))
+        # =====================================================================
+        if gdb is not None and create_gdb_retrieve_node is not None:
+            self.graph.add_node("retrieve_gdb", create_gdb_retrieve_node(self.llm, gdb))
+        else:
+            def dummy_gdb_retrieve(state: AgentState) -> AgentState:
+                print("【知识库检索】当前未接入图数据库，跳过图检索")
+                retrieved_items = list(state.get("retrieved_content") or [])
+                retrieved_items.append("系统未配置图数据库知识库")
+                return {**state, "retrieved_content": retrieved_items}
+            self.graph.add_node("retrieve_gdb", dummy_gdb_retrieve)
+
+        self.graph.add_node("new_docx", create_new_docx_node(self.llm))
+        self.graph.add_node("rewrite_docx", create_rewrite_node(self.llm))
         self.graph.set_entry_point("intent")
         #意图识别出错时直接结束流程
         self.graph.add_conditional_edges(
@@ -134,12 +152,11 @@ class AgentCore:
                 "file_summaries": {},
                 "gdb_label": "global",
                 "retrieved_content": [],
-<<<<<<< HEAD
-                "user_intent": None,
-=======
                 "retrieve_count_limit": 3,
-                "user_intent": "new" if op=="new" else ("rewrite" if (rewrite_file or op=="rewrite") else None),
->>>>>>> 418ae08453f505f34528228fa8cf69e129087893
+                "retrieve_tool": "end",
+                "retrieve_params": {},
+                "file_retrived_items": {},
+                "user_intent": None,
                 "rewrite_file": rewrite_file,
                 "rewrite_mode": rewrite_mode or "auto",
                 "replace_pairs": replace_pairs or {},

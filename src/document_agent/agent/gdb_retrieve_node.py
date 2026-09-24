@@ -4,15 +4,28 @@ from typing import List, Dict, Any
 from pathlib import Path
 import traceback
 
-from llm_client import llm_invoke, llm_model_invoke
-from agent_core import AgentState
-from document_agent.memory.neo_graph_db import MemgraphNodeManager
+try:
+    from document_agent.agent.llm_client import llm_invoke, llm_model_invoke
+    from document_agent.agent.agent_core import AgentState
+except ImportError:
+    from llm_client import llm_invoke, llm_model_invoke
+    from agent_core import AgentState
+try:
+    from document_agent.memory.neo_graph_db import MemgraphNodeManager
+except ImportError:
+    # =========================================================================
+    # 【依赖导入降级说明】
+    # 当未安装 neo4j / sentence-transformers 时，使用 Any 占位，避免导入时立即抛错崩溃。
+    # 后期安装完依赖并强制要求 Memgraph 时，可直接恢复为：
+    # from document_agent.memory.neo_graph_db import MemgraphNodeManager
+    # =========================================================================
+    MemgraphNodeManager = Any
 
 class GraphRetrieveDecision(BaseModel):
     enough : bool = Field(default=True,description="当前信息是否已经满足检索目标的要求")
     to_expand : List[str] = Field(default=[],description="需要进一步展开检索的信息")
 
-def create_gdb_retrieve_node(llm,gdb : MemgraphNodeManager):
+def create_gdb_retrieve_node(llm, gdb: Any):
     def gdb_retrieve(state : AgentState) -> AgentState:
         params=state["retrieve_params"]
         retrieve_target=state["retrieve_target"]
@@ -39,9 +52,9 @@ def create_gdb_retrieve_node(llm,gdb : MemgraphNodeManager):
             if len(backwards)>0:
                 # print(f"可展开的节点[{nid}]内容：",item["content"])
                 expandable_nodes[nid]=(len(retrieved_items),item["summary"])
-                retrieved_items.append(f"可展开的图数据库节点{nid}的内容：{item["summary"]}")
+                retrieved_items.append(f"可展开的图数据库节点{nid}的内容：{item['summary']}")
             else:
-                retrieved_items.append(f"不可展开的图数据库节点{nid}的内容：{item["content"]}")
+                retrieved_items.append(f"不可展开的图数据库节点{nid}的内容：{item['content']}")
         # 开始大模型摘要dag检索
         for _ in range(10*nroot):
             retrieved_str="\n".join(retrieved_items)
@@ -86,9 +99,9 @@ def create_gdb_retrieve_node(llm,gdb : MemgraphNodeManager):
                     if len(sub_backwards)>0:
                         expandable_nodes[mid]=(len(retrieved_items),item["content"])
                         # print(f"\t可展开的节点[{mid}]内容：",item["content"])
-                        retrieved_items.append(f"可展开的图数据库节点{mid}的内容：{item["summary"]}")
+                        retrieved_items.append(f"可展开的图数据库节点{mid}的内容：{item['summary']}")
                     else:
-                        retrieved_items.append(f"不可展开的图数据库节点{mid}的内容：{item["content"]}")
+                        retrieved_items.append(f"不可展开的图数据库节点{mid}的内容：{item['content']}")
                 
         
         return {**state,"retrieved_content":retrieved_items}
