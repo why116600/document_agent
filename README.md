@@ -79,7 +79,14 @@ python -m document_agent.console_app [参考文件列表...] [-w 改写文件] [
 ## 工作流
 `intent`（参数校验与初始化）→ `summary`（参考文件摘要）→ `retrieve`（检索相关素材）→ 按意图分流：
 - `new_docx`：规划章节并逐章生成新文档
+<<<<<<< HEAD
 - `rewrite_docx`：根据 `rewrite_mode` 分流调度：
   - `patch`：极小文档整篇差量修改 / 其余文档（含 4000 字以内的企业文档）工具化按需探查，不把整篇文档放进上下文
   - `replace`：跨 Run 文本查找替换引擎执行批量替换
   - `global`：章节结构划分（超长章节自动按元素分块），先取全局改写纲要约束一致性，再逐章深度重塑并原地替换回原模板；含图片等无法表达内容的章节自动跳过并原样保留
+=======
+- `rewrite_docx`：解析原文档结构，由模型给出"逐元素修改方案"并原地改写，保留原有格式、表格与页面设置
+
+使用以下命令将文档录入知识库中
+python -m document_agent.knowledge_base_record <file1> <file2> ...
+>>>>>>> 418ae08453f505f34528228fa8cf69e129087893

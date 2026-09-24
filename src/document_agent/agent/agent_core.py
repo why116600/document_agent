@@ -15,10 +15,15 @@ except ImportError:
 class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
     state: str
+    retrieve_tool: str #要使用的检索工具
     retrieve_target: str#检索目标
+    retrieve_params: Optional[Dict[str,str]]
+    retrieve_count_limit: int#检索的限制次数
+    file_retrived_items: Optional[Dict[Tuple,str]]#检索文档、关键词到检索结果的映射
     retrieved_content: List[str]# 检索出来的内容
     input_file_path: List[str]#用户提供的作为参考内容的文件路径
     file_summaries: Dict[str, str]#文件路径到文件摘要的映射
+    gdb_label: str#要查询的图数据库的节点标签
     user_intent: Optional[str]#用户写作意图，new表示全新写作，rewrite表示改写
     rewrite_file: Optional[str]#重写文档的文件路径
     rewrite_mode: Optional[str]#改写模式：patch（局部修补）、replace（查找替换）、global（全局重塑/逐章润色）
@@ -42,6 +47,16 @@ def route_intent(state: AgentState) -> str:#检索完成后根据用户意图选
         return "rewrite"
     return "new"
 
+def route_retrieve(state: AgentState) -> str:
+    tool=state["retrieve_tool"]
+    if tool=="end":
+        return route_intent(state)#"end"#
+    elif tool=="file":
+        return "file"
+    elif tool=="knowledge":
+        return "knowledge"
+    return "end"
+
 class AgentCore:
     def __init__(self):
         self.llm=get_deepseek_llm()
@@ -49,6 +64,7 @@ class AgentCore:
         self.agent_invoke=None
         self.checkpointer=InMemorySaver()#使用检查点记录会话内容
         
+<<<<<<< HEAD
     def build_graph(self):#构建agent图
         try:
             from document_agent.agent.intent_node import create_intent_node, route_after_intent
@@ -62,10 +78,22 @@ class AgentCore:
             from retrieve_node import create_retrieve_node
             from docx_node import create_new_docx_node
             from rewrite_node import create_rewrite_node
+=======
+    def build_graph(self,gdb):#构建agent图
+        from intent_node import create_intent_node, route_after_intent
+        from summary_node import create_summary_node
+        from retrieve_node import create_retrieve_node
+        from docx_node import create_new_docx_node
+        from rewrite_node import create_rewrite_node
+        from file_retrieve_node import create_file_retrieve_node
+        from gdb_retrieve_node import create_gdb_retrieve_node
+>>>>>>> 418ae08453f505f34528228fa8cf69e129087893
         self.graph=StateGraph(AgentState)
         self.graph.add_node("intent", create_intent_node(self.llm))
         self.graph.add_node("summary", create_summary_node(self.llm))
         self.graph.add_node("retrieve", create_retrieve_node(self.llm))
+        self.graph.add_node("retrieve_file", create_file_retrieve_node(self.llm))
+        self.graph.add_node("retrieve_gdb", create_gdb_retrieve_node(self.llm,gdb))
         self.graph.add_node("new_docx",create_new_docx_node(self.llm))
         self.graph.add_node("rewrite_docx",create_rewrite_node(self.llm))
         self.graph.set_entry_point("intent")
@@ -76,11 +104,14 @@ class AgentCore:
             {"continue":"summary","end":END},
         )
         self.graph.add_edge("summary","retrieve")
+        self.graph.add_edge("retrieve_file","retrieve")
+        self.graph.add_edge("retrieve_gdb","retrieve")
+        #判定根据检索的工具判定检索的流向
         #检索完成后根据用户意图选择改写已有文档还是从零编写文档
         self.graph.add_conditional_edges(
             "retrieve",
-            route_intent,
-            {"rewrite":"rewrite_docx","new":"new_docx"},
+            route_retrieve,
+            {"rewrite":"rewrite_docx","new":"new_docx","file":"retrieve_file","knowledge":"retrieve_gdb","end":END},
         )
         self.graph.add_edge("new_docx",END)
         self.graph.add_edge("rewrite_docx",END)
@@ -101,8 +132,14 @@ class AgentCore:
                 "state": "start",
                 "input_file_path": list(input_file_path or []),
                 "file_summaries": {},
+                "gdb_label": "global",
                 "retrieved_content": [],
+<<<<<<< HEAD
                 "user_intent": None,
+=======
+                "retrieve_count_limit": 3,
+                "user_intent": "new" if op=="new" else ("rewrite" if (rewrite_file or op=="rewrite") else None),
+>>>>>>> 418ae08453f505f34528228fa8cf69e129087893
                 "rewrite_file": rewrite_file,
                 "rewrite_mode": rewrite_mode or "auto",
                 "replace_pairs": replace_pairs or {},
