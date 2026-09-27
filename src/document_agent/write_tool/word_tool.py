@@ -644,8 +644,12 @@ def _replace_text_runs_keep_protected(node: Paragraph, new_data: ParagraphItem,
         if child.tag == qn("w:pPr"):
             continue
         if child.tag == qn("w:hyperlink"):
-            #超链接文字整体移除，避免与新增文本重复
-            element.remove(child)
+            #超链接内只移除可替换的纯文本 run，保留图片/域代码等受保护子元素及超链接本身
+            for h_child in list(child):
+                if h_child.tag == qn("w:r") and not any(
+                    h_child.findall(".//" + _tag_name(tag)) for tag in PROTECTED_PARA_TAGS
+                ):
+                    child.remove(h_child)
             continue
         if child.tag in (qn("m:oMath"), qn("m:oMathPara")):
             # 如果新内容显式提供了新的公式，则移除旧公式；否则原样保留

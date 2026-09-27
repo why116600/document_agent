@@ -133,8 +133,8 @@ def match_candidate_file(target_str: Optional[str], candidate_files: List[str]) 
         for f in candidate_files:
             if str(Path(f).resolve()).lower() == target_abs.lower():
                 return str(Path(f).resolve()), None
-        # 如果路径存在且是 .docx，即便未显式登记在 candidate_files 也接受
-        return str(target_path.resolve()), None
+        # 路径存在但未登记在 candidate_files：拒绝，避免改写从未提供给系统的文档
+        return None, f"目标文档不在候选文件列表中：{target_clean}"
 
     # 候选文件中的 docx（只有 docx 能作为改写目标）
     docx_candidates = [f for f in candidate_files if Path(f).suffix.lower() == ".docx"]
@@ -211,6 +211,9 @@ def resolve_save_target(
         clean_name = Path(candidate_name).name
         if not clean_name.lower().endswith(".docx"):
             clean_name += ".docx"
+        # 模型建议的文件名若与源文档同名，必须消歧，避免改写输出覆盖源文件
+        if rewrite_file and Path(clean_name).name.lower() == Path(rewrite_file).name.lower():
+            clean_name = f"{Path(rewrite_file).stem}_修改版.docx"
 
     # 4. 无有效文件名时兜底命名
     if not clean_name:

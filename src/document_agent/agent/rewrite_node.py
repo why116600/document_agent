@@ -1196,7 +1196,8 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
                 applied += len(insert_items)
                 print(f"已在第{edit.index}个元素后插入{len(insert_items)}个新段落")
             elif action == "replace_text":
-                old_text = (edit.old_text or "").strip()
+                #精确子串替换：保留模型给出的原文首尾空格，避免匹配错位（纯空白已在校验层拒绝）
+                old_text = edit.old_text or ""
                 if not old_text:
                     print(f"第{edit.index}个元素缺少old_text，跳过")
                     continue
@@ -1463,6 +1464,7 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
         if len(chunk_ranges) > 1:
             print(f"大章节 {s['title']} 内容较长，已拆成 {len(chunk_ranges)} 块分别重塑")
         chunk_failed = False
+        staged_chunks = []  #暂存各块生成结果，待本章节所有块都成功后再统一落盘，避免中途失败留下半改
         for chunk_start, chunk_end in chunk_ranges:
             sec_desc = description[chunk_start:chunk_end + 1]
             print(f"正在重写大章节：{s['title']}（下标 {chunk_start}~{chunk_end}）...")
@@ -1497,7 +1499,7 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
             if res is None or not res.items:
                 print(f"大章节 {s['title']}（下标 {chunk_start}~{chunk_end}）重写未能生成有效内容，保留原内容")
                 chunk_failed = True
-                continue
+                break
 
             #过滤出可渲染的有效项，防止空载荷把原内容清空
             valid_items = [
@@ -1509,8 +1511,16 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
             if not valid_items:
                 print(f"大章节 {s['title']}（下标 {chunk_start}~{chunk_end}）未生成可渲染内容，保留原内容")
                 chunk_failed = True
-                continue
+                break
 
+            staged_chunks.append((chunk_start, valid_items))
+
+        if chunk_failed:
+            failed_sections.append(s["title"])
+            continue
+
+        #本章节所有块都生成成功，才统一落盘：先插入全部新内容，再删除各块旧元素
+        for chunk_start, valid_items in staged_chunks:
             target_element = nodes[chunk_start]._element
             #新内容依次插入到旧内容首个元素之前
             for item in valid_items:
@@ -1524,17 +1534,15 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
                     )
                     target_element.addprevious(new_table._element)
 
-            # 移除该块所有旧元素
+        # 移除各块所有旧元素
+        for chunk_start, chunk_end in chunk_ranges:
             for i in range(chunk_start, chunk_end + 1):
                 old_elem = nodes[i]._element
                 parent = old_elem.getparent()
                 if parent is not None:
                     parent.remove(old_elem)
 
-        if chunk_failed:
-            failed_sections.append(s["title"])
-        else:
-            total_sections_rewritten += 1
+        total_sections_rewritten += 1
 
     if skipped_sections:
         print(f"【全局重塑】以下 {len(skipped_sections)} 个大章节含无法改写的内容，已原样保留："
@@ -2089,7 +2097,8 @@ def build_step_dialog(dialog: str, step: dict, total_steps: int) -> str:
 
 def dispatch_rewrite_mode(llm, mode: str, dialog: str, retrieved_info: str, doc: Document,
                           nodes, base_items, description, replace_pairs,
-                          step_no: int = 0, total_steps: int = 1) -> Tuple[int, str]:
+                          step_no: int = 0, total_steps: int = 1,
+                          target: str = "") -> Tuple[int, str]:
     """按模式调用对应改写引擎；多步骤时在日志中标出步骤序号。"""
     prefix = f"步骤{step_no}/{total_steps}：" if total_steps > 1 else ""
     if mode == "replace":
@@ -2099,6 +2108,10 @@ def dispatch_rewrite_mode(llm, mode: str, dialog: str, retrieved_info: str, doc:
         print(f"【改写调度】{prefix}{STEP_MODE_LABELS['global']}")
         return run_global_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description)
     if mode == "format":
+        #格式规范化是整篇排版：作用域只写在提示词里无法约束实际循环，故拒绝局部范围，避免"只排版某章"变成排版全文
+        if (target or "").strip():
+            return 0, (f"格式规范化暂不支持指定局部范围（本步范围：{target.strip()}），"
+                       "请以整篇文档为单位进行排版规范化")
         print(f"【改写调度】{prefix}{STEP_MODE_LABELS['format']}")
         return run_format_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description)
     print(f"【改写调度】{prefix}{STEP_MODE_LABELS['patch']}")
@@ -2161,7 +2174,7 @@ def create_rewrite_node(llm):
             step_applied, error = dispatch_rewrite_mode(
                 llm, step["mode"], build_step_dialog(dialog, step, len(steps)), retrieved_info,
                 doc, nodes, base_items, description, step_pairs,
-                step_no=position, total_steps=len(steps),
+                step_no=position, total_steps=len(steps), target=step["target"],
             )
             applied += step_applied or 0
             if error:

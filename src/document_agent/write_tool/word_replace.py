@@ -111,8 +111,13 @@ def replace_in_paragraph(p: Paragraph, old_text: str, new_text: str) -> int:
 def replace_in_table(table: Table, old_text: str, new_text: str) -> int:
     """在表格的所有单元格段落中安全替换文本。"""
     count = 0
+    seen = set()
     for row in table.rows:
         for cell in row.cells:
+            #合并单元格会在 row.cells 中重复出现且指向同一个 w:tc，需去重避免重复替换、计数虚高
+            if id(cell._tc) in seen:
+                continue
+            seen.add(id(cell._tc))
             for p in cell.paragraphs:
                 count += replace_in_paragraph(p, old_text, new_text)
     return count
