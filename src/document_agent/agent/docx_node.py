@@ -28,7 +28,8 @@ def create_new_docx_node(llm):#从零编写文档的节点
             "输出结果按照json的列表格式输出章节列表，仅输出json字符串结果，不要输出其它内容"
         )
         res=llm_invoke(llm,prompt)
-        section_str=getattr(res,"content")
+        # llm_invoke 失败时返回字典而非消息对象，必须给默认值避免 AttributeError
+        section_str=getattr(res,"content",None)
         if section_str is None:
             return {**state,"state":"error","error":"规划文档章节时，模型输出错误"}
         matches = extract_json_from_text(section_str, return_all=True) or []
@@ -50,6 +51,10 @@ def create_new_docx_node(llm):#从零编写文档的节点
             prompt=(
                 "你是一个写作系统的智能助手，需要根据章节主旨以及源信息进行文档生成，包括段落和表格\n"
                 "文档字体上，除了用户的特殊要求，正文不加粗，标题加粗\n"
+                "标题段落请设置 heading_level 字段写入真实大纲级别（章节主标题=1，其下小节标题=2，正文段落不设置）\n"
+                "字体字号：若用户指定了格式方案则以用户要求为准；否则请你根据文档类型与用途，"
+                "自行思考并设计一套最适合本文档的字体字号方案（标题与正文层级梯度清晰、同层级一致、"
+                "全文统一不混用），并通过 font_name/font_size 字段设置\n"
                 f"整个文档的大纲：\n{section_str}\n"
                 f"当前要编写的章节内容：{section}\n"
                 f"{retrieved_info}\n"
@@ -66,8 +71,8 @@ def create_new_docx_node(llm):#从零编写文档的节点
                     node=doc.add_table(rows=0,cols=0)
                     replace_node_with_data(node,item.Table)
         save_path=resolve_save_path(state.get("save_path"))
+        save_path=save_document(doc, save_path)  # 目标被占用时会避让另存，返回实际保存路径
         print("保存到：",str(save_path))
-        save_document(doc, save_path)
             
         # if action is None:
         #     print("识别用户写作意图失败")

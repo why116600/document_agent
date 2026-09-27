@@ -1,4 +1,4 @@
-
+﻿
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
 from pathlib import Path
@@ -10,32 +10,23 @@ try:
 except ImportError:
     from llm_client import llm_invoke, llm_model_invoke
     from agent_core import AgentState
-try:
-    from document_agent.memory.neo_graph_db import MemgraphNodeManager
-except ImportError:
-    # =========================================================================
-    # 【依赖导入降级说明】
-    # 当未安装 neo4j / sentence-transformers 时，使用 Any 占位，避免导入时立即抛错崩溃。
-    # 后期安装完依赖并强制要求 Memgraph 时，可直接恢复为：
-    # from document_agent.memory.neo_graph_db import MemgraphNodeManager
-    # =========================================================================
-    MemgraphNodeManager = Any
+from document_agent.memory.neo_graph_db import MemgraphNodeManager
 
 class GraphRetrieveDecision(BaseModel):
     enough : bool = Field(default=True,description="当前信息是否已经满足检索目标的要求")
     to_expand : List[str] = Field(default=[],description="需要进一步展开检索的信息")
 
-def create_gdb_retrieve_node(llm, gdb: Any):
+def create_gdb_retrieve_node(llm,gdb : MemgraphNodeManager):
     def gdb_retrieve(state : AgentState) -> AgentState:
         params=state["retrieve_params"]
         retrieve_target=state["retrieve_target"]
         retrieved_items=state["retrieved_content"]
-        expandable_nodes={}#可以展开的节点id到retrieved_items对应项的下标以及节点内容的映射
+        expandable_nodes={}#节点id → (retrieved_items 下标, 节点内容)
         data_label=state["gdb_label"]
         data_node_backward={}
         if params is None:
             return {**state,"state":"error","error":"图数据库检索缺少参数"}
-        print("="*20,"开始进行图数据库的检索，检索目标：",retrieve_target,"="*20)
+        print("="*20,"图数据库检索，目标：",retrieve_target,"="*20)
         print("检索参数：",params)
         res=gdb.search_by_vector(data_label,retrieve_target)
         nroot=len(res)
@@ -55,7 +46,7 @@ def create_gdb_retrieve_node(llm, gdb: Any):
                 retrieved_items.append(f"可展开的图数据库节点{nid}的内容：{item['summary']}")
             else:
                 retrieved_items.append(f"不可展开的图数据库节点{nid}的内容：{item['content']}")
-        # 开始大模型摘要dag检索
+        # 大模型摘要式 dag 检索
         for _ in range(10*nroot):
             retrieved_str="\n".join(retrieved_items)
             think_prompt=(

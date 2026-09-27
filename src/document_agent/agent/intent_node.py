@@ -1,8 +1,7 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-import re
 from pathlib import Path
-from typing import List, Tuple, Optional, Dict, Literal
+from typing import Any, List, Tuple, Optional, Dict, Literal
 from pydantic import BaseModel, Field
 
 try:
@@ -16,21 +15,32 @@ except ImportError:
 SUPPORTED_REFERENCE_SUFFIXES = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".txt", ".json", ".csv", ".md"}
 
 
-class RewriteIntentAnalysis(BaseModel):
-    """改写意图分析结果模型（兼容旧版调用）。"""
-    mode: str = Field(
+
+class RewriteStep(BaseModel):#复合改写指令中的一个执行步骤
+    """复合改写指令的单个执行步骤：一条指令含多个诉求时，由大模型拆成有序的多个步骤。"""
+
+    order: int = Field(default=1, description="执行顺序，从 1 开始，按 order 从小到大依次执行。")
+    mode: Literal["replace", "patch", "global", "format"] = Field(
         description=(
-            "改写模式，必须是以下三者之一：\n"
-            "- 'replace'：全局查找替换。用于全文批量替换特定专有名词、公司名称、人名、术语、年份、单位等明确的对应词；\n"
-            "- 'patch'：局部微调修补。用于修改、增加或删除特定条款、章节、段落或表格，不需要重构整篇文档；\n"
-            "- 'global'：全局重塑与全文润色。用于对整篇文档进行语言风格重构、公文规范化深度润色、全文结构重构。"
+            "本步骤使用的改写引擎：\n"
+            "- 'replace': 全局查找替换（只换词，不改动文档结构）；\n"
+            "- 'patch': 局部增删改（补充/修改/删除特定段落、条款、表格）；\n"
+            "- 'global': 全局重塑与全文润色（整篇重写）；\n"
+            "- 'format': 只规范排版（字体字号、标题层级、行距段距、对齐方式），文字一字不改。"
         )
+    )
+    target: Optional[str] = Field(
+        default=None,
+        description="本步骤的作用范围（如章节名'工作交接部分'、'全文'），不限定范围时留空。"
+    )
+    instruction: str = Field(
+        default="",
+        description="本步骤要完成的具体要求，只写与本步骤相关的内容，不要复述其它步骤的要求。"
     )
     replace_pairs: Dict[str, str] = Field(
         default_factory=dict,
-        description="当 mode 为 'replace' 时，提取用户要求替换的所有词对映射（原词为 key，替换后新词为 value）；非 replace 模式必须为空字典。"
+        description="仅 mode 为 'replace' 时填写本步骤的 {旧词: 新词} 映射；其它模式必须为空字典。"
     )
-    reason: str = Field(default="", description="做出该模式选择的分析判断理由")
 
 
 class DocumentTaskIntent(BaseModel):
@@ -53,29 +63,53 @@ class DocumentTaskIntent(BaseModel):
             "必须与候选文件列表中某一个完全对应（注意：必须是 .docx 格式文档）；若 task_type 为 'new' 则为 null。"
         )
     )
-    rewrite_mode: Optional[Literal["patch", "replace", "global"]] = Field(
-        default="patch",
+    rewrite_steps: List[RewriteStep] = Field(
+        default_factory=list,
         description=(
-            "当 task_type 为 'rewrite' 时的改写策略：\n"
-            "- 'replace': 全局查找替换。全文批量替换特定专有名词、人名、公司名、术语、年份等；\n"
-            "- 'patch': 局部微调修补。针对文档的特定条款、段落、章节、表格增删改；\n"
-            "- 'global': 全局重塑与全文润色。对整篇文档语言风格规范化深度润色、全文重构。"
+            "改写指令的有序执行步骤清单——这是唯一决定执行哪些改写模式、以什么顺序执行的字段：\n"
+            "1. 先判断指令是否为「复合指令」：只有当指令同时包含不同性质的诉求（改内容 / 换词 / 只排版）时才算复合；\n"
+            "2. 非复合指令（单一诉求）：必须且只能给出恰好 1 个步骤，绝不能为了稳妥而多拆步骤；\n"
+            "3. 复合指令：拆成 2~N 个步骤，order 从 1 递增，每步只描述自己那部分要求；\n"
+            "   例如'把排版规范一下，并在工作交接部分再加一条电信诈骗提醒'是复合指令，拆为：\n"
+            "   [{order:1, mode:'patch', target:'工作交接部分', instruction:'新增一条电信诈骗提醒'},"
+            "{order:2, mode:'format', target:'全篇', instruction:'统一规范全文排版格式'}]；\n"
+            "4. 顺序硬约束：replace 必须排最前；局部增补 patch 先于整篇重写 global；"
+            "format 必须排最后（内容定稿后再统一排版，否则新增段落不会被规范化）；\n"
+            "5. 严禁因为主诉求是格式规范就丢掉内容增补等次要诉求。"
         )
     )
     replace_pairs: Dict[str, str] = Field(
         default_factory=dict,
-        description="当 rewrite_mode 为 'replace' 时，提取所有要查找替换的词对 {原词: 新词}；非 replace 模式必须为空字典。"
+        description="当改写步骤中出现 replace 模式时，汇总提取所有要查找替换的词对 {原词: 新词}；非 replace 情况必须为空字典。"
+    )
+    save_mode: Literal["new_file", "overwrite"] = Field(
+        default="new_file",
+        description=(
+            "保存模式：\n"
+            "- 'overwrite': 用户明确要求原地覆盖修改原文件（例如指令包含'直接在原文件上改'、'覆盖原文件'）；\n"
+            "- 'new_file': 另存为新文档（默认安全推荐。无论用户是否显式指定新文件名，"
+            "为保障原始草稿数据安全，改写或新建文档默认均另存为新版/正式版/优化版文档）。"
+        )
+    )
+    suggested_filename: Optional[str] = Field(
+        default=None,
+        description=(
+            "建议的目标文件名（必须以 .docx 结尾）：\n"
+            "1. 若用户在指令中明确指定了保存文件名（例如：'另存为 最终汇报.docx'），提取该文件名；\n"
+            "2. 若用户未指定新文件名：\n"
+            "   - 若为 new 模式（全新写作）：结合撰写主题智能拟定规范公文名称（如'关于XXX情况的报告.docx'）；\n"
+            "   - 若为 rewrite 模式且为 new_file：根据原目标文件名、参考材料及改写目标，智能拟定一个专业得体的新文件名"
+            "（例如：原文件是'11_粗糙排版_各业务线自报数据与零散问题汇总.docx'，参考了'正式版2'，可智能生成'11_各业务线自报数据与零散问题汇总_正式版.docx'或'11_各业务线自报数据与零散问题汇总_规范排版版.docx'）；\n"
+            "3. 若 save_mode 为 'overwrite'，此处填原文件名或保持为 null。"
+        )
     )
     save_filename: Optional[str] = Field(
         default=None,
-        description=(
-            "用户在指令中是否明确要求另存为特定文件名或路径（例如：'另存为 最终版.docx'、'保存到 输出.docx'）。\n"
-            "若用户未明确指定另存为（例如只说修改、未提及新文件名），必须填 null。"
-        )
+        description="兼容旧字段，与 suggested_filename 含义一致。"
     )
     reasoning: str = Field(
         default="",
-        description="做出该意图判断和文件挑选的简要分析理由。"
+        description="做出该意图判断、文件挑选及文件名拟定的简要分析理由。"
     )
 
 
@@ -102,12 +136,12 @@ def match_candidate_file(target_str: Optional[str], candidate_files: List[str]) 
         # 如果路径存在且是 .docx，即便未显式登记在 candidate_files 也接受
         return str(target_path.resolve()), None
 
-    # 过滤出所有 candidate 中的 docx 文件（只有 docx 允许作为改写目标）
+    # 候选文件中的 docx（只有 docx 能作为改写目标）
     docx_candidates = [f for f in candidate_files if Path(f).suffix.lower() == ".docx"]
     if not docx_candidates:
         return None, "候选文件列表中不存在任何可作为改写目标的 .docx 文档"
 
-    # 2. 按文件名（含后缀）完全匹配（不区分大小写，且仅限 docx）
+    # 2. 按文件名完全匹配（不区分大小写）
     target_name_lower = target_path.name.lower()
     exact_matches = [
         str(Path(f).resolve())
@@ -117,7 +151,7 @@ def match_candidate_file(target_str: Optional[str], candidate_files: List[str]) 
     if len(exact_matches) >= 1:
         return exact_matches[0], None
 
-    # 3. 按主文件名（不含后缀）匹配 .docx 文件
+    # 3. 按主文件名匹配
     target_stem_lower = target_path.stem.lower()
     stem_matches = [
         str(Path(f).resolve())
@@ -127,7 +161,7 @@ def match_candidate_file(target_str: Optional[str], candidate_files: List[str]) 
     if len(stem_matches) >= 1:
         return stem_matches[0], None
 
-    # 4. 子串包含模糊匹配（仅限 .docx）
+    # 4. 子串模糊匹配
     substr_matches = [
         str(Path(f).resolve())
         for f in docx_candidates
@@ -141,66 +175,59 @@ def match_candidate_file(target_str: Optional[str], candidate_files: List[str]) 
 
 def resolve_save_target(
     explicit_save_path: Optional[str],
-    extracted_filename: Optional[str],
+    save_mode: str,
+    suggested_filename: Optional[str],
     rewrite_file: Optional[str],
+    user_intent: str = "new",
 ) -> str:
     """计算最终输出路径。
     
     优先级：
     1. 显式指定的 save_path 拥有最高优先级；
-    2. 指令中提取出的另存为文件名 save_filename：
-       - 若为绝对路径且以 .docx 结尾直接采用；
-       - 若为纯文件名且为改写模式，保存在与改写目标文档同级目录下；
-       - 若为纯文件名且为新建模式，保存在 data 目录下；
-    3. 若均未指定：
-       - 改写模式下返回空字符串（后续 rewrite_node 默认原地覆盖）；
-       - 新建模式下返回空字符串（后续 docx_node 默认生成新文档路径）。
+    2. 若用户明确要求 overwrite 原地覆盖，返回 rewrite_file 原绝对路径；
+    3. 另存为新文件模式（save_mode == "new_file" 或未指定）：
+       - 优先采用模型提取或智能推导的文件名 suggested_filename（严格过滤 null/none 等空值）；
+       - 若未能推导出有效文件名：
+         - 改写模式下，自动根据原文件名生成 '<原主文件名>_修改版.docx'，保存在与原文档同级目录下；
+         - 新建模式下，自动生成 '新生成文档.docx'，保存在 data 目录下。
     """
+    # 1. 显式 save_path 优先
     if explicit_save_path and explicit_save_path.strip():
         p = Path(explicit_save_path.strip())
         if p.suffix.lower() != ".docx":
             p = p.with_suffix(".docx")
         return str(p.resolve())
 
-    if extracted_filename and extracted_filename.strip():
-        raw_name = extracted_filename.strip().strip("'\"")
-        # 移除非法字符，提取文件名
-        clean_name = re.sub(r'[\\/:*?"<>|]', '_', Path(raw_name).name)
+    # 2. 原地覆盖模式
+    if save_mode == "overwrite" and rewrite_file:
+        return str(Path(rewrite_file).resolve())
+
+    # 3. 另存为新文件：清洗模型给出的文件名
+    clean_name = ""
+    candidate_name = (suggested_filename or "").strip().strip("'\"")
+    # 严格过滤模型可能输出的字符串 null, none, nil, undefined 或空串
+    stem = Path(candidate_name).stem.lower() if candidate_name else ""
+    if candidate_name and stem not in ("null", "none", "nil", "undefined", ""):
+        clean_name = Path(candidate_name).name
         if not clean_name.lower().endswith(".docx"):
             clean_name += ".docx"
 
+    # 4. 无有效文件名时兜底命名
+    if not clean_name:
         if rewrite_file:
-            target_dir = Path(rewrite_file).resolve().parent
-            return str((target_dir / clean_name).resolve())
+            clean_name = f"{Path(rewrite_file).stem}_修改版.docx"
         else:
-            data_dir = Path("data").resolve()
-            data_dir.mkdir(parents=True, exist_ok=True)
-            return str((data_dir / clean_name).resolve())
+            clean_name = "新生成文档.docx"
 
-    return ""
+    # 5. 组装最终绝对路径
+    if rewrite_file:
+        target_dir = Path(rewrite_file).resolve().parent
+        return str((target_dir / clean_name).resolve())
+    else:
+        data_dir = Path("data").resolve()
+        data_dir.mkdir(parents=True, exist_ok=True)
+        return str((data_dir / clean_name).resolve())
 
-
-def resolve_rewrite_file(rewrite_path: Optional[str], input_files: List[str]) -> Tuple[str, str]:
-    """确定需要改写的文档路径，返回 (路径, 错误信息)。
-
-    优先使用明确给出的路径；没有给出时，从输入文件列表里挑选唯一的 docx 文档作为改写对象。
-    """
-    rewrite_path = (rewrite_path or "").strip()
-    if rewrite_path:
-        p = Path(rewrite_path)
-        if not p.exists():
-            return "", f"指定的改写文档不存在：{rewrite_path}"
-        if p.suffix.lower() != ".docx":
-            return "", f"改写目标只支持 .docx 格式：{rewrite_path}"
-        return str(p.resolve()), ""
-
-    docx_files = [str(Path(path).resolve()) for path in (input_files or []) if str(path).lower().endswith(".docx")]
-    if len(docx_files) == 1:
-        print("未显式指定改写文件，自动采用唯一的 docx 文件：", docx_files[0])
-        return docx_files[0], ""
-    if not docx_files:
-        return "", "已进入改写模式，但未指定需要改写的 docx 文档路径"
-    return "", f"已进入改写模式，但检测到多个 docx 文档：{docx_files}，请明确指定需要改写哪一个"
 
 
 def validate_reference_paths(reference_paths: Optional[List[str]]) -> Tuple[List[str], str]:
@@ -245,35 +272,96 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str]) -> st
         "   - 注意：改写对象必须是 .docx 格式。非 .docx 文件（如 .pdf, .xlsx）只能作为参考资料，不能作为修改目标；\n"
         "   - 若候选列表有多个 docx，请仔细结合用户指令中的文件名、业务关键词进行匹配；\n"
         "   - 若 task_type 为 'new'，此处必须为 null。\n"
-        "3. rewrite_mode 判断（仅当 task_type 为 rewrite 时）：\n"
-        "   - 'replace'：全文专有名词/术语/单位/年份等批量查找替换。必须在 replace_pairs 中提取出对应的 {旧词: 新词}；\n"
-        "   - 'global'：整篇文档行文风格全面重塑、公文规范化深度润色、全文逐章深度重写；\n"
-        "   - 'patch'：修改/增删特定条款、段落微调、更新表格数据等局部操作（最常用且保留原文档排版格式）。\n"
-        "4. replace_pairs 提取：\n"
-        "   - 仅在 replace 模式下提取需要替换的词对字典，格式为 {原词: 替换后新词}；其它模式必须为空字典。\n"
-        "5. save_filename 提取：\n"
-        "   - 如果用户在指令中明确指定了另存为的新文件名或新路径（如'另存为 最终版.docx'、'保存到 输出.docx'、'输出为新版.docx'），提取该文件名；\n"
-        "   - 如果用户未指定另存为（只是原地修改或未提及新文件名），必须为 null。\n"
-        "6. reasoning：简要阐述判断依据。"
+        "3. rewrite_steps 步骤编排（仅当 task_type 为 rewrite 时；这是唯一决定执行哪些改写模式与顺序的字段）：\n"
+        "   -（a）先判断是否为「复合指令」：只有当指令同时包含不同性质的诉求（改内容 / 换词 / 只排版）时才算复合；\n"
+        "   -（b）非复合指令（单一诉求）：必须且只能给出恰好 1 个步骤，绝不能为了稳妥而多拆步骤。例如：\n"
+        "       * 只要求'格式规范/统一排版/统一字体字号/调整标题层级/统一行距段距/套用样式'且未要求改写、润色、重写、精简、扩写文字内容时，只给 1 步 mode='format'（严禁改成 'global'）；\n"
+        "       * 只要求整篇风格重塑、公文规范化深度润色、逐章深度重写时，只给 1 步 mode='global'；\n"
+        "       * 只要求修改/增删特定条款、段落微调、更新表格数据等局部操作时，只给 1 步 mode='patch'（最常用且保留原文档排版格式）；\n"
+        "       * 只要求全文专有名词/术语/单位/年份等批量替换时，只给 1 步 mode='replace'，并在该步的 replace_pairs 中给出 {旧词: 新词}；\n"
+        "   -（c）复合指令：拆成 2~N 个步骤，order 从 1 递增，每步的 mode/target/instruction 只描述本步要做的事；\n"
+        "     例如'把这个文件的排版格式规范一下，生成一个新文件，并且在工作交接部分再多加一个电信诈骗提醒'，必须拆为：\n"
+        "     [{order:1, mode:'patch', target:'工作交接部分', instruction:'在工作交接部分新增一条电信诈骗提醒'},"
+        " {order:2, mode:'format', target:'全篇', instruction:'统一规范全文排版格式'}]\n"
+        "   -（d）顺序硬约束：replace 排最前（纯词替换、不改变文档结构）；局部增补 patch 先于整篇重写 global；"
+        "format 必须排最后（内容定稿后再统一排版，否则新增段落不会被规范化）；\n"
+        "   -（e）若用户既要求改内容又要求规范格式，绝不能只给 format 而丢掉内容诉求。\n"
+        "4. replace_pairs 提取（仅当步骤中出现 replace 模式时）：\n"
+        "   - 提取需要替换的词对字典，格式为 {原词: 替换后新词}，并与该 replace 步骤的 replace_pairs 保持一致；\n"
+        "   - 非 replace 模式必须为空字典。\n"
+        "5. save_mode 判断：\n"
+        "   - 'overwrite'：用户在指令中明确提出直接修改原文件、覆盖原文档（例如：'直接在原文件上改'、'覆盖原文件'）；\n"
+        "   - 'new_file'：另存为新文件（默认安全推荐。若用户未明确说明或指定了另存为文件名，为保障原稿安全均按 new_file 处理）。\n"
+        "6. suggested_filename 提取或智能推导（必须以 .docx 结尾）：\n"
+        "   - 若用户指令中明确指定了新文件名（如'另存为 汇报_v2.docx'、'保存到 输出.docx'），直接提取该文件名；\n"
+        "   - 若用户未明确指定新文件名：\n"
+        "     * 若为 new 模式：根据写作主题拟定规范公文名称（例如'关于XXX情况的报告.docx'）；\n"
+        "     * 若为 rewrite 模式且为 new_file：根据待改写文件名、参考文件风格和改写意图智能拟定一个专业得体的新文件名"
+        "（例如：原文件是'11_粗糙排版_各业务线自报数据与零散问题汇总.docx'，参考了'正式版2'，可智能拟定为'11_各业务线自报数据与零散问题汇总_正式版.docx'或'11_各业务线自报数据与零散问题汇总_规范排版版.docx'）；\n"
+        "     * 若为 overwrite 模式：可填原文件名或保持为 null。\n"
+        "7. reasoning：简要阐述判断依据、是否为复合指令及步骤拆分理由，以及文件名推导理由。"
     )
 
 
-def create_intent_node(llm=None):
-    """创建初始化、参数校验与全功能意图与实体槽位智能识别节点。
+#步骤模式的展示名（与 rewrite_node 的调度打印保持一致）
+STEP_MODE_LABELS = {
+    "replace": "模式二：全局查找替换",
+    "patch": "模式一：局部微调",
+    "global": "模式三：全局重构与润色",
+    "format": "模式四：格式规范化",
+}
 
-    具备以下核心能力：
-    1. 【自然语言意图全自动识别】：无需依赖命令行显式指定模式，大模型自主从指令中推断是全新写作还是改写；
-    2. 【候选文件池智能分流】：从传入的一堆文件中，自动区分哪个是待修改的目标文档，哪些是辅助参考资料；
-    3. 【改写策略三层细分】：精准分类为 patch（局部修补）、replace（全局替换）或 global（全局重构润色）；
-    4. 【另存为目标解析】：自动从用户指令中提取另存为文件名并拼装目标路径；
-    5. 【显式参数优先与向下兼容】：若调用方显式提供了 rewrite_file 或明确的 rewrite_mode，优先遵循显式配置。
+
+def build_rewrite_steps(task_intent, fallback_mode: str, replace_pairs: Dict[str, str]) -> List[Dict[str, Any]]:
+    """把大模型给出的步骤清单规整为可执行的有序步骤，并打印编排结果。
+
+    - 兼容缺省：模型未给 rewrite_steps 时退化为「单步骤 = fallback_mode」，行为与旧版一致；
+    - 步骤内提取的 replace 词对会并入 state 的 replace_pairs；
+    - 这里只做排序与合法性过滤，真正的依赖关系校正（replace 最前 / format 最后）由改写节点执行。
     """
+    steps: List[Dict[str, Any]] = []
+    for position, raw in enumerate(list(getattr(task_intent, "rewrite_steps", None) or [])):
+        mode = str(getattr(raw, "mode", "") or "").strip().lower()
+        if mode not in STEP_MODE_LABELS:
+            continue
+        try:
+            order = int(getattr(raw, "order", 0) or position + 1)
+        except (TypeError, ValueError):
+            order = position + 1
+        step_pairs = dict(getattr(raw, "replace_pairs", None) or {})
+        if mode == "replace" and step_pairs:
+            replace_pairs.update(step_pairs)
+        steps.append({
+            "order": order,
+            "mode": mode,
+            "target": str(getattr(raw, "target", "") or "").strip(),
+            "instruction": str(getattr(raw, "instruction", "") or "").strip(),
+            "replace_pairs": step_pairs,
+        })
+    if not steps:
+        steps = [{"order": 1, "mode": fallback_mode, "target": "", "instruction": "", "replace_pairs": {}}]
+    steps.sort(key=lambda step: step["order"])
+    for position, step in enumerate(steps, 1):
+        step["order"] = position
+
+    if len(steps) == 1:
+        step = steps[0]
+        scope = f"（范围：{step['target']}）" if step["target"] else ""
+        print(f"【改写编排】单步骤：{STEP_MODE_LABELS[step['mode']]}{scope}")
+    else:
+        print(f"【改写编排】共 {len(steps)} 个步骤，将按序执行：")
+        for step in steps:
+            scope = f"范围：{step['target']}｜" if step["target"] else ""
+            print(f"   步骤{step['order']}：{STEP_MODE_LABELS[step['mode']]}｜{scope}要求：{step['instruction'] or '（沿用整体要求）'}")
+    return steps
+
+
+def create_intent_node(llm=None):
+    """创建初始化、参数校验与全量意图识别节点：意图、目标文件、有序步骤与另存文件名均由大模型从自然语言推断。"""
     def intent_node(state: AgentState) -> AgentState:
         raw_input_files = list(state.get("input_file_path") or [])
-        rewrite_file = (state.get("rewrite_file") or "").strip()
-        rewrite_mode = (state.get("rewrite_mode") or "auto").strip().lower()
-        replace_pairs = dict(state.get("replace_pairs") or {})
         explicit_save_path = (state.get("save_path") or "").strip()
+        replace_pairs = dict(state.get("replace_pairs") or {})
 
         # 1. 基础校验输入文件是否存在与类型支持
         valid_input_files, ref_error = validate_reference_paths(raw_input_files)
@@ -288,19 +376,15 @@ def create_intent_node(llm=None):
         user_prompt = get_last_user_text(state.get("messages")).strip()
         docx_candidates = [f for f in valid_input_files if Path(f).suffix.lower() == ".docx"]
 
-        # 2. 判断是否需要大模型执行全量意图与实体抽取
-        # 条件：未显式指定 rewrite_file，且未显式指定 user_intent，且有传入文件和 prompt
-        need_llm_task_analysis = (
-            not rewrite_file
-            and state.get("user_intent") is None
-            and llm is not None
-            and bool(user_prompt)
-        )
-
+        rewrite_file = None
+        rewrite_mode = None
+        rewrite_steps: List[Dict[str, Any]] = []
         extracted_save_filename = None
+        user_intent = "new"
 
-        if need_llm_task_analysis:
-            print("【意图分析】未显式指定改写文件，正在通过大模型智能分析用户指令与候选文件...")
+        # 2. 大模型全量分析指令与候选文件池
+        if llm is not None and user_prompt:
+            print("【意图分析】正在分析用户指令与候选文件...")
             intent_prompt = build_full_intent_prompt(user_prompt, valid_input_files)
             task_intent = llm_model_invoke(llm, intent_prompt, DocumentTaskIntent)
 
@@ -312,116 +396,103 @@ def create_intent_node(llm=None):
                     matched_file, match_err = match_candidate_file(target_candidate, valid_input_files)
 
                     if not matched_file:
-                        # 兜底尝试：如果候选文件中刚好只有一个 .docx 文件，自动采用
-                        if len(docx_candidates) == 1:
-                            matched_file = docx_candidates[0]
-                            print(f"【智能匹配兜底】未精准匹配到名称，自动采用候选列表中唯一的 docx 文档: {matched_file}")
-                        elif len(docx_candidates) == 0:
+                        # 匹配失败一律报错退出：绝不自动采用候选中的 docx，避免改错文档
+                        if len(docx_candidates) == 0:
                             err_msg = (
                                 "识别到您的需求为修改已有文档，但在提供的候选文件列表中未找到任何可修改的 Word (.docx) 文档。\n"
                                 f"（当前候选文件：{valid_input_files}）"
                             )
-                            print(f"[意图识别错误] {err_msg}")
-                            return {**state, "user_intent": "rewrite", "state": "error", "error": err_msg}
+                        elif len(docx_candidates) == 1:
+                            err_msg = (
+                                f"识别到改写需求，但未能确定要修改哪一个文档：模型识别目标为 '{target_candidate}'"
+                                f"（匹配失败原因: {match_err}）。\n"
+                                f"候选列表中唯一的 .docx 文档是 {docx_candidates[0]}，请确认它是否就是要改的文档，"
+                                "并在需求里指明具体文件名后重试。\n"
+                                "（为避免改错文档，系统不会自动猜测采用候选文件。）"
+                            )
                         else:
                             err_msg = (
                                 f"识别到改写需求，但候选列表中存在多个 docx 文档 ({docx_candidates})，"
                                 f"未能明确确定要修改哪一个（模型识别目标: '{target_candidate}'）。请在指令中指明具体要修改的文件名。"
                             )
-                            print(f"[意图识别错误] {err_msg}")
-                            return {**state, "user_intent": "rewrite", "state": "error", "error": err_msg}
+                        print(f"[意图识别错误] {err_msg}")
+                        return {**state, "user_intent": "rewrite", "state": "error", "error": err_msg}
 
                     rewrite_file = matched_file
-                    rewrite_mode = task_intent.rewrite_mode or "patch"
-                    if rewrite_mode == "replace" and task_intent.replace_pairs:
+                    #顶层 replace_pairs 作为兜底：模型把词对写在步骤内时，build_rewrite_steps 会并入
+                    if task_intent.replace_pairs:
                         replace_pairs.update(task_intent.replace_pairs)
-                    extracted_save_filename = task_intent.save_filename
+                    #步骤清单是改写模式的唯一依据：非复合=恰好 1 步、复合=按序多步，由改写节点依次落地
+                    rewrite_steps = build_rewrite_steps(task_intent, "patch", replace_pairs)
+                    rewrite_mode = rewrite_steps[0]["mode"]  #兼容派生字段：等于第一步的模式
+                    save_mode = task_intent.save_mode or "new_file"
+                    extracted_save_filename = task_intent.suggested_filename or task_intent.save_filename
                 else:
                     user_intent = "new"
                     rewrite_file = None
                     rewrite_mode = None
-                    extracted_save_filename = task_intent.save_filename
+                    save_mode = task_intent.save_mode or "new_file"
+                    extracted_save_filename = task_intent.suggested_filename or task_intent.save_filename
             else:
-                # 大模型结构化解析失败时的鲁棒兜底
-                print("【意图分析】大模型结构化解析未返回有效结果，启用规则兜底...")
-                # 简单规则启发式：指令包含改写关键词且有单一 docx
-                rewrite_keywords = ["改写", "修改", "替换", "更新", "重写", "润色", "补充", "删减", "增删"]
-                has_rewrite_kw = any(kw in user_prompt for kw in rewrite_keywords)
-                if has_rewrite_kw and len(docx_candidates) == 1:
-                    user_intent = "rewrite"
-                    rewrite_file = docx_candidates[0]
-                    rewrite_mode = "patch"
-                    print(f"【规则兜底】判定为改写文档: {rewrite_file} (模式: patch)")
-                else:
-                    user_intent = "new"
-                    rewrite_file = None
-                    rewrite_mode = None
-                    print("【规则兜底】判定为全新写作")
-        else:
-            # 3. 显式指定模式或无须全量推断（向下兼容）
-            is_rewrite = bool(rewrite_file or (state.get("user_intent") == "rewrite"))
-            if is_rewrite:
-                user_intent = "rewrite"
-                resolved_rewrite, error = resolve_rewrite_file(rewrite_file, valid_input_files)
-                if error:
-                    print(f"[参数校验错误] {error}")
-                    return {**state, "user_intent": "rewrite", "rewrite_file": None, "state": "error", "error": error}
-                rewrite_file = resolved_rewrite
-
-                # 若改写模式仍为 auto，利用大模型进一步确定三层改写模式与提取另存为目标
-                if rewrite_mode in ["auto", "", None] and not replace_pairs and llm is not None:
-                    print(f"【工作模式】改写文档: {rewrite_file} (模式：auto，正在智能推断改写策略...)")
-                    intent_prompt = build_full_intent_prompt(user_prompt, [rewrite_file] + valid_input_files)
-                    analysis = llm_model_invoke(llm, intent_prompt, DocumentTaskIntent)
-                    if analysis and analysis.rewrite_mode in ["replace", "patch", "global"]:
-                        rewrite_mode = analysis.rewrite_mode
-                        if rewrite_mode == "replace" and analysis.replace_pairs:
-                            replace_pairs.update(analysis.replace_pairs)
-                        extracted_save_filename = analysis.save_filename
-                        print(f"【智能意图推断】成功推断为 -> {rewrite_mode.upper()} 模式（依据: {analysis.reasoning}）")
-                    else:
-                        rewrite_mode = "patch"
-                        print("【智能意图推断】推断未返回明确模式，安全兜底采用 -> PATCH 模式")
-                elif rewrite_mode == "auto":
-                    rewrite_mode = "replace" if replace_pairs else "patch"
-                    print(f"【工作模式】改写文档: {rewrite_file} (自动采用 {rewrite_mode} 模式)")
-                else:
-                    print(f"【工作模式】改写文档: {rewrite_file} (显式指定模式: {rewrite_mode})")
-            else:
+                # 大模型结构化解析失败时，默认按全新写作处理
+                print("【意图分析】结构化解析无结果，按全新写作处理")
                 user_intent = "new"
                 rewrite_file = None
                 rewrite_mode = None
-                print("【工作模式】全新写作")
-
-        # 4. 参考文件剥离：如果改写目标也被包含在输入文件中，将其剥离，避免自引与重复解析
-        if rewrite_file:
-            ref_files = [f for f in valid_input_files if Path(f).resolve() != Path(rewrite_file).resolve()]
+                save_mode = "new_file"
         else:
-            ref_files = valid_input_files
+            # 无大模型或无用户指令时的安全初始
+            user_intent = "new"
+            rewrite_file = None
+            rewrite_mode = None
+            save_mode = "new_file"
 
-        # 5. 计算并解析最终输出路径
-        final_save_path = resolve_save_target(explicit_save_path, extracted_save_filename, rewrite_file)
-        if final_save_path:
-            print(f"【输出路径】解析确定文档保存路径为: {final_save_path}")
-        else:
-            if user_intent == "rewrite":
-                print(f"【输出路径】未指定另存为路径，默认将原地保存覆盖原文档: {rewrite_file}")
+        # 3. 构建文件角色映射（保留全部文件，不剔除改写目标）
+        file_roles: Dict[str, str] = {}
+        for f in valid_input_files:
+            f_abs = str(Path(f).resolve())
+            if rewrite_file and f_abs.lower() == str(Path(rewrite_file).resolve()).lower():
+                file_roles[f_abs] = "待修改目标文档"
             else:
-                print("【输出路径】未显式指定，将在生成后自动保存至默认路径")
+                file_roles[f_abs] = "辅助参考资料/风格模板"
 
-        if ref_files:
-            print(f"【参考资料】已确认 {len(ref_files)} 个辅助参考文件: {[Path(f).name for f in ref_files]}")
+        # 4. 计算并解析最终输出路径
+        final_save_path = resolve_save_target(
+            explicit_save_path,
+            save_mode,
+            extracted_save_filename,
+            rewrite_file,
+            user_intent,
+        )
+        if final_save_path:
+            if save_mode == "overwrite":
+                print(f"【输出路径】原地覆盖原文件: {final_save_path}")
+            else:
+                print(f"【输出路径】另存为: {final_save_path}")
         else:
-            print("【参考资料】无辅助参考文件")
+            print("【输出路径】自动保存至默认路径")
+
+        if rewrite_file:
+            print(f"【目标文档】{Path(rewrite_file).name}")
+        ref_files = [
+            f for f in valid_input_files
+            if not rewrite_file or str(Path(f).resolve()).lower() != str(Path(rewrite_file).resolve()).lower()
+        ]
+        if ref_files:
+            print(f"【参考资料】{len(ref_files)} 个文件: {[Path(f).name for f in ref_files]}")
+        else:
+            print("【参考资料】无额外辅助参考文件")
 
         return {
             **state,
             "user_intent": user_intent,
             "rewrite_file": rewrite_file,
             "rewrite_mode": rewrite_mode,
+            "rewrite_steps": rewrite_steps,
             "replace_pairs": replace_pairs,
             "save_path": final_save_path,
-            "input_file_path": ref_files,
+            "input_file_path": valid_input_files,  # 保留全部文件
+            "file_roles": file_roles,              # 各文件角色
         }
 
     return intent_node

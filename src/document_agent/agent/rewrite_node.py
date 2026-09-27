@@ -1,12 +1,13 @@
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from docx import Document
 from docx.oxml.ns import qn
 from docx.table import Table
 from docx.text.paragraph import Paragraph
+from docx.text.run import Run
 from pydantic import BaseModel, Field, model_validator
 
 try:
@@ -23,6 +24,9 @@ from document_agent.write_tool.word_tool import (
     TextRunItem,
     DocxRoot,
     convert_node,
+    apply_paragraph_item_format,
+    apply_run_item_format,
+    apply_heading_outline_level,
     element_has_protected_content,
     paragraph_has_protected_content,
     replace_node_with_data,
@@ -50,20 +54,21 @@ TOOL_DESCRIPTION = """你有以下工具可以使用：
      * replace_text: 精准替换子串，需提供 old_text 与 new_text 字段。
 5. end: 结束改写并应用生效。当所有修改已登记完毕时调用。参数为空字典 {}。"""
 
-MAX_DIRECT_TOKENS = 6000 #估算token低于该值的文档直接整篇差量改写（约5000~6000字，一轮完成规划）；超长文档才工具化按需改写
+MAX_DIRECT_TOKENS = 6000 #估算token低于该值的文档直接整篇改写，超长文档才工具化按需改写
 MAX_TOOL_ROUNDS = 20 #工具化改写的最大轮数
-FEEDBACK_MAX_ROUNDS = 4 #放进prompt的最近轮数，避免历史工具反馈把上下文越撑越大
+FEEDBACK_MAX_ROUNDS = 4 #放进prompt的最近轮数
 FEEDBACK_MAX_CHARS_PER_ROUND = 600 #单轮工具结果最多保留的字符数
-MAX_SECTION_TOKENS = 4000 #全局重塑时单次送给模型的章节最大估算token，超过就按元素边界再分块
+MAX_SECTION_TOKENS = 4000 #全局重塑时单次送入模型的章节最大token
 SEARCH_MAX_HITS = 20 #search工具最多返回的命中元素数
 SEARCH_MAX_TERMS = 5 #search工具最多拆分的组合关键词数
-SEARCH_MAX_HITS_PER_ELEMENT = 3 #单个元素内最多返回的命中位置数，避免局部批量改写漏改
-MAX_READ_CHARS = 1500 #read工具单次最多返回的字符数，调小避免模型一次把全文读回来
+SEARCH_MAX_HITS_PER_ELEMENT = 3 #单个元素内最多返回的命中位置数
+MAX_READ_CHARS = 1500 #read工具单次最多返回的字符数
 SEARCH_CONTEXT_BEFORE = 50 #search结果中关键词前保留的字符数
 SEARCH_CONTEXT_AFTER = 60 #search结果中关键词后保留的字符数
 HEADING_MAX_CHARS = 35 #启发式判定标题时的最大字数
 HEADING_MIN_FONT_SIZE = 14 #启发式判定标题时的大字号阈值
 VIRTUAL_BLOCK_SIZE = 18 #无标题文档按多少个元素聚合成一个虚拟块
+FORMAT_HEADING_SIZE_STEP = 3 #格式规范化时标题字号相对正文基准的递增磅值
 BLOCK_PREVIEW_CHARS = 40 #虚拟块首尾句保留的字符数
 
 _P_CHAPTER = [
@@ -132,7 +137,7 @@ def get_heading_patterns_for_doc(nodes_or_texts=None) -> List[Tuple[int, re.Patt
             if any(p.match(text) for p in _P_CHAPTER):
                 has_chapter = True
 
-    # 1. 科技/标准规范体例 (GB/T 1.1 / GB/T 7713)：存在 1.1 / 1.1.1
+    # 1. 科技/标准规范体例 (GB/T 1.1)：存在 1.1 / 1.1.1
     if has_tech_dotted:
         return _build_patterns({
             1: [_P_CHAPTER, _P_ARABIC_1],
@@ -141,7 +146,7 @@ def get_heading_patterns_for_doc(nodes_or_texts=None) -> List[Tuple[int, re.Patt
             4: [[_P_ARABIC_4], _P_ARABIC_PAREN],
         })
 
-    # 2. 篇章规章体例（有第一章、第一节等大章节）+ 中文序号
+    # 2. 篇章规章体例（第一章/第一节等大章节）
     if has_chapter:
         return _build_patterns({
             1: [_P_CHAPTER],
@@ -150,7 +155,7 @@ def get_heading_patterns_for_doc(nodes_or_texts=None) -> List[Tuple[int, re.Patt
             4: [_P_ARABIC_PAREN, [_P_ARABIC_4]],
         })
 
-    # 3. 标准党政机关公文体例 (GB/T 9704-2012)：以“一、”作为第一层，“（一）”作为第二层，“1.”作为第三层，“（1）”作为第四层
+    # 3. 党政机关公文体例 (GB/T 9704-2012)：一级“一、”，二级“（一）”，三级“1.”，四级“（1）”
     if has_cn_num:
         return _build_patterns({
             1: [[_P_CN_NUM], _P_CHAPTER],
@@ -161,6 +166,33 @@ def get_heading_patterns_for_doc(nodes_or_texts=None) -> List[Tuple[int, re.Patt
 
     # 4. 默认通用体例
     return DEFAULT_HEADING_PATTERNS
+
+
+def describe_heading_style(nodes_or_texts=None) -> Optional[str]:
+    """识别文档现有编号体例，返回自然语言描述；None 表示无可识别体系（由模型自选）。"""
+    has_tech_dotted = False
+    has_cn_num = False
+    has_chapter = False
+
+    if nodes_or_texts:
+        for item in nodes_or_texts:
+            text = (item.text if hasattr(item, "text") else str(item)).strip()
+            if not text or len(text) > HEADING_MAX_CHARS:
+                continue
+            if _P_ARABIC_2.match(text):
+                has_tech_dotted = True
+            if _P_CN_NUM.match(text):
+                has_cn_num = True
+            if any(p.match(text) for p in _P_CHAPTER):
+                has_chapter = True
+
+    if has_tech_dotted:
+        return "科技/标准规范体例（如“1.”“1.1”“1.1.1”）"
+    if has_chapter:
+        return "篇章规章体例（如“第一章”“第一节”，下设中文序号）"
+    if has_cn_num:
+        return "党政机关公文体例（“一、”为一级，“（一）”为二级，“1.”为三级，“（1）”为四级）"
+    return None
 
 
 class ParagraphEdit(BaseModel):#对文档中单个元素的修改
@@ -294,7 +326,7 @@ def _estimate_description_tokens(description) -> int:#用序列化后的JSON估�
 
 
 def _item_text(item: dict) -> str:
-    #取出元素的纯文本，用于关键词搜索
+    #取出元素的纯文本
     if item.get("type") == "paragraph":
         return "".join(run.get("text", "") for run in item.get("runs", []))
     if item.get("type") == "table":
@@ -303,7 +335,7 @@ def _item_text(item: dict) -> str:
 
 
 def _get_outline_level(node):
-    #读取段落的大纲级别（w:outlineLvl），没有设置时返回None
+    #读取段落大纲级别（w:outlineLvl），未设置返回None
     try:
         p_pr = node._element.find(qn("w:pPr"))
         if p_pr is None:
@@ -318,7 +350,7 @@ def _get_outline_level(node):
 
 
 def _looks_like_visual_heading(base_item) -> bool:
-    #正文里"加粗或大字号"的短段落，作为无编号标题的辅助线索
+    #正文里"加粗或大字号"的短段落，作为无编号标题的线索
     if not isinstance(base_item, ParagraphItem) or not base_item.runs:
         return False
     first_run = base_item.runs[0]
@@ -328,10 +360,7 @@ def _looks_like_visual_heading(base_item) -> bool:
 
 
 def _detect_heading(node, base_item, text, patterns=None):
-    """识别标题，返回(层级, 标题文本)，不是标题时返回None。
-
-    依次尝试：标准标题样式 → 大纲级别 → 编号正则 → 短文本且加粗/大字号。
-    """
+    """识别标题，返回(层级, 标题文本)；依次尝试：标准标题样式 → 大纲级别 → 编号正则 → 短文本且加粗/大字号。"""
     if not text:
         return None
     style_name = ""
@@ -357,7 +386,7 @@ def _detect_heading(node, base_item, text, patterns=None):
     return None
 
 
-# 识别落款/结尾元数据的正则表达式与关键词，这个部分可以根据后续知识库补充之后修改
+#识别落款/结尾元数据的正则与关键词（可随知识库补充更新）
 TAIL_DATE_PATTERN = re.compile(r"(\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日|\d{4}[-./]\d{1,2}[-./]\d{1,2})")
 TAIL_ORG_SUFFIXES = ("办公室", "部", "委员会", "局", "处", "科", "组", "公室", "公司", "院", "中心", "学会", "协会")
 TAIL_SPECIAL_KEYWORDS = ("抄报", "抄送", "印发", "签发", "分发", "记录人", "记录：", "主持人", "主持：", "出席：", "列席：", "特此纪要", "特此通知", "特此报告")
@@ -369,11 +398,11 @@ def _detect_paragraph_role(node, base_item, text: str, index: int, total_element
     if not text:
         return "body"
 
-    # 1. 优先识别各级标题
+    # 1. 优先识别标题
     if _detect_heading(node, base_item, text, patterns=patterns) is not None:
         return "heading"
 
-    # 2. 识别文档末尾的落款/日期元数据（限制在文档最后 6 个元素内）
+    # 2. 文档末尾 6 个元素内的落款/日期
     if total_elements > 0 and index >= max(0, total_elements - 6):
         # 日期模式（如 "2026年9月18日" 或 "2026.09.18"）
         if len(text) <= 30 and TAIL_DATE_PATTERN.search(text):
@@ -406,7 +435,7 @@ def extract_body_profile(base_items) -> dict:
         if isinstance(item, ParagraphItem) and item.runs:
             first_run = item.runs[0]
             text = "".join(r.text for r in item.runs).strip()
-            # 过滤掉标题（加粗）、极短文本（如标点或单字）、居右对齐的落款
+            # 过滤标题（加粗）、极短文本与居右落款
             if first_run.bold:
                 continue
             if len(text) < 10:
@@ -453,7 +482,7 @@ def extract_body_profile(base_items) -> dict:
 
 
 def _context_window(text: str, position: int, keyword_length: int) -> str:
-    #以关键词命中位置为中心截取前后文，供search工具返回自解释的片段
+    #截取关键词命中位置的前后文
     start = max(0, position - SEARCH_CONTEXT_BEFORE)
     end = min(len(text), position + keyword_length + SEARCH_CONTEXT_AFTER)
     window = text[start:end]
@@ -473,7 +502,7 @@ def _range_stats(description, start: int, end: int) -> dict:
 
 
 def _ranges_valid(ranges, total: int) -> bool:
-    #校验大纲区间是否连续覆盖0~total-1且不重叠，防止识别错误导致后续读写错位
+    #校验区间连续覆盖0~total-1且不重叠，防止后续读写错位
     if not ranges or total <= 0:
         return False
     ordered = sorted(ranges)
@@ -486,7 +515,7 @@ def _ranges_valid(ranges, total: int) -> bool:
 
 
 def _section_preview(description, start: int, end: int, max_chars: int = BLOCK_PREVIEW_CHARS) -> str:
-    #取区间内第一个有正文的元素作为章节预览（跳过空元素），供outline返回首句线索
+    #取区间内第一个有正文的元素作为章节预览
     for i in range(max(0, start), min(len(description), end + 1)):
         text = _item_text(description[i]).strip()
         if text:
@@ -518,7 +547,7 @@ def _to_tree_entries(sections, description) -> list:
 
 
 def _build_virtual_blocks(description, block_size: int = VIRTUAL_BLOCK_SIZE) -> list:
-    #无标题文档的兜底：按固定元素数聚合成虚拟块，用首尾句作为定位线索
+    #无标题文档兜底：按固定元素数聚合成虚拟块
     blocks = []
     total = len(description)
     for start in range(0, total, block_size):
@@ -554,18 +583,17 @@ def build_outline_tree(nodes, description, base_items) -> dict:
         raw_sections.append({"level": level, "title": title[:60], "start": index})
 
     if len(raw_sections) >= 2:
-        # 1. 动态层级归一化：若文档未出现“第1章”而以“一、”（通常归类为2）作为顶层，平移使得最高标题为 Level 1
+        # 1. 层级归一化：顶层不是“第1章”时整体平移，使最高标题为 Level 1
         min_level = min(s["level"] for s in raw_sections)
         if min_level > 1:
             for s in raw_sections:
                 s["level"] = max(1, s["level"] - (min_level - 1))
 
-        # 2. 如果文档开头到第一个标题之间有正文，作为前言/开头
+        # 2. 首个标题之前的内容作为前言
         if raw_sections[0]["start"] > 0:
             raw_sections.insert(0, {"level": 1, "title": "（文档开头/前言）", "start": 0})
 
-        # 3. 严格计算父子区间的完整覆盖：
-        # 一个章节的 end 是紧随其后、层级 <= 当前章节层级的下一个标题的 start - 1（若无则到文档末尾）
+        # 3. 章节 end 取其后首个层级不高于它的标题的 start - 1（无则到文档末尾）
         for i, s in enumerate(raw_sections):
             end = total - 1
             for j in range(i + 1, len(raw_sections)):
@@ -574,7 +602,7 @@ def build_outline_tree(nodes, description, base_items) -> dict:
                     break
             s["end"] = end
 
-        # 4. 构建层级树（嵌套 children）
+        # 4. 构建层级树
         tree_entries = _to_tree_entries(raw_sections, description)
         summary["mode"] = "heading_tree"
         summary["section_count"] = len(raw_sections)
@@ -622,18 +650,17 @@ def _format_outline_text(outline_tree: dict) -> str:
 
 
 def _tool_outline(outline_tree, arguments) -> str:
-    #返回格式化后的层级文本大纲，紧凑清晰且绝不被截断
     return _format_outline_text(outline_tree)
 
 
 def _split_terms(query: str) -> list:
-    #把query按常见分隔符拆成多个关键词，支持"关键词1 关键词2"这类组合检索（任一命中即返回）
+    #按分隔符拆成多个关键词，任一命中即返回
     parts = re.split(r"[\s,，、;；|/]+", query)
     return [p.strip() for p in parts if p.strip()][:SEARCH_MAX_TERMS]
 
 
 def _search_in_table(item, terms) -> Optional[dict]:
-    #表格命中：返回表头与命中的单元格，避免把整张表拼成一段乱序文本
+    #表格命中：返回表头与命中的单元格
     cells = item.get("cells", [])
     header = cells[0] if cells else []
     hits = []
@@ -669,7 +696,7 @@ def _search_in_table(item, terms) -> Optional[dict]:
 
 
 def _search_in_paragraph(item, terms) -> Optional[dict]:
-    #段落命中：报告全部命中位置（最多 SEARCH_MAX_HITS_PER_ELEMENT 处），避免局部批量改写漏改
+    #段落命中：报告全部命中位置
     text = _item_text(item)
     if not text:
         return None
@@ -696,7 +723,7 @@ def _search_in_paragraph(item, terms) -> Optional[dict]:
 
 
 def _tool_search(description, arguments) -> str:
-    #按关键词搜索文档内容，返回命中元素的全局下标与关键词前后文（支持多个关键词组合）
+    #按关键词搜索，返回命中元素下标与前后文
     query = str(arguments.get("query") or "").strip()
     if not query:
         return "search工具反馈：query不能为空"
@@ -719,7 +746,7 @@ def _tool_search(description, arguments) -> str:
 
 
 def _tool_read(description, arguments) -> str:
-    #读取指定范围内元素的完整内容，单次读取量有上限
+    #读取指定范围的完整内容，单次有上限
     try:
         start = int(arguments.get("start_index", 0))
         end = int(arguments.get("end_index", start))
@@ -773,7 +800,7 @@ def _record_single_edit(description, edit_dict, edited) -> str:
 
 
 def _tool_edit(description, arguments, edited) -> str:
-    # 校验并记录一条或多条修改（支持单条参数或批量 edits 参数）
+    #校验并记录一条或多条修改
     if isinstance(arguments, dict) and "edits" in arguments and isinstance(arguments["edits"], list):
         edits_list = arguments["edits"]
         if not edits_list:
@@ -792,7 +819,7 @@ def _tool_edit(description, arguments, edited) -> str:
 
 
 def _execute_tool(tool, description, outline_tree, edited) -> str:
-    #执行模型选择的工具，返回给模型的反馈文本
+    #执行工具，返回给模型的反馈文本
     name = (tool.tool_name or "").strip().lower()
     arguments = tool.arguments or {}
     if name == "outline":
@@ -809,24 +836,23 @@ def _execute_tool(tool, description, outline_tree, edited) -> str:
 
 
 def _clip_feedback(text: str, limit: int = FEEDBACK_MAX_CHARS_PER_ROUND) -> str:
-    #单轮工具结果最多保留limit个字符，超长时截断并提示模型按更小范围重新读取
+    #单轮工具结果超长时截断
     if len(text) <= limit:
         return text
     return f"{text[:limit]}……(已截断，原文共{len(text)}字，如需完整内容请read更小的范围)"
 
 
 def _rewrite_with_tools(llm, dialog, nodes, description, base_items):
-    #工具化改写：先构建大纲，再由模型按需探查文档并逐条提交修改，返回(修改列表, 错误信息)
+    #工具化改写：模型按需探查文档并逐条提交修改，返回(修改列表, 错误信息)
     outline_tree = build_outline_tree(nodes, description, base_items)
     summary = outline_tree.get("summary", {})
-    print(f"文档大纲模式：{summary.get('mode')}，元素{summary.get('elements')}个"
-          f"（段落{summary.get('paragraphs')}、表格{summary.get('tables')}、约{summary.get('chars')}字）")
+    print(f"文档大纲模式：{summary.get('mode')}，元素{summary.get('elements')}个，约{summary.get('chars')}字")
     for entry in outline_tree.get("outline", [])[:10]:
         print("   ", entry.get("title") or entry.get("head") or "", entry.get("index_range"))
     edited = []
     history = []
     for _ in range(MAX_TOOL_ROUNDS):
-        #只把最近 FEEDBACK_MAX_ROUNDS 轮的结果放进prompt，避免历史反馈线性膨胀把上下文撑爆
+        #只把最近几轮的工具结果放进prompt
         feedback = "\n".join(history[-FEEDBACK_MAX_ROUNDS:])
         prompt = (
             "你是文档改写助手。不要把整篇文档读进来，而是用工具按需探查和修改。\n"
@@ -861,7 +887,7 @@ def _table_merge_info(table) -> list:
             for col_index, cell in enumerate(row.cells):
                 tc = cell._tc
                 if id(tc) in seen:
-                    continue  #横向合并时同一个 tc 会被重复返回，只报告一次
+                    continue  #横向合并的同一 tc 会被重复返回
                 seen.add(id(tc))
                 tc_pr = tc.tcPr
                 if tc_pr is None:
@@ -878,7 +904,7 @@ def _table_merge_info(table) -> list:
                         col_span = 1
                 row_span = 1
                 if v_merge is not None:
-                    #统计紧随其下、同列的 vMerge=continue 行数，得到纵向合并跨度
+                    #统计下方同列 vMerge=continue 的行数作为纵向跨度
                     for below in range(row_index + 1, len(rows)):
                         try:
                             below_tc = rows[below].cells[col_index]._tc
@@ -902,19 +928,18 @@ def _table_merge_info(table) -> list:
 
 
 def build_document_description(doc: Document):
-    #解析文档的每个元素，使得改写的时候能够准确定位
+    #解析文档元素，供改写时准确定位
     nodes = list(doc.iter_inner_content())
     total = len(nodes)
     patterns = get_heading_patterns_for_doc(nodes)
     base_items = []
     description = []
-    section_stack = []  # 记录当前所处的标题层级栈 [(level, title)]
+    section_stack = []  # 当前标题层级栈 [(level, title)]
 
     for index, node in enumerate(nodes):
         if isinstance(node, Paragraph):
             try:
-                #preserve_none=True：未直接设置的格式保留为None，
-                #改写时才能区分"原文没设置（由样式决定）"和"原文显式写了默认值"
+                #preserve_none=True：未显式设置的格式保留为None，以区分"原文没设置"与"显式默认值"
                 item = convert_node(node, preserve_none=True)
             except Exception as e:
                 print(f"解析第{index}个段落失败，按纯文本处理：{e}")
@@ -922,7 +947,7 @@ def build_document_description(doc: Document):
             base_items.append(item)
             para_dict = _paragraph_to_dict(item)
             if paragraph_has_protected_content(node):
-                #让模型知道该段含图片等无法表达的内容，改写时会保留这些元素、只替换文字
+                #标记含图片等无法表达的内容，改写时保留元素、只替换文字
                 para_dict["has_media"] = True
 
             text_strip = (node.text or "").strip()
@@ -957,7 +982,7 @@ def build_document_description(doc: Document):
                 table_dict["section_path"] = "/".join(s[1] for s in section_stack)
             merges = _table_merge_info(node)
             if merges:
-                #告知模型合并单元格的位置与跨度，重写表格时用row_span/col_span保持合并结构
+                #告知模型合并单元格的位置与跨度，重写表格时保持合并结构
                 table_dict["merges"] = merges
             description.append(table_dict)
         else:
@@ -966,10 +991,10 @@ def build_document_description(doc: Document):
             if section_stack:
                 unk_dict["section_path"] = "/".join(s[1] for s in section_stack)
             description.append(unk_dict)
-    return nodes, base_items, description #返回对象、对应格式模型、结构描述
+    return nodes, base_items, description #返回对象、格式模型、结构描述
 
 def _inherit_run_format(new_run: TextRunItem, base_run: Optional[TextRunItem]) -> TextRunItem:
-    #模型显式给出的格式优先（包括显式取消格式），只有没给出（None）的字段才沿用原文格式。
+    #模型显式给出的格式优先，未给出（None）的字段才沿用原文格式
     if base_run is None:
         return new_run
     return TextRunItem(
@@ -1057,11 +1082,11 @@ def _inherit_paragraph_format(new_item: ParagraphItem, base_item,
 
 
 def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None) -> int:
-    #修改按下标从后往前执行，避免插入/删除导致后续下标错位；同一下标只处理第一条修改。
+    #按下标从大到小执行，避免增删导致后续下标错位
     applied = 0
     body_profile = extract_body_profile(base_items)
 
-    # 扫描文档末尾连续的 tail_meta（落款/日期等），定位落款起始下标
+    #扫描文档末尾连续的 tail_meta（落款/日期等），定位落款起始下标
     tail_start_index = len(nodes)
     for i in range(len(nodes) - 1, -1, -1):
         role = None
@@ -1076,13 +1101,13 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
         else:
             break
 
-    # 同一下标允许同时"替换"和"追加"，因此按动作优先级排序；下标从大到小处理，避免增删导致下标错位
+    #同一下标可同时替换和追加，故按动作优先级排序；下标从大到小处理避免错位
     action_priority = {"replace": 0, "replace_text": 0, "insert_after": 1, "delete": 2}
     ordered_edits = sorted(
         edits or [],
         key=lambda item: (-item.index, action_priority.get((item.action or "").strip().lower(), 9)),
     )
-    # 同一下标同一动作只保留最后一次提交（后提交覆盖先提交，给模型自我纠错的机会）
+    #同一下标同一动作只保留最后一次提交，给模型自我纠错的机会
     last_positions = {}
     for position, item in enumerate(ordered_edits):
         last_positions[(item.index, (item.action or "").strip().lower())] = position
@@ -1095,15 +1120,14 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
         # 处理负数索引（如 -1 表示最后一个元素）
         if edit.index < 0 and len(nodes) > 0:
             edit.index = edit.index + len(nodes)
-        # 处理在文档末尾追加（如 index >= len(nodes) 且 action 是 insert_after）
+        #在文档末尾追加时，锚点回退到最后一个元素
         if action == "insert_after" and edit.index >= len(nodes) and len(nodes) > 0:
             edit.index = len(nodes) - 1
 
-        # 【解法三：执行层智能纠偏】
-        # 若在落款（tail_start_index）及其之后做 insert_after，自动前移至落款之前（tail_start_index - 1）
+        #在落款及其之后做 insert_after 时自动前移至正文末尾，保持公文版式规范
         if action == "insert_after" and edit.index >= tail_start_index and tail_start_index > 0:
             target_index = tail_start_index - 1
-            print(f"[智能纠偏] 检测到在末尾落款/日期（第{edit.index}个元素）后插入内容，已自动前移至正文末尾（第{target_index}个元素后）插入，以保持公文版式规范。")
+            print(f"[智能纠偏] 落款/日期后的插入已前移至正文末尾（第{target_index}个元素后）")
             edit.index = target_index
 
         if edit.index < 0 or edit.index >= len(nodes):
@@ -1114,7 +1138,7 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
         try:
             if action == "delete":
                 if element_has_protected_content(node._element):
-                    print(f"第{edit.index}个元素含图片等无法表达的内容，为避免误删已跳过删除（如需删除请手动处理）")
+                    print(f"第{edit.index}个元素含图片等无法表达的内容，已跳过删除")
                     continue
                 node._element.getparent().remove(node._element)
                 applied += 1
@@ -1122,12 +1146,11 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
             elif action == "replace":
                 if isinstance(node, Table):
                     if not isinstance(edit.table, TableItem) or edit.table.rows <= 0 or edit.table.cols <= 0 or not edit.table.grid:
-                        print(f"第{edit.index}个元素是表格，但模型未提供有效的表格内容(rows>0, cols>0, grid非空)，跳过替换以保留原表格")
+                        print(f"第{edit.index}个元素是表格，但未提供有效的表格内容，跳过替换")
                         continue
-                    #表格替换会重建表格对象，必须把新对象写回nodes，
-                    #否则同一下标的insert_after会拿到已被移除的旧表格元素，插入被静默丢弃
+                    #表格替换会重建对象，必须写回nodes，否则同下标的insert_after会拿到已移除的旧元素
                     if element_has_protected_content(node._element):
-                        print(f"第{edit.index}个表格含图片等无法表达的内容，为避免丢失已跳过替换表格")
+                        print(f"第{edit.index}个表格含图片等无法表达的内容，已跳过替换")
                         continue
                     node = replace_node_with_data(node, edit.table, doc, write_defaults=False)
                     nodes[edit.index] = node
@@ -1139,9 +1162,9 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
                     if not replace_items:
                         print(f"第{edit.index}个元素是段落，但模型没有给出段落内容，跳过")
                         continue
-                    # 第一段原地替换当前 node（is_insert=False，继承原段落格式）
+                    #首段原地替换并继承原段落格式（is_insert=False）
                     replace_node_with_data(node, _inherit_paragraph_format(replace_items[0], base_item, body_profile, is_insert=False), doc, write_defaults=False)
-                    # 如果提供了多个段落，后续段落依次插入到当前段落之后（is_insert=True，使用正文基准格式）
+                    #其余段落依次插到其后，使用正文基准格式（is_insert=True）
                     curr_elem = node._element
                     for extra_item in replace_items[1:]:
                         extra_p = doc.add_paragraph("")
@@ -1164,12 +1187,11 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
                 if not insert_items:
                     print(f"第{edit.index}个元素的插入内容为空，跳过")
                     continue
-                # addnext 是逐个"插到锚点后面"，倒序生成才能让最终顺序与模型给出的一致
-                # 新增段落使用 is_insert=True，采用正文基准格式，防止污染
+                #addnext 逐个插到锚点后，故倒序生成才能保持模型给出的顺序
                 for item in reversed(insert_items):
                     new_paragraph = doc.add_paragraph("")
                     replace_node_with_data(new_paragraph, _inherit_paragraph_format(item, base_item, body_profile, is_insert=True), write_defaults=False)
-                    # add_paragraph 会把段落追加到文档末尾，这里移动到目标元素之后
+                    #add_paragraph 会追加到文档末尾，这里移到目标元素之后
                     node._element.addnext(new_paragraph._element)
                 applied += len(insert_items)
                 print(f"已在第{edit.index}个元素后插入{len(insert_items)}个新段落")
@@ -1206,7 +1228,7 @@ class ReplacementMapping(BaseModel):
 def run_patch_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nodes, base_items, description) -> Tuple[int, str]:
     estimated_tokens = _estimate_description_tokens(description)
     if estimated_tokens <= MAX_DIRECT_TOKENS:
-        print(f"【局部修补】文档约{estimated_tokens} tokens，极小文档，直接整篇差量改写")
+        print(f"【局部修补】文档约{estimated_tokens} tokens，直接整篇改写")
         prompt = (
             "你是一个企业文档改写助手，需要按照用户的要求改写已有文档。\n"
             "你只能通过给出修改列表来修改文档，不要重写整篇文档。\n"
@@ -1230,7 +1252,7 @@ def run_patch_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, node
         print("改写思路：", plan.summary)
         edits = plan.edits
     else:
-        print(f"【局部修补】文档约{estimated_tokens} tokens，启用工具化按需改写（不整篇进上下文）")
+        print(f"【局部修补】文档约{estimated_tokens} tokens，启用工具化改写")
         edits, error = _rewrite_with_tools(llm, f"{dialog}\n{retrieved_info}", nodes, description, base_items)
         if error:
             return 0, error
@@ -1245,7 +1267,7 @@ def run_replace_rewrite(llm, dialog: str, doc: Document, replace_pairs: Optional
 
     pairs = dict(replace_pairs or {})
     if not pairs:
-        print("【全局替换】未显式传入替换键值对，尝试从用户需求中提取...")
+        print("【全局替换】未传入替换对，尝试从需求中提取")
         prompt = (
             "你是一个文档全局查找替换助手。用户希望在文档中进行全局查找替换。\n"
             f"用户指令：{dialog}\n"
@@ -1257,7 +1279,7 @@ def run_replace_rewrite(llm, dialog: str, doc: Document, replace_pairs: Optional
         mapping = llm_model_invoke(llm, prompt, ReplacementMapping)
         if mapping and mapping.pairs:
             pairs = mapping.pairs
-            print(f"【全局替换】从需求中成功提取到替换对：{pairs}")
+            print(f"【全局替换】提取到替换对：{pairs}")
         else:
             return 0, "未能从用户需求中识别出需要替换的目标词和新词，请明确说明或使用 --find 与 --replace-with 参数"
 
@@ -1267,7 +1289,7 @@ def run_replace_rewrite(llm, dialog: str, doc: Document, replace_pairs: Optional
     stats = batch_replace_in_document(doc, pairs)
     total_replaced = sum(stats.values())
     summary_parts = [f"“{k}” -> “{v}” ({stats.get(k, 0)}处)" for k, v in pairs.items()]
-    print(f"【全局替换】完成！共替换 {total_replaced} 处：" + "，".join(summary_parts))
+    print(f"【全局替换】共替换 {total_replaced} 处：" + "，".join(summary_parts))
     return total_replaced, ""
 
 
@@ -1296,7 +1318,7 @@ def extract_sequential_sections(nodes, description, base_items) -> list:
             return sections
 
     if headings:
-        #只识别出一个标题时，也把它当作语义边界，避免标题被夹在虚拟块中间
+        #只识别出一个标题时也作为语义边界，避免标题被夹在虚拟块中间
         sections = []
         if headings[0][0] > 0:
             sections.append({"title": "前言/引言", "start": 0, "end": headings[0][0] - 1})
@@ -1304,7 +1326,7 @@ def extract_sequential_sections(nodes, description, base_items) -> list:
         if _ranges_valid([(s["start"], s["end"]) for s in sections], total):
             return sections
 
-    # 兜底：按虚拟块切分（复用 _build_virtual_blocks）
+    # 兜底：按虚拟块切分
     return _build_virtual_blocks(description)
 
 
@@ -1320,20 +1342,26 @@ def _split_section_ranges(description, start: int, end: int) -> list:
     return ranges
 
 
-def _build_global_brief(llm, dialog: str, sections) -> str:
+def _build_global_brief(llm, dialog: str, sections, style_hint: Optional[str] = None) -> str:
 
     try:
         outline_text = json.dumps(
             [{"title": s.get("title"), "index_range": [s.get("start"), s.get("end")]} for s in sections],
             ensure_ascii=False,
         )
+        style_line = (
+            f"原文档现有编号体例：{style_hint}。默认沿用该体例，但若用户要求中明确指定了其他体例则以用户要求为准。\n"
+            if style_hint
+            else "原文档无明确编号体系，请根据文档类型与内容风格，自行选择一套最合适的规范编号体例并写入纲要。\n"
+        )
         prompt = (
             "你是企业公文重构的统筹助手。下面是文档大纲与用户的总体要求，"
             "请给出一份简短的全局改写纲要，用于约束各章节分别改写时的统一性。\n"
             f"用户总体要求：{dialog}\n"
             f"文档大纲：{outline_text}\n"
+            f"{style_line}"
             "请输出不超过300字的纲要，包含：全文语气风格、章节编号与称谓口径、关键术语的统一写法、"
-            "各章需要保持一致的数据口径。仅输出纲要本身。"
+            "各章需要保持一致的数据口径。仅输出纲要本身。\n"
         )
         res = llm_invoke(llm, prompt)
         return str(getattr(res, "content", "") or "").strip()[:600]
@@ -1381,19 +1409,36 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
     if not sections:
         return 0, "无法划分文档章节结构进行全局重构"
 
-    print(f"【全局重塑】共划分为 {len(sections)} 个大章节进行统筹重塑与润色：")
+    print(f"【全局重塑】共划分为 {len(sections)} 个大章节：")
     for s in sections:
         subs = s.get("subsections", [])
         sub_desc = f"（含 {len(subs)} 个子章节）" if subs else ""
         print(f"   - {s['title']} {sub_desc} [元素下标 {s['start']}~{s['end']}]")
 
-    # 先生成一份全局纲要，约束各章分别重塑时的语气、编号与术语口径保持一致
-    global_brief = _build_global_brief(llm, dialog, sections)
+    #识别原文档编号体例并回传给生成端：有则默认沿用，无则由模型自由选配
+    style_hint = describe_heading_style(nodes)
+    if style_hint:
+        numbering_directive = (
+            f"原文档采用{style_hint}，默认应沿用该编号体例；"
+            "但若用户在改写要求中明确指定了其他编号体例，或原文体例本身混乱不规范需要统一，"
+            "则以用户要求或规范化目标为准"
+        )
+        print(f"【全局重塑】识别到编号体例：{style_hint}，默认沿用")
+    else:
+        numbering_directive = (
+            "原文档无明确编号体系，请根据文档类型、内容风格与行业惯例，"
+            "自行选择一套最合适的规范编号体例（不限于任何特定体例），"
+            "并确保全文层级一致、体例统一"
+        )
+        print("【全局重塑】原文档无明确编号体系，由模型自行选择体例")
+
+    #先生成全局纲要，约束各章的语气、编号与术语口径一致
+    global_brief = _build_global_brief(llm, dialog, sections, style_hint)
     if global_brief:
         print(f"【全局重塑】全局改写纲要：{global_brief[:120]}")
     brief_line = f"全局改写纲要（各章必须共同遵守）：{global_brief}\n" if global_brief else ""
 
-    # 倒序处理各章节，避免插入/删除导致后续未处理章节的节点引用或下标错位
+    #倒序处理各章节，避免增删导致后续章节下标错位
     total_sections_rewritten = 0
     skipped_sections = []
     failed_sections = []
@@ -1401,11 +1446,11 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
         start = s["start"]
         end = s["end"]
         if _section_is_risky(nodes, description, start, end):
-            print(f"大章节 {s['title']} 含图片/文本框等无法用结构表达的内容，已保留原内容不做重塑")
+            print(f"大章节 {s['title']} 含图片/文本框等无法表达的内容，保留原内容")
             skipped_sections.append(s["title"])
             continue
 
-        # 如果大章节包含子章节，构建子章节说明
+        #构建子章节说明
         sub_list_str = ""
         if s.get("subsections"):
             sub_lines = [
@@ -1416,11 +1461,11 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
 
         chunk_ranges = _split_section_ranges(description, start, end)
         if len(chunk_ranges) > 1:
-            print(f"大章节 {s['title']} 内容较长，已按元素边界拆成 {len(chunk_ranges)} 块分别重塑")
+            print(f"大章节 {s['title']} 内容较长，已拆成 {len(chunk_ranges)} 块分别重塑")
         chunk_failed = False
         for chunk_start, chunk_end in chunk_ranges:
             sec_desc = description[chunk_start:chunk_end + 1]
-            print(f"正在重写大章节：{s['title']}（元素下标 {chunk_start}~{chunk_end}，共 {chunk_end - chunk_start + 1} 个元素）...")
+            print(f"正在重写大章节：{s['title']}（下标 {chunk_start}~{chunk_end}）...")
 
             prompt = (
                 "你是一个企业公文与专业文档全局重构润色助手。你正在对文档进行逐章深度润色与重写。\n"
@@ -1434,10 +1479,19 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
                 "请根据总体要求，输出该大章节完整的新内容（DocxRoot 格式）。\n"
                 "格式规范：\n"
                 "1. 严格保持父子章节层级结构：大章节标题、子章节标题必须加粗（bold=True），正文不加粗；\n"
-                "2. 章节编号规范统一（如大章节用“一、”，子章节用“（一）”，或采用“1.”“1.1”等专业规范）；\n"
-                "3. 如有表格，按表格模型输出，并保持原有的合并单元格结构；\n"
-                "4. 保持严谨公文用词，结构清晰，文笔流畅；\n"
-                "5. 充分吸纳可供参考的素材与最新数据。"
+                "2. 标题段落必须设置 heading_level 字段写入真实大纲级别：大章节标题 heading_level=1，"
+                "子章节标题 heading_level=2，更深层级依次为 3、4；正文段落不设置该字段；\n"
+                f"3. 章节编号规范统一：{numbering_directive}；\n"
+                "4. 字体字号处理原则（先判断用户意图，再决定是否设置 font_name/font_size 字段）：\n"
+                "   - 若用户要求中【未】提及格式调整（只要求改内容、润色文字等）："
+                "不要设置 font_name/font_size 等字体字段，所有段落沿用原文档格式；\n"
+                "   - 若用户明确要求规范/修改格式（如“格式规范一下”“统一排版”“调整字体”等）："
+                "请你根据该文档的类型、用途与行业惯例，自行思考并设计一套最适合本文档的篇章格式方案"
+                "（主标题、各级标题、正文各自的字体与字号梯度），要求同层级完全一致、全文统一不混用、"
+                "标题与正文的层级梯度清晰，并通过 font_name/font_size 字段落实到每个段落；\n"
+                "5. 如有表格，按表格模型输出，并保持原有的合并单元格结构；\n"
+                "6. 保持严谨公文用词，结构清晰，文笔流畅；\n"
+                "7. 充分吸纳可供参考的素材与最新数据。"
             )
             res = llm_model_invoke(llm, prompt, DocxRoot)
             if res is None or not res.items:
@@ -1445,7 +1499,7 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
                 chunk_failed = True
                 continue
 
-            # 过滤出真正可渲染的有效项，防止空载荷导致原内容被错误清空
+            #过滤出可渲染的有效项，防止空载荷把原内容清空
             valid_items = [
                 item for item in res.items
                 if (item.type == "paragraph" and item.Paragraph) or (
@@ -1453,12 +1507,12 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
                 )
             ]
             if not valid_items:
-                print(f"大章节 {s['title']}（下标 {chunk_start}~{chunk_end}）重写未能生成可渲染的有效内容，保留原内容")
+                print(f"大章节 {s['title']}（下标 {chunk_start}~{chunk_end}）未生成可渲染内容，保留原内容")
                 chunk_failed = True
                 continue
 
             target_element = nodes[chunk_start]._element
-            # 将新生成的段落和表格依次插入到旧内容首个元素之前
+            #新内容依次插入到旧内容首个元素之前
             for item in valid_items:
                 if item.type == "paragraph" and item.Paragraph:
                     new_node = doc.add_paragraph("")
@@ -1483,18 +1537,576 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
             total_sections_rewritten += 1
 
     if skipped_sections:
-        print(f"【全局重塑】以下 {len(skipped_sections)} 个大章节含图片等无法改写的内容，已原样保留："
+        print(f"【全局重塑】以下 {len(skipped_sections)} 个大章节含无法改写的内容，已原样保留："
               + "、".join(skipped_sections))
     if failed_sections:
-        print(f"【全局重塑】以下 {len(failed_sections)} 个大章节未能生成有效内容，已原样保留："
+        print(f"【全局重塑】以下 {len(failed_sections)} 个大章节生成失败，已原样保留："
               + "、".join(failed_sections))
     if total_sections_rewritten == 0:
         return 0, "全局重塑未能改写任何大章节（所有章节都含图片等无法表达的内容，或生成失败）"
     return total_sections_rewritten, ""
 
 
+# ================== 模式四：格式规范化（只改排版，不动文字） ==================
+
+class RoleFormatSpec(BaseModel):
+    """单一角色（标题/正文/落款/表格文字）的排版格式规范。"""
+
+    font_name: Optional[str] = Field(default=None, description="字体名，如宋体、黑体、楷体、微软雅黑")
+    font_size: Optional[float] = Field(default=None, description="字号磅值，如12（小四）、14（四号）、16（三号）")
+    bold: Optional[bool] = Field(default=None, description="是否加粗")
+    color: Optional[str] = Field(default=None, description="字体颜色，形如 #000000")
+    alignment: Optional[str] = Field(default=None, description="对齐方式：left/center/right/justify")
+    line_spacing: Optional[float] = Field(default=None, description="行距倍数，如1.5")
+    spacing_before: Optional[float] = Field(default=None, description="段前间距（磅）")
+    spacing_after: Optional[float] = Field(default=None, description="段后间距（磅）")
+    first_line_indent: Optional[float] = Field(default=None, description="首行缩进（磅），留空则保持原样")
+    left_indent: Optional[float] = Field(default=None, description="左缩进（磅），留空则保持原样")
+    right_indent: Optional[float] = Field(default=None, description="右缩进（磅），留空则保持原样")
+
+
+class DocumentFormatSpec(BaseModel):
+    """整篇文档的格式规范：只描述排版样式，不涉及文字内容。"""
+
+    summary: str = Field(default="", description="格式方案的简要说明")
+    heading1: Optional[RoleFormatSpec] = Field(default=None, description="一级标题格式")
+    heading2: Optional[RoleFormatSpec] = Field(default=None, description="二级标题格式")
+    heading3: Optional[RoleFormatSpec] = Field(default=None, description="三级标题格式")
+    heading4: Optional[RoleFormatSpec] = Field(default=None, description="四级标题格式")
+    body: Optional[RoleFormatSpec] = Field(default=None, description="正文段落格式")
+    tail_meta: Optional[RoleFormatSpec] = Field(default=None, description="落款/日期等文末元信息格式")
+    table_text: Optional[RoleFormatSpec] = Field(default=None, description="表格内文字格式")
+    apply_outline_level: bool = Field(
+        default=True, description="是否把识别到的标题写入 Word 大纲级别（便于导航窗格与自动目录）"
+    )
+
+
+FORMAT_PREVIEW_CHARS = 60  #体裁方案里每段预览的字符数
+
+
+class ParagraphRoleAssignment(BaseModel):
+    """逐段角色分配：index 为文档元素下标，role 为体裁相关的开放角色名。"""
+
+    index: int = Field(description="元素下标（从0开始，须与段落预览里的 index 一致）")
+    role: str = Field(description="该段落归属的角色名（开放词汇，如 email_header/email_body/separator/list_item/title/body 等）")
+
+
+class RoleFormatEntry(BaseModel):
+    """单个角色及其排版格式规范。"""
+
+    role: str = Field(description="角色名，须与 paragraph_roles 中出现的角色名一致")
+    format: RoleFormatSpec = Field(default_factory=RoleFormatSpec, description="该角色的排版格式规范，留空字段表示保持原样")
+
+
+class GenreFormatPlan(BaseModel):
+    """体裁感知的排版方案：先判断体裁，再逐段分配角色，并为每个角色定义格式。"""
+
+    genre: str = Field(default="", description="文档体裁判断，如 邮件往来/会议纪要/公文/报告/合同/清单")
+    paragraph_roles: List[ParagraphRoleAssignment] = Field(default_factory=list, description="每个段落元素对应的角色")
+    role_formats: List[RoleFormatEntry] = Field(default_factory=list, description="每个实际用到的角色对应的排版格式规范")
+
+
+def _paragraph_format_hint(item: dict, base_item) -> str:
+    #概括段落当前格式，供模型判断角色
+    if not isinstance(base_item, ParagraphItem) or not base_item.runs:
+        return ""
+    first_run = base_item.runs[0]
+    parts = []
+    if first_run.font_name:
+        parts.append(first_run.font_name)
+    if first_run.font_size:
+        parts.append(f"{first_run.font_size:g}磅")
+    if first_run.bold:
+        parts.append("加粗")
+    if first_run.font_color and str(first_run.font_color).startswith("#"):
+        parts.append(first_run.font_color)
+    if base_item.alignment and base_item.alignment != "left":
+        parts.append(f"对齐={base_item.alignment}")
+    return "，".join(parts)
+
+
+def _format_preview(description, base_items) -> str:
+    #拼装"index + 预览 + 当前格式"清单，供模型判断体裁与角色
+    lines = []
+    for i, meta in enumerate(description):
+        if meta.get("type") != "paragraph":
+            continue
+        text = _item_text(meta).strip()
+        preview = text[:FORMAT_PREVIEW_CHARS] + ("..." if len(text) > FORMAT_PREVIEW_CHARS else "")
+        hint = _paragraph_format_hint(meta, base_items[i] if i < len(base_items) else None)
+        line = f"[{meta.get('index')}] {preview}"
+        if hint:
+            line += f"  {{当前格式: {hint}}}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
+_HEADING_ROLE_HINTS = ("heading", "title", "标题")
+
+
+def _role_is_heading(role: str) -> bool:
+    #角色名是开放的，这里判断是否属标题/强调类（决定是否写大纲级别）
+    r = (role or "").lower()
+    return any(h in r for h in _HEADING_ROLE_HINTS)
+
+
+def _propose_genre_format_plan(llm, dialog: str, retrieved_info: str, preview: str) -> Optional[GenreFormatPlan]:
+    #让模型先判断体裁、逐段分配角色并设计格式（只输出排版，不产出文字）
+    prompt = (
+        "你是企业文档排版规范助手。请先判断文档体裁，再为每个段落分配角色，并为每个角色设计排版格式。\n"
+        "【铁律】你只输出排版格式（字体、字号、加粗、颜色、对齐、行距、段距、缩进），"
+        "绝对不要输出、改写、复述或建议任何正文文字内容。\n"
+        f"用户要求：{dialog}\n"
+        f"{retrieved_info}"
+        f"文档各段落（index + 文本预览 + 当前格式，文本预览仅供判断角色，不得复述或改写）：\n{preview}\n"
+        "设计要求：\n"
+        "1. genre 判断文档体裁（如 邮件往来/会议纪要/公文/报告/合同/清单 等），据此确定角色体系；\n"
+        "2. paragraph_roles 为每个段落分配一个角色名，角色名为开放词汇（如 email_header/email_body/separator/list_item/title/body/落款 等），"
+        "体裁不同角色名可以不同，无需受固定列表约束；\n"
+        "3. role_formats 为 paragraph_roles 中实际用到的每个角色各给一条格式，只填需要统一的字段，其余字段留空（保持原样）；\n"
+        "4. 同一角色全文取值必须完全一致；标题/强调类角色字号要形成清晰梯度；\n"
+        "5. 中文文档优先使用系统常见字体（宋体、黑体、楷体、仿宋、微软雅黑）；\n"
+        "6. 字号单位为磅：小四=12、四号=14、小三=15、三号=16、小二=18、二号=22；\n"
+        "7. 邮件头/分隔线/清单项等非成段正文不要设置首行缩进；正文是否首行缩进按体裁习惯决定。"
+    )
+    return llm_model_invoke(llm, prompt, GenreFormatPlan)
+
+
+def _majority(values: list) -> Optional[Any]:
+    #取多数取值；空列表返回 None，表示无依据、该字段保持原样
+    return max(set(values), key=values.count) if values else None
+
+
+def _collect_heading_level_stats(base_items, description) -> Dict[int, dict]:
+    #统计原文各层级标题的实际排版（多数取值），用于同层级统一
+    buckets: Dict[int, dict] = {}
+    for index, meta in enumerate(description or []):
+        if meta.get("type") != "paragraph":
+            continue
+        level = meta.get("heading_level")
+        if not isinstance(level, int) or not (1 <= level <= 4):
+            continue
+        if index >= len(base_items):
+            continue
+        item = base_items[index]
+        if not isinstance(item, ParagraphItem) or not item.runs:
+            continue
+        first_run = item.runs[0]
+        bucket = buckets.setdefault(
+            level, {"font_name": [], "font_size": [], "font_color": [], "alignment": [], "bold": []}
+        )
+        if first_run.font_name:
+            bucket["font_name"].append(first_run.font_name)
+        if first_run.font_size and 8 <= first_run.font_size <= 32:
+            bucket["font_size"].append(first_run.font_size)
+        if first_run.font_color and str(first_run.font_color).startswith("#"):
+            bucket["font_color"].append(first_run.font_color)
+        if item.alignment:
+            bucket["alignment"].append(item.alignment)
+        bucket["bold"].append(bool(first_run.bold))
+
+    stats: Dict[int, dict] = {}
+    for level, bucket in buckets.items():
+        stats[level] = {
+            "font_name": _majority(bucket["font_name"]),
+            "font_size": _majority(bucket["font_size"]),
+            "font_color": _majority(bucket["font_color"]),
+            "alignment": _majority(bucket["alignment"]),
+            "bold": True if _majority(bucket["bold"]) else None,
+        }
+    return stats
+
+
+def _build_builtin_format_spec(base_items, description) -> DocumentFormatSpec:
+    """内置方案：沿用文档自身设计，只做同角色统一与层级梯度校正。"""
+    profile = extract_body_profile(base_items)
+    body_size = profile.get("font_size") or DEFAULT_FONT_SIZE
+    body_spec = RoleFormatSpec(
+        font_name=profile.get("font_name"),
+        font_size=body_size,
+        color=profile.get("font_color"),
+        alignment=profile.get("alignment"),
+        line_spacing=profile.get("line_spacing"),
+        spacing_before=profile.get("spacing_before"),
+        spacing_after=profile.get("spacing_after"),
+    )
+
+    stats = _collect_heading_level_stats(base_items, description)
+    present_levels = sorted(stats)
+    max_level = present_levels[-1] if present_levels else 0
+
+    sizes: Dict[int, float] = {}
+    for level in present_levels:
+        raw = stats[level].get("font_size")
+        if raw is None:
+            #原文未设置字号时，用正文基准（或标题最小字号）+ 递增步长补齐
+            sizes[level] = max(body_size, HEADING_MIN_FONT_SIZE) + FORMAT_HEADING_SIZE_STEP * (max_level - level + 1)
+        else:
+            #标题不得小于正文，避免规范后层级反而弱于正文
+            sizes[level] = max(raw, body_size)
+    for upper, lower in zip(present_levels, present_levels[1:]):
+        #层级字号单调不增：下级标题不得大于上级标题
+        sizes[lower] = min(sizes[lower], sizes[upper])
+
+    heading_specs: Dict[int, Optional[RoleFormatSpec]] = {1: None, 2: None, 3: None, 4: None}
+    for level in present_levels:
+        s = stats[level]
+        heading_specs[level] = RoleFormatSpec(
+            font_name=s.get("font_name") or profile.get("font_name"),
+            font_size=sizes[level],
+            #原文多数标题加粗才加粗，不做无依据的改动
+            bold=s.get("bold"),
+            color=s.get("font_color") or profile.get("font_color"),
+            alignment=s.get("alignment"),
+            line_spacing=profile.get("line_spacing"),
+            spacing_before=profile.get("spacing_before"),
+            spacing_after=profile.get("spacing_after"),
+        )
+
+    return DocumentFormatSpec(
+        summary="内置统一排版方案：以原文正文格式为基准，同角色全文完全一致，标题字号形成清晰梯度",
+        heading1=heading_specs[1],
+        heading2=heading_specs[2],
+        heading3=heading_specs[3],
+        heading4=heading_specs[4],
+        body=body_spec,
+        tail_meta=None,
+        table_text=RoleFormatSpec(
+            font_name=profile.get("font_name"),
+            font_size=body_size,
+            color=profile.get("font_color"),
+            line_spacing=profile.get("line_spacing"),
+        ),
+        apply_outline_level=True,
+    )
+
+
+def _role_spec_to_para_item(spec: Optional[RoleFormatSpec]) -> ParagraphItem:
+    #把段落属性转成 ParagraphItem（不含文字，只承载排版属性）
+    spec = spec or RoleFormatSpec()
+    return ParagraphItem(
+        alignment=spec.alignment,
+        spacing_before=spec.spacing_before,
+        spacing_after=spec.spacing_after,
+        line_spacing=spec.line_spacing,
+        first_line_indent=spec.first_line_indent,
+        left_indent=spec.left_indent,
+        right_indent=spec.right_indent,
+    )
+
+
+def _role_spec_to_run_item(spec: Optional[RoleFormatSpec]) -> TextRunItem:
+    #把文字属性转成 TextRunItem（text 为空，只承载字体格式）
+    spec = spec or RoleFormatSpec()
+    return TextRunItem(
+        text="",
+        text_type="text",
+        bold=spec.bold,
+        font_name=spec.font_name,
+        font_size=spec.font_size,
+        font_color=spec.color,
+    )
+
+
+def _iter_paragraph_runs(paragraph: Paragraph) -> list:
+    #同时覆盖普通 Run 与超链接内的 Run，保证同段文字样式统一
+    try:
+        return [Run(r, paragraph) for r in paragraph._p.xpath("w:r | w:hyperlink/w:r")]
+    except Exception:
+        return list(paragraph.runs)
+
+
+def _apply_role_format_to_paragraph(paragraph: Paragraph, run_spec: Optional[RoleFormatSpec],
+                                    para_spec: Optional[RoleFormatSpec]) -> None:
+    #只写 w:pPr 与 w:rPr，不动 w:t 文本节点：图片/公式/域代码/超链接天然完好
+    try:
+        if para_spec is not None:
+            apply_paragraph_item_format(paragraph, _role_spec_to_para_item(para_spec), write_defaults=False)
+        if run_spec is not None:
+            run_item = _role_spec_to_run_item(run_spec)
+            for run in _iter_paragraph_runs(paragraph):
+                apply_run_item_format(run, run_item, write_defaults=False)
+    except Exception as e:
+        print(f"【格式规范】跳过无法格式化的段落：{e}")
+
+
+def _apply_role_format_to_table(table: Table, run_spec: Optional[RoleFormatSpec],
+                                para_spec: Optional[RoleFormatSpec]) -> None:
+    #表格内同样只改字体属性；合并单元格会被重复枚举，按底层元素去重
+    seen = set()
+    for row in table.rows:
+        for cell in row.cells:
+            key = id(cell._tc)
+            if key in seen:
+                continue
+            seen.add(key)
+            for paragraph in cell.paragraphs:
+                _apply_role_format_to_paragraph(paragraph, run_spec, para_spec)
+
+
+def _heading_spec_for_level(spec: DocumentFormatSpec, level: int) -> Optional[RoleFormatSpec]:
+    return {1: spec.heading1, 2: spec.heading2, 3: spec.heading3, 4: spec.heading4}.get(level)
+
+
+def _describe_role_spec(role_spec: Optional[RoleFormatSpec]) -> str:
+    #把格式方案转成一行便于核对的文字
+    if role_spec is None:
+        return "保持原样"
+    parts = []
+    if role_spec.font_name:
+        parts.append(f"字体={role_spec.font_name}")
+    if role_spec.font_size is not None:
+        parts.append(f"字号={role_spec.font_size:g}磅")
+    if role_spec.bold is not None:
+        parts.append("加粗" if role_spec.bold else "不加粗")
+    if role_spec.color:
+        parts.append(f"颜色={role_spec.color}")
+    if role_spec.alignment:
+        parts.append(f"对齐={role_spec.alignment}")
+    if role_spec.line_spacing is not None:
+        parts.append(f"行距={role_spec.line_spacing}")
+    if role_spec.first_line_indent is not None:
+        parts.append(f"首行缩进={role_spec.first_line_indent:g}磅")
+    return "，".join(parts) if parts else "保持原样"
+
+
+def _document_text_length(nodes) -> int:
+    #统计文档纯文字长度，用于格式规范化后的保真校验
+    total = 0
+    for node in nodes:
+        if isinstance(node, Paragraph):
+            total += len(node.text or "")
+        elif isinstance(node, Table):
+            for row in node.rows:
+                for cell in row.cells:
+                    total += len(cell.text or "")
+    return total
+
+
+def run_format_rewrite(llm, dialog: str, retrieved_info: str, doc: Document,
+                       nodes, base_items, description) -> Tuple[int, str]:
+    """模式四：格式规范化 —— 只改排版样式，原文文字不变。
+
+    修改只落在 w:pPr 与 w:rPr 上，故图片、公式、域代码、超链接与文字内容天然完好。
+    排版方案优先由大模型按体裁逐段分配角色（GenreFormatPlan），失败时回退内置方案。
+    """
+    builtin_spec = _build_builtin_format_spec(base_items, description)
+    genre_plan = None
+    if llm is not None:
+        try:
+            genre_plan = _propose_genre_format_plan(
+                llm, dialog, retrieved_info, _format_preview(description, base_items)
+            )
+        except Exception as e:
+            print(f"【格式规范】体裁排版方案生成失败，改用内置方案：{e}")
+
+    plan_by_index: Dict[int, str] = {}
+    role_formats: Dict[str, RoleFormatSpec] = {}
+    if genre_plan is not None and genre_plan.paragraph_roles:
+        for assign in genre_plan.paragraph_roles:
+            plan_by_index[assign.index] = assign.role
+        for entry in genre_plan.role_formats:
+            if entry.format is not None:
+                role_formats[entry.role] = entry.format
+    spec = builtin_spec
+
+    if plan_by_index:
+        role_count: Dict[str, int] = {}
+        for role in plan_by_index.values():
+            role_count[role] = role_count.get(role, 0) + 1
+        print(f"【格式规范】采用体裁感知排版方案（体裁：{genre_plan.genre or '未指定'}）")
+        print(f"【格式规范】段落角色分布：{role_count}")
+        for role, role_spec in role_formats.items():
+            print(f"   - {role}: {_describe_role_spec(role_spec)}")
+    else:
+        print(f"【格式规范】采用方案：{spec.summary or '内置统一排版方案'}")
+        for label, role_spec in (
+            ("一级标题", spec.heading1), ("二级标题", spec.heading2),
+            ("三级标题", spec.heading3), ("四级标题", spec.heading4),
+            ("正文", spec.body), ("落款/日期", spec.tail_meta), ("表格文字", spec.table_text),
+        ):
+            print(f"   - {label}: {_describe_role_spec(role_spec)}")
+    if not _collect_heading_level_stats(base_items, description):
+        print("【格式规范】未识别到标题层级，仅统一正文与表格排版；如需梳理标题请改用全局重塑模式")
+    print("【格式规范】大纲级别写入：" + ("开启" if spec.apply_outline_level else "关闭"))
+
+    before_len = _document_text_length(nodes)
+    heading_applied = 0
+    body_applied = 0
+    table_applied = 0
+    skipped = 0
+
+    for index, node in enumerate(nodes):
+        meta = description[index] if index < len(description) else {}
+        if isinstance(node, Paragraph):
+            level = meta.get("heading_level")
+            detected_role = meta.get("role") or "body"
+            genre_role = plan_by_index.get(index)
+
+            run_spec = para_spec = None
+            is_heading = False
+            if genre_role is not None and genre_role in role_formats:
+                #体裁方案优先：模型为该段分配了角色并给出了格式
+                gspec = role_formats[genre_role]
+                run_spec = gspec
+                para_spec = gspec
+                is_heading = _role_is_heading(genre_role) or detected_role == "heading"
+            elif detected_role == "heading" and isinstance(level, int) and 1 <= level <= 4:
+                run_spec = _heading_spec_for_level(spec, level) or spec.body
+                para_spec = run_spec
+                is_heading = True
+            elif detected_role == "tail_meta":
+                run_spec = spec.tail_meta or spec.body
+                para_spec = spec.tail_meta or spec.body
+            else:
+                run_spec = spec.body
+                para_spec = spec.body
+
+            if run_spec is None and para_spec is None:
+                skipped += 1
+                continue
+            _apply_role_format_to_paragraph(node, run_spec, para_spec)
+            if is_heading and spec.apply_outline_level and isinstance(level, int) and 1 <= level <= 4:
+                apply_heading_outline_level(node, level)
+            if is_heading:
+                heading_applied += 1
+            else:
+                body_applied += 1
+        elif isinstance(node, Table):
+            _apply_role_format_to_table(node, spec.table_text or spec.body, spec.body)
+            table_applied += 1
+        else:
+            #文本框、绘图画布等无法安全格式化的元素原样保留
+            skipped += 1
+
+    after_len = _document_text_length(nodes)
+    if before_len == after_len:
+        print(f"【格式规范】文字保全校验通过：全文 {before_len} 字，改写前后一致")
+    else:
+        print(f"【格式规范】警告：文字长度变化（{before_len} → {after_len}），请核对")
+
+    applied = heading_applied + body_applied + table_applied
+    print(f"【格式规范】完成：标题 {heading_applied} 处，正文 {body_applied} 处，表格 {table_applied} 张"
+          + (f"，跳过 {skipped} 处" if skipped else ""))
+    return applied, ""
+
+
+# ================== 复合指令：有序步骤清单的落地执行 ==================
+
+STEP_MODE_LABELS = {
+    "replace": "模式二：全局查找替换",
+    "patch": "模式一：局部微调",
+    "global": "模式三：全局重构与润色",
+    "format": "模式四：格式规范化",
+}
+
+#replace 只换词、不改变结构，排最前；局部增补（patch）先于整篇重写（global）；format 只写排版属性，必须最后
+STEP_MODE_RANK = {"replace": 0, "patch": 1, "global": 2, "format": 3}
+
+#指令含这些词说明用户想增删文字，而 format 模式不改文字，仅用于给出提示
+CONTENT_CHANGE_HINTS = ("增加", "添加", "新增", "补充", "加入", "增添", "删去", "删除")
+
+
+def normalize_rewrite_steps(raw_steps, fallback_mode: str) -> Tuple[List[dict], List[str]]:
+    """把意图节点给出的步骤清单校正为可依次执行的顺序，返回 (步骤列表, 调整说明)。
+
+    硬性依赖关系（大模型排错时由程序纠正，而不是直接失败）：
+    1. replace 只换词、不改变元素数量，必须排在最前；
+    2. 局部增补 patch 先于整篇重写 global（先补内容，再由全局重塑统一行文）；
+    3. format 只写排版属性，必须在内容定稿之后执行，否则新增段落不会被规范化；
+    4. 多个 replace 或 format 步骤语义上等价，合并为一步；global 会整篇重写，重复的只保留第一个；
+    5. 只做排序与合并，不丢弃任何一类诉求（patch 与 global 同时出现时会依次执行）。
+
+    模型未给出步骤时退化为单步骤（沿用 state['rewrite_mode'] 的旧行为）。
+    """
+    steps: List[dict] = []
+    notes: List[str] = []
+    for position, raw in enumerate(list(raw_steps or [])):
+        if not isinstance(raw, dict):
+            continue
+        mode = str(raw.get("mode") or "").strip().lower()
+        if mode not in STEP_MODE_RANK:
+            continue
+        try:
+            order = int(raw.get("order") or position + 1)
+        except (TypeError, ValueError):
+            order = position + 1
+        steps.append({
+            "order": order,
+            "mode": mode,
+            "target": str(raw.get("target") or "").strip(),
+            "instruction": str(raw.get("instruction") or "").strip(),
+            "replace_pairs": dict(raw.get("replace_pairs") or {}),
+        })
+    if not steps:
+        mode = (fallback_mode or "patch").strip().lower()
+        if mode not in STEP_MODE_RANK:
+            mode = "patch"
+        steps = [{"order": 1, "mode": mode, "target": "", "instruction": "", "replace_pairs": {}}]
+        return steps, notes
+
+    steps.sort(key=lambda step: step["order"])
+    if len(steps) > 1:
+        for mode, label, note in (
+            ("replace", "全局查找替换", "已合并为一次全局查找替换（词对取并集）"),
+            ("format", "格式规范化", "已合并为一次格式规范化"),
+            ("global", "全局重构与润色", "全局重塑会整篇重写，重复的只保留第一个"),
+        ):
+            same = [step for step in steps if step["mode"] == mode]
+            if len(same) <= 1:
+                continue
+            merged_pairs: Dict[str, str] = {}
+            for step in same:
+                merged_pairs.update(step["replace_pairs"])
+            same[0]["replace_pairs"] = merged_pairs
+            dropped = {id(step) for step in same[1:]}
+            steps = [step for step in steps if id(step) not in dropped]
+            notes.append(f"检测到 {len(same)} 个{label}步骤，{note}")
+
+        ordered = sorted(steps, key=lambda step: STEP_MODE_RANK[step["mode"]])
+        if [step["mode"] for step in ordered] != [step["mode"] for step in steps]:
+            notes.append("已按依赖关系重排执行顺序：" + " → ".join(STEP_MODE_LABELS[step["mode"]] for step in ordered))
+        steps = ordered
+
+    for position, step in enumerate(steps, 1):
+        step["order"] = position
+    return steps, notes
+
+
+def build_step_dialog(dialog: str, step: dict, total_steps: int) -> str:
+    """多步骤执行时给该步的提示词附加作用域说明，避免各步互相越界。"""
+    if total_steps <= 1:
+        return dialog
+    scope = f"作用范围：{step['target']}；" if step.get("target") else ""
+    requirement = step.get("instruction") or "按用户整体要求完成本步骤"
+    return (
+        f"{dialog}\n"
+        f"【本次只执行第 {step['order']} 步（共 {total_steps} 步）】执行模式：{STEP_MODE_LABELS[step['mode']]}；"
+        f"{scope}本步要求：{requirement}\n"
+        "其它诉求由系统在后续步骤中单独执行，本步不要越界处理不属于本步骤的内容。"
+    )
+
+
+def dispatch_rewrite_mode(llm, mode: str, dialog: str, retrieved_info: str, doc: Document,
+                          nodes, base_items, description, replace_pairs,
+                          step_no: int = 0, total_steps: int = 1) -> Tuple[int, str]:
+    """按模式调用对应改写引擎；多步骤时在日志中标出步骤序号。"""
+    prefix = f"步骤{step_no}/{total_steps}：" if total_steps > 1 else ""
+    if mode == "replace":
+        print(f"【改写调度】{prefix}{STEP_MODE_LABELS['replace']}")
+        return run_replace_rewrite(llm, dialog, doc, replace_pairs)
+    if mode == "global":
+        print(f"【改写调度】{prefix}{STEP_MODE_LABELS['global']}")
+        return run_global_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description)
+    if mode == "format":
+        print(f"【改写调度】{prefix}{STEP_MODE_LABELS['format']}")
+        return run_format_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description)
+    print(f"【改写调度】{prefix}{STEP_MODE_LABELS['patch']}")
+    return run_patch_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description)
+
+
 def create_rewrite_node(llm):
-    """创建改写节点，根据 state['rewrite_mode'] 分流调度三层改写引擎。"""
+    """创建改写节点，按 state['rewrite_steps'] 的有序步骤依次调度四层改写引擎。"""
     def rewrite_node(state: AgentState) -> AgentState:
         rewrite_path = state.get("rewrite_file")
         if not rewrite_path:
@@ -1519,18 +2131,46 @@ def create_rewrite_node(llm):
         dialog = f"{state['messages']}"
         mode = (state.get("rewrite_mode") or "patch").lower()
 
-        # 三层模式分流调度
-        if mode == "replace":
-            print("【改写调度】执行模式二：全局查找替换")
-            applied, error = run_replace_rewrite(llm, dialog, doc, state.get("replace_pairs"))
-        elif mode == "global":
-            print("【改写调度】执行模式三：全局重构与全文润色")
-            applied, error = run_global_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description)
-        else:
-            print("【改写调度】执行模式一：局部微调修补")
-            applied, error = run_patch_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description)
+        # 有序步骤清单：复合指令（改内容 + 规范排版 + 查找替换…）由大模型拆步，这里按依赖顺序逐步落地
+        steps, notes = normalize_rewrite_steps(state.get("rewrite_steps"), mode)
+        for note in notes:
+            print(f"【步骤编排】{note}")
+        if len(steps) > 1:
+            print(f"【改写编排】共 {len(steps)} 个步骤，将按序执行：")
+            for step in steps:
+                scope = f"范围：{step['target']}｜" if step["target"] else ""
+                print(f"   步骤{step['order']}：{STEP_MODE_LABELS[step['mode']]}｜{scope}要求：{step['instruction'] or '（沿用整体要求）'}")
+        elif steps[0]["mode"] == "format":
+            hints = [word for word in CONTENT_CHANGE_HINTS if word in dialog]
+            if hints:
+                print(
+                    "【步骤编排】注意：本次为「格式规范化」单步骤（只调排版、不改文字），"
+                    f"但指令中出现增删内容类词语 {hints}；若还需新增或删除内容，请单独说明。"
+                )
 
-        if error:
+        replace_pairs = dict(state.get("replace_pairs") or {})
+        applied = 0
+        error = ""
+        failed_step = 0
+        for position, step in enumerate(steps, 1):
+            if position > 1:
+                #上一步可能已增删或替换元素，必须重新解析文档结构与格式快照，否则后续步骤下标错位、新段落不会被排版
+                nodes, base_items, description = build_document_description(doc)
+                print(f"【步骤编排】已重新解析文档结构：共 {len(nodes)} 个元素")
+            step_pairs = dict(step["replace_pairs"] or replace_pairs) if step["mode"] == "replace" else replace_pairs
+            step_applied, error = dispatch_rewrite_mode(
+                llm, step["mode"], build_step_dialog(dialog, step, len(steps)), retrieved_info,
+                doc, nodes, base_items, description, step_pairs,
+                step_no=position, total_steps=len(steps),
+            )
+            applied += step_applied or 0
+            if error:
+                failed_step = position
+                print(f"【步骤编排】第{position}步（{STEP_MODE_LABELS[step['mode']]}）失败：{error}")
+                break
+
+        if error and applied == 0:
+            #没有任何改动落地（含单步骤失败）：与旧行为一致，直接报错、不保存
             return {**state, "state": "error", "error": error}
 
         if applied == 0:
@@ -1541,8 +2181,16 @@ def create_rewrite_node(llm):
         else:
             save_path = Path(rewrite_path)
 
-        save_document(doc, save_path)
+        save_path = save_document(doc, save_path)  #目标被占用时会避让另存并返回实际路径
         print("改写后的文档已保存到：", str(save_path))
+        if error:
+            #多步执行中途失败：已完成的部分修改仍然保存，避免前功尽弃
+            return {
+                **state,
+                "state": "error",
+                "error": f"第{failed_step}步执行失败（该步之前的修改已保存）：{error}",
+                "save_path": str(save_path),
+            }
         return {**state, "state": "succeeded", "save_path": str(save_path)}
 
     return rewrite_node

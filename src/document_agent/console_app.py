@@ -1,4 +1,3 @@
-import argparse
 import os
 import sys
 import json
@@ -34,11 +33,11 @@ if __name__ == "__main__":
             settings = json.loads(setstr)
             from document_agent.memory.neo_graph_db import MemgraphNodeManager
             gdb = MemgraphNodeManager(uri=settings["gdb_uri"], model_name=settings["embedding_model"])
-            print("[信息] 成功连接 Memgraph 图数据库。")
+            print("[信息] Memgraph 图数据库已连接")
         except Exception as e:
-            print(f"[警告] 初始化图数据库失败（{e}），降级使用纯文档模式运行。")
+            print(f"[警告] 图数据库初始化失败（{e}），降级为纯文档模式")
     else:
-        print("[提示] 未检测到 setting.json 配置文件，自动采用纯文档处理模式（无需图数据库）。")
+        print("[提示] 未检测到 setting.json，采用纯文档模式")
 
     # 改写目标、参考文件、输出路径都由自然语言描述，由intent节点自动识别
     user_input = input("请输入你的需求（自然语言）：")

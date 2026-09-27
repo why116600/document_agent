@@ -1,6 +1,7 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
+import sys
 import json
 import httpx
 import re
@@ -10,81 +11,44 @@ from pydantic import BaseModel
 
 from langchain_openai import ChatOpenAI
 
-from pathlib import Path
-
 DEFAULT_BASE_URL = "https://api.deepseek.com/v1"
 DEFAULT_MODEL = "deepseek-chat"
 
-def _find_project_root() -> Path:
-    """定位项目根目录（含 pyproject.toml 或 .git 的目录）"""
-    curr = Path(__file__).resolve().parent
-    for parent in [curr] + list(curr.parents):
-        if (parent / "pyproject.toml").exists() or (parent / ".git").exists():
-            return parent
-    return Path.cwd()
-
-def _load_dotenv_if_exists() -> None:
-    """自动探测并加载 .env 配置文件中的环境变量"""
-    search_dirs = [
-        Path.cwd(),
-        _find_project_root(),
-        Path(__file__).resolve().parent,
-    ]
-    seen = set()
-    for d in search_dirs:
-        if d in seen:
-            continue
-        seen.add(d)
-        env_file = d / ".env"
-        if env_file.is_file():
-            try:
-                with open(env_file, "r", encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line or line.startswith("#") or "=" not in line:
-                            continue
-                        k, v = line.split("=", 1)
-                        k = k.strip()
-                        v = v.strip().strip("'\"")
-                        if k and k not in os.environ:
-                            os.environ[k] = v
-            except Exception:
-                pass
-
 def get_api_key(interactive: bool = True) -> str:
     """
-    从环境变量或 .env 读取 MODEL_API_KEY，未设置时尝试在控制台交互式提示输入，
-    并可选择将输入的 key 保存到 .env 文件中免去重复输入。
+    获取 DeepSeek API Key：优先读环境变量 MODEL_API_KEY；未设置且 interactive=True 时交互式询问一次，
+    并写回 os.environ 供本次运行复用（不落盘，不写入任何文件）。
     """
-    _load_dotenv_if_exists()
     api_key = os.getenv("MODEL_API_KEY")
     if not api_key and interactive:
-        try:
-            api_key = input("未检测到环境变量 MODEL_API_KEY，请输入 API Key：").strip()
-            if api_key:
-                os.environ["MODEL_API_KEY"] = api_key
-                try:
-                    save_choice = input("是否将此 API Key 保存到项目根目录的 .env 文件中，下次自动加载免输？(Y/n) ").strip().lower()
-                    if save_choice in ("", "y", "yes"):
-                        root = _find_project_root()
-                        env_file = root / ".env"
-                        with open(env_file, "a", encoding="utf-8") as f:
-                            f.write(f"\nMODEL_API_KEY={api_key}\n")
-                        print(f"已将 API Key 保存至 {env_file}，后续运行无需再次手动输入。")
-                except Exception:
-                    pass
-        except (EOFError, KeyboardInterrupt):
-            pass
-
+        api_key = _prompt_api_key()
     if not api_key:
         raise ValueError(
-            "未检测到 MODEL_API_KEY 环境变量。\n"
-            "可通过以下方式配置（任选其一）：\n"
-            "  1. 在项目根目录创建 .env 文件，写入：MODEL_API_KEY=你的API密钥\n"
-            "  2. PowerShell 终端设置：$env:MODEL_API_KEY=\"你的API密钥\"\n"
-            "  3. Windows 永久用户环境变量：[System.Environment]::SetEnvironmentVariable('MODEL_API_KEY', '你的密钥', 'User')"
+            "未检测到 MODEL_API_KEY 环境变量；可直接在程序提示时输入（仅本次运行有效，不写入任何文件），"
+            "也可先设置环境变量后重试：PowerShell 会话变量 $env:MODEL_API_KEY=你的密钥，或 "
+            "[System.Environment]::SetEnvironmentVariable('MODEL_API_KEY','你的密钥','User')"
         )
     return api_key
+
+
+def _prompt_api_key() -> str:
+    """在控制台交互式询问 API Key（不落盘），返回空串表示未取得。
+
+    仅 TTY 下询问：管道喂入需求（echo 需求 | python -m document_agent.console_app）时
+    input() 会把需求当成密钥，故跳过询问，交由 get_api_key() 给出配置提示。
+    """
+    if not sys.stdin.isatty():
+        return ""
+    try:
+        api_key = input("未检测到 MODEL_API_KEY 环境变量，请输入 DeepSeek API Key（仅本次运行有效，不会保存到文件）：").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return ""
+    if api_key:
+        # 写回环境变量：本次运行内复用，不再重复询问
+        os.environ["MODEL_API_KEY"] = api_key
+    return api_key
+
 
 @lru_cache(maxsize=1)
 def get_deepseek_llm() -> ChatOpenAI:
@@ -98,6 +62,7 @@ def get_deepseek_llm() -> ChatOpenAI:
     """
     base_url = os.getenv("MODEL_BASE_URL", DEFAULT_BASE_URL)
     model = os.getenv("MODEL_NAME", DEFAULT_MODEL)
+
     api_key = get_api_key()
 
     # temperature=0 makes planning more consistent.
@@ -157,56 +122,6 @@ def extract_json_from_text(text: str, return_all: bool = False) -> Optional[Unio
         return results
     return None
 
-_extract_json_from_text = extract_json_from_text
-
-
-def _try_salvage_parsed_model(res, model_class: Type[T]) -> Optional[T]:
-    """当 LangChain 的 function_calling 解析失败时，尝试从 raw 消息中拯救解析。"""
-    raw = res.get("raw") if isinstance(res, dict) else None
-    if raw is None:
-        return None
-
-    def _validate_data(data) -> Optional[T]:
-        if isinstance(data, list):
-            # 模型如果直接返回了数组列表，自动封装到 edits 或 items 字段
-            if hasattr(model_class, "model_fields"):
-                fields = model_class.model_fields
-                if "edits" in fields:
-                    data = {"summary": "批量修改方案", "edits": data}
-                elif "items" in fields:
-                    data = {"items": data}
-        try:
-            return model_class.model_validate(data)
-        except Exception:
-            return None
-
-    # 1. 尝试从 raw.tool_calls 提取参数
-    tool_calls = getattr(raw, "tool_calls", None) or []
-    for call in tool_calls:
-        args = call.get("args") if isinstance(call, dict) else getattr(call, "args", None)
-        if isinstance(args, (dict, list)) and args:
-            salvaged = _validate_data(args)
-            if salvaged is not None:
-                return salvaged
-        elif isinstance(args, str) and args.strip():
-            try:
-                data = json.loads(args)
-                salvaged = _validate_data(data)
-                if salvaged is not None:
-                    return salvaged
-            except Exception:
-                pass
-
-    # 2. 尝试从 raw.content 文本中提取 JSON
-    content = getattr(raw, "content", "")
-    if isinstance(content, str) and content.strip():
-        data = _extract_json_from_text(content)
-        if data is not None:
-            salvaged = _validate_data(data)
-            if salvaged is not None:
-                return salvaged
-    return None
-
 
 def llm_model_invoke(llm, prompt: str, model_class: Type[T], retry=3) -> T | None:
     """
@@ -218,19 +133,14 @@ def llm_model_invoke(llm, prompt: str, model_class: Type[T], retry=3) -> T | Non
     :param retry: Number of retries in case of failure.
     :return: An instance of model_class or None if parsing fails.
     """
-    model_llm = llm.with_structured_output(model_class, method="function_calling", include_raw=True)
+    model_llm=llm.with_structured_output(model_class,method="function_calling", include_raw=True)
     for _ in range(retry):
         try:
             res = model_llm.invoke(prompt)
-            if res and "parsed" in res and res["parsed"] is not None:
-                return res["parsed"]
+            if res and 'parsed' in res and res['parsed'] is not None:
+                return res['parsed']
             else:
-                salvaged = _try_salvage_parsed_model(res, model_class)
-                if salvaged is not None:
-                    print(f"从原始响应成功修复并解析出 {model_class.__name__}")
-                    return salvaged
-                err_msg = res.get("parsing_error") if isinstance(res, dict) else None
-                print(f"LLM response could not be parsed into {model_class.__name__}." + (f" 原因: {err_msg}" if err_msg else ""))
+                print(f"LLM response could not be parsed into {model_class.__name__}.")
         except httpx.TimeoutException as e:
             print(f"LLM request timed out: {e}")
         except Exception as e:

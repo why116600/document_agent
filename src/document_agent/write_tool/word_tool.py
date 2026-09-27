@@ -78,6 +78,7 @@ class ParagraphItem(BaseModel):
     first_line_indent: Optional[Union[float, int]] = Field(default=None, description="首行缩进，单位为磅，None表示未指定，改写时沿用原文格式")
     left_indent: Optional[Union[float, int]] = Field(default=None, description="左侧缩进，单位为磅，None表示未指定，改写时沿用原文格式")
     right_indent: Optional[Union[float, int]] = Field(default=None, description="右侧缩进，单位为磅，None表示未指定，改写时沿用原文格式")
+    heading_level: Optional[int] = Field(default=None, description="标题大纲级别：1~4 表示该段落是对应级别的标题（写入 Word 真实大纲级别，支持导航窗格与自动目录），None 表示正文段落")
 
     @model_validator(mode="before")
     @classmethod
@@ -310,8 +311,8 @@ def convert_cell(cell: _Cell, row_idx: int, col_idx: int) -> GridItem:
         content=[convert_paragraph(p) for p in cell.paragraphs],
         row=row_idx,
         col=col_idx,
-        row_span=1,  # 将在表格转换时修正
-        col_span=1   # 将在表格转换时修正
+        row_span=1,  # 表格转换时修正
+        col_span=1   # 表格转换时修正
     )
 
 def convert_table(table: Table) -> TableItem:
@@ -323,7 +324,7 @@ def convert_table(table: Table) -> TableItem:
     cols = len(table.rows[0].cells) if rows > 0 else 0
     grid_items = []
 
-    # 创建一个二维标记数组，记录某个网格位置是否已被处理（合并起始或已跳过）
+    # 二维标记：记录网格位置是否已被处理（合并起始或已跳过）
     processed = [[False] * cols for _ in range(rows)]
 
     for r in range(rows):
@@ -338,7 +339,7 @@ def convert_table(table: Table) -> TableItem:
 
             # 计算合并跨度
             col_span = grid_span if grid_span is not None else 1
-            # 计算纵向合并的行数：从当前行开始，找到连续 vMerge='continue' 的个数
+            # 纵向合并行数：连续 vMerge='continue' 的个数
             row_span = 1
             if vMerge == 'restart':
                 # 向下寻找直到遇到 vMerge 为 None 或 'restart'
@@ -385,6 +386,36 @@ def convert_node(node, preserve_none: bool = False) -> Union[TextRunItem, Paragr
         raise TypeError(f"不支持的节点类型: {type(node)}")
     
     
+def _apply_heading_level(node: Paragraph, level: Optional[int]) -> None:
+    """为段落写入 Word 真实大纲级别，使其在导航窗格/自动目录中可用。
+
+    双保险策略：
+    1. 尝试指派内置 Heading 样式（兼容英文 "Heading N" 与中文 "标题 N" 命名）；
+    2. 无论样式是否存在，都直接写入 w:outlineLvl，确保大纲级别一定生效。
+    level 取 1~4（对应 outlineLvl 0~3），非法值或 None 直接忽略。
+    """
+    if not isinstance(level, int) or not (1 <= level <= 4):
+        return
+    # 1. 尝试指派内置标题样式（样式存在与否取决于文档模板，失败不致命）
+    for style_name in (f"Heading {level}", f"标题 {level}"):
+        try:
+            node.style = style_name
+            break
+        except Exception:
+            continue
+    # 2. 直接写 XML 大纲级别，保证导航窗格一定识别
+    try:
+        pPr = node._element.get_or_add_pPr()
+        # 避免重复添加 outlineLvl
+        for old in pPr.findall(qn("w:outlineLvl")):
+            pPr.remove(old)
+        outline = OxmlElement("w:outlineLvl")
+        outline.set(qn("w:val"), str(level - 1))
+        pPr.append(outline)
+    except Exception:
+        pass
+
+
 def _apply_paragraph_format(paragraph_format, para_item: ParagraphItem, write_defaults: bool = True) -> None:
     """把 ParagraphItem 的段落格式写到 paragraph_format 上。
 
@@ -454,10 +485,35 @@ def _apply_run_format(run: Run, run_item: TextRunItem, write_defaults: bool = Tr
         rFonts.set(qn('w:hAnsi'), run_item.font_name)
 
 
+# ---------- 就地格式化接口（仅规范格式、不改文字的模式复用同一套格式写入逻辑） ----------
+
+def apply_paragraph_item_format(paragraph: Paragraph, para_item: ParagraphItem,
+                                write_defaults: bool = False) -> None:
+    """按 ParagraphItem 的格式字段就地修改已有段落的排版属性。
+
+    只写入 w:pPr（对齐、左右缩进、首行缩进、行距、段间距），不重建段落、不触碰任何文字内容，
+    供"仅规范格式、不改文字"的模式使用；write_defaults 的含义同 _apply_paragraph_format。
+    """
+    _apply_paragraph_format(paragraph.paragraph_format, para_item, write_defaults=write_defaults)
+
+
+def apply_run_item_format(run: Run, run_item: TextRunItem, write_defaults: bool = False) -> None:
+    """按 TextRunItem 的格式字段就地修改已有 Run 的字体属性。
+
+    只写入 w:rPr（字体、字号、加粗、颜色），不改动 run 的文本，
+    因此图片、公式、域代码、超链接等仍能原样保留。
+    """
+    _apply_run_format(run, run_item, write_defaults=write_defaults)
+
+
+def apply_heading_outline_level(paragraph: Paragraph, level: Optional[int]) -> None:
+    """把 Word 大纲级别写到已有段落上（用于给识别出的标题标记层级）。"""
+    _apply_heading_level(paragraph, level)
+
+
 def fill_table_from_grid(table: Table, grid_items, write_defaults: bool = True):
     """
-    根据 GridItem 列表填充表格，处理合并单元格。
-    注意：此函数假设表格已创建好行列数，且 grid_items 只包含合并区域的左上角单元格。
+    按 GridItem 列表填充表格并处理合并；假设表格行列数已建好，grid_items 只含合并区域左上角单元格。
     write_defaults 的含义同 replace_node_with_data。
     """
     # 先填充所有单元格的段落内容（不带合并）
@@ -602,6 +658,7 @@ def _replace_text_runs_keep_protected(node: Paragraph, new_data: ParagraphItem,
             continue  #含图片/域代码的 run 原样保留
         element.remove(child)
     _apply_paragraph_format(node.paragraph_format, new_data, write_defaults)
+    _apply_heading_level(node, new_data.heading_level)
     for run_item in new_data.runs:
         if run_item.text_type == "latex":
             print("生成公式：", run_item.text)
@@ -641,6 +698,8 @@ def replace_node_with_data(node, new_data, doc=None, write_defaults: bool = True
         node._element.clear_content()
         # 设置段落格式
         _apply_paragraph_format(node.paragraph_format, new_data, write_defaults)
+        # 写入真实大纲级别（若模型标注了标题级别）
+        _apply_heading_level(node, new_data.heading_level)
         # 添加新的 runs
         for run_item in new_data.runs:
             if run_item.text_type=="latex":
@@ -655,7 +714,7 @@ def replace_node_with_data(node, new_data, doc=None, write_defaults: bool = True
     elif isinstance(node, Table) and isinstance(new_data, TableItem):
         # 校验表格有效性，防止空数据或0维表格导致原表格被破坏性删除
         if new_data.rows <= 0 or new_data.cols <= 0 or not new_data.grid:
-            print(f"【警告】表格数据无效 (rows={new_data.rows}, cols={new_data.cols}, grid={len(new_data.grid)})，跳过替换以保留原表格")
+            print(f"【警告】表格数据无效（rows={new_data.rows}, cols={new_data.cols}），跳过替换保留原表格")
             return node
 
         # 1. 在文档末尾创建新表格（填充内容）
@@ -675,7 +734,7 @@ def replace_node_with_data(node, new_data, doc=None, write_defaults: bool = True
         # 4. 删除旧表格元素
         parent.remove(old_element)
 
-        # 5. 返回新表格对象（原对象已随旧元素失效），调用方需用它替换 nodes 中的引用
+        # 5. 返回新表格对象（原对象已失效），调用方需替换 nodes 中的引用
         return new_table
 
     else:
@@ -686,15 +745,9 @@ def replace_node_with_data(node, new_data, doc=None, write_defaults: bool = True
 def resolve_save_path(save_path: Optional[str] = None, data_dir: str = "data",
                       name_template: str = "{index}", stem: str = "doc") -> Path:
     """
-    计算文档的保存路径。
+    计算文档保存路径（目录不存在时自动创建）。
 
-    参数：
-        save_path: 用户指定的保存路径，为空时在 data_dir 目录下自动生成
-        data_dir: 自动生成时使用的输出目录
-        name_template: 自动生成时使用的文件名模板，可使用 {index} 和 {stem} 占位符
-        stem: 文件名模板中 {stem} 的取值
-    返回：
-        保存路径（Path 对象），目录已创建
+    save_path 为空时，在 data_dir 下按 name_template（可用 {index}/{stem}）生成唯一文件名。
     """
     if save_path:
         path = Path(save_path)
@@ -743,7 +796,20 @@ def save_document(doc: Document, save_path) -> Path:
     tmp_path = Path(tmp_name)
     try:
         doc.save(str(tmp_path))
-        _atomic_replace(tmp_path, path)
+        try:
+            _atomic_replace(tmp_path, path)
+        except PermissionError:
+            # 目标文件无法覆盖（被其他程序打开占用、权限不足或重名冲突等）：
+            # 不让整个生成成果前功尽弃，自动另存为同目录 "<原名>_(N).docx" 的唯一新文件
+            index = 1
+            alt = path.with_name(f"{path.stem}_({index}){path.suffix}")
+            while alt.exists():
+                index += 1
+                alt = path.with_name(f"{path.stem}_({index}){path.suffix}")
+            _atomic_replace(tmp_path, alt)
+            print(f"[警告] 无法覆盖目标文件（被占用或权限不足）：{path}")
+            print(f"[警告] 本次成果已自动另存为：{alt}")
+            return alt
     except Exception:
         # 保存失败时清理临时文件，避免在输出目录留下垃圾
         try:
