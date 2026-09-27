@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from typing import Any, Dict, List, Optional, TypedDict, Annotated, Tuple
 from langgraph.graph import END, StateGraph
 from langgraph.checkpoint.memory import InMemorySaver
@@ -23,7 +22,7 @@ class AgentState(TypedDict):
     retrieved_content: List[str]#检索出来的内容
     input_file_path: List[str]#用户提供的参考文件路径
     file_summaries: Dict[str, str]#文件路径到文件摘要的映射
-    gdb_label: str#图数据库节点标签；空串表示未接入图数据库（knowledge 工具不可用）
+    gdb_label: str#要查询的图数据库的节点标签
     user_intent: Optional[str]#用户写作意图，new表示全新写作，rewrite表示改写
     rewrite_file: Optional[str]#待改写的文档路径
     rewrite_mode: Optional[str]#改写模式：patch（局部修补）、replace（查找替换）、global（全局重塑/逐章润色）、format（仅格式规范化，文字一字不改）；有步骤清单时等于第一步的模式
@@ -31,7 +30,6 @@ class AgentState(TypedDict):
     replace_pairs: Optional[Dict[str, str]]#replace 模式下旧词到新词的映射
     save_path: str#输出文档的保存路径，为空时自动生成
     file_roles: Optional[Dict[str, str]]#文件角色标签映射（如待修改目标文档、辅助参考/风格模板）
-    gdb_available: bool#图数据库是否可用，决定 knowledge 工具是否对检索智能体开放
     error: Optional[str]#错误结果
 
 
@@ -66,7 +64,7 @@ class AgentCore:
         self.agent_invoke=None
         self.checkpointer=InMemorySaver()#使用检查点记录会话内容
         
-    def build_graph(self, gdb=None): # 构建agent图
+    def build_graph(self, gdb): # 构建agent图
         try:
             from document_agent.agent.intent_node import create_intent_node, route_after_intent
             from document_agent.agent.summary_node import create_summary_node
@@ -74,6 +72,7 @@ class AgentCore:
             from document_agent.agent.docx_node import create_new_docx_node
             from document_agent.agent.rewrite_node import create_rewrite_node
             from document_agent.agent.file_retrieve_node import create_file_retrieve_node
+            from document_agent.agent.gdb_retrieve_node import create_gdb_retrieve_node
         except ImportError:
             from intent_node import create_intent_node, route_after_intent
             from summary_node import create_summary_node
@@ -81,45 +80,14 @@ class AgentCore:
             from docx_node import create_new_docx_node
             from rewrite_node import create_rewrite_node
             from file_retrieve_node import create_file_retrieve_node
-
-        try:
-            from document_agent.agent.gdb_retrieve_node import create_gdb_retrieve_node
-        except ImportError:
-            try:
-                from gdb_retrieve_node import create_gdb_retrieve_node
-            except ImportError:
-                create_gdb_retrieve_node = None
+            from gdb_retrieve_node import create_gdb_retrieve_node
 
         self.graph = StateGraph(AgentState)
         self.graph.add_node("intent", create_intent_node(self.llm))
         self.graph.add_node("summary", create_summary_node(self.llm))
         self.graph.add_node("retrieve", create_retrieve_node(self.llm))
         self.graph.add_node("retrieve_file", create_file_retrieve_node(self.llm))
-
-        # =====================================================================
-        # 【gdb 节点可选挂载与平滑降级说明】
-        # 当前为了便于在未接入 Memgraph 或纯本地文档场景下调试，
-        # 当 gdb 为 None 时挂载 dummy 提示节点，避免空指针崩溃。
-        #
-        # >>> 后期若正式部署上线、强制要求图数据库服务时，可将本 if-else 降级代码注释掉，
-        # >>> 恢复为下方原版的强制挂载代码：
-        # self.graph.add_node("retrieve_gdb", create_gdb_retrieve_node(self.llm, gdb))
-        # =====================================================================
-        if gdb is not None and create_gdb_retrieve_node is not None:
-            self.graph.add_node("retrieve_gdb", create_gdb_retrieve_node(self.llm, gdb))
-            self._gdb_available = True
-        else:
-            def dummy_gdb_retrieve(state: AgentState) -> AgentState:
-                print("【知识库检索】当前未接入图数据库，跳过图检索")
-                retrieved_items = list(state.get("retrieved_content") or [])
-                retrieved_items.append(
-                    "【系统提示】系统未配置图数据库，knowledge 工具当前不可用，"
-                    "请勿再次调用 knowledge 工具；若参考信息已足够，请直接调用 end 结束检索。"
-                )
-                return {**state, "retrieved_content": retrieved_items}
-            self.graph.add_node("retrieve_gdb", dummy_gdb_retrieve)
-            self._gdb_available = False
-
+        self.graph.add_node("retrieve_gdb", create_gdb_retrieve_node(self.llm, gdb))
         self.graph.add_node("new_docx", create_new_docx_node(self.llm))
         self.graph.add_node("rewrite_docx", create_rewrite_node(self.llm))
         self.graph.set_entry_point("intent")
@@ -154,8 +122,7 @@ class AgentCore:
                 "state": "start",
                 "input_file_path": list(input_file_path or []),
                 "file_summaries": {},
-                # 未接入图数据库时 gdb_label 为空串，检索节点在无参考文件时可直接跳过检索，省一次模型空转
-                "gdb_label": "global" if bool(getattr(self, "_gdb_available", False)) else "",
+                "gdb_label": "global",
                 "retrieved_content": [],
                 "retrieve_count_limit": 3,
                 "retrieve_tool": "end",
@@ -168,17 +135,7 @@ class AgentCore:
                 "replace_pairs": {},
                 "save_path": "",
                 "file_roles": {},
-                "gdb_available": bool(getattr(self, "_gdb_available", False)),
                 "error": None,
             },
             config=config
         )
-        
-if __name__ == "__main__":
-    input_file_path=sys.argv[1:]
-    user_input=input("请输入用户问题：")
-    agent_core=AgentCore()
-    agent_core.build_graph()
-    result=agent_core.invoke(user_input, input_file_path)
-    # print("检索出来的内容：", result["retrieved_content"])
-    print("运行结果：",result.get("state",""))

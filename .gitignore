@@ -3,10 +3,6 @@ __pycache__/
 *.py[codz]
 *$py.class
 
-# Environment files
-.env
-.env.*
-
 # C extensions
 *.so
 
@@ -152,8 +148,6 @@ activemq-data/
 *.sage.py
 
 # Environments
-.env
-.envrc
 .venv
 env/
 venv/

@@ -22,21 +22,10 @@ def create_retrieve_node(llm):
         s = state["retrieve_target"]
         msg=state["messages"]
         file_summaries=state["file_summaries"]
-        gdb_label=state.get("gdb_label")
         retrieve_limit=state["retrieve_count_limit"]
         retrived_conent=state.get("retrieved_content",[])
         file_retrived_item_set=set()#已经检索过的内容，避免重复检索
         tool_response=""
-        # 无参考文件且无需知识库检索（gdb_label 为空串）时直接结束检索，避免大模型空转一轮
-        if not file_summaries and not gdb_label:
-            print("【检索智能体】无参考资料/知识库需求，跳过检索直接写作")
-            return {
-                **state,
-                "retrieve_tool": "end",
-                "retrieve_params": {},
-                "retrieve_target": "",
-                "error": None,
-            }
         if len(file_summaries)>0:
             summaries_prompt="\n".join([f"文件路径：{path}\n文件摘要：{summary}" for path, summary in file_summaries.items()])
             file_prompt_line="用户提供的文件参考内容："+summaries_prompt
