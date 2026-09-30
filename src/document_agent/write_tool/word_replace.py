@@ -1,5 +1,6 @@
 import re
 from typing import Dict, List, Tuple
+from uuid import uuid4
 from docx import Document
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -11,6 +12,10 @@ try:
     from document_agent.write_tool.word_tool import element_has_protected_content
 except ImportError:
     from word_tool import element_has_protected_content
+
+#哨兵串边界字符：用Unicode私有区，正常文档中不会出现
+_SENTINEL_PREFIX = "\ue000"
+_SENTINEL_SUFFIX = "\ue001"
 
 
 def _set_run_text_keep_children(run: Run, new_text: str) -> None:
@@ -111,16 +116,38 @@ def replace_in_paragraph(p: Paragraph, old_text: str, new_text: str) -> int:
 def replace_in_table(table: Table, old_text: str, new_text: str) -> int:
     """在表格的所有单元格段落中安全替换文本。"""
     count = 0
+    for p in _iter_table_paragraphs(table):
+        count += replace_in_paragraph(p, old_text, new_text)
+    return count
+
+
+def _iter_table_paragraphs(table: Table):
+    """遍历表格所有单元格段落（合并单元格去重）。"""
     seen = set()
     for row in table.rows:
         for cell in row.cells:
-            #合并单元格会在 row.cells 中重复出现且指向同一个 w:tc，需去重避免重复替换、计数虚高
-            if id(cell._tc) in seen:
+            #合并单元格会在 row.cells 中重复出现且指向同一个 w:tc，去重避免重复处理、计数虚高
+            if cell._tc in seen:
                 continue
-            seen.add(id(cell._tc))
+            seen.add(cell._tc)
             for p in cell.paragraphs:
-                count += replace_in_paragraph(p, old_text, new_text)
-    return count
+                yield p
+
+
+def _iter_replace_paragraphs(doc: Document):
+    """枚举替换范围：正文段落、表格单元格、页眉页脚（含其中表格）。"""
+    for p in doc.paragraphs:
+        yield p
+    for table in doc.tables:
+        yield from _iter_table_paragraphs(table)
+    for section in doc.sections:
+        for container in (section.header, section.footer):
+            if container is None:
+                continue
+            for p in container.paragraphs:
+                yield p
+            for t in container.tables:
+                yield from _iter_table_paragraphs(t)
 
 
 def replace_in_document(doc: Document, old_text: str, new_text: str) -> int:
@@ -129,36 +156,42 @@ def replace_in_document(doc: Document, old_text: str, new_text: str) -> int:
         return 0
 
     total_count = 0
-    # 1. 替换正文段落
-    for p in doc.paragraphs:
+    for p in _iter_replace_paragraphs(doc):
         total_count += replace_in_paragraph(p, old_text, new_text)
-
-    # 2. 替换表格单元格中的段落
-    for table in doc.tables:
-        total_count += replace_in_table(table, old_text, new_text)
-
-    # 3. 替换页眉页脚（如有）
-    for section in doc.sections:
-        if section.header:
-            for p in section.header.paragraphs:
-                total_count += replace_in_paragraph(p, old_text, new_text)
-            for t in section.header.tables:
-                total_count += replace_in_table(t, old_text, new_text)
-        if section.footer:
-            for p in section.footer.paragraphs:
-                total_count += replace_in_paragraph(p, old_text, new_text)
-            for t in section.footer.tables:
-                total_count += replace_in_table(t, old_text, new_text)
 
     return total_count
 
 
+def _make_sentinel(doc_text: str, position: int) -> str:
+    """生成唯一的哨兵串；与原文冲突时追加随机后缀直至唯一。"""
+    candidate = f"{_SENTINEL_PREFIX}{position}{_SENTINEL_SUFFIX}"
+    while candidate in doc_text:
+        candidate = f"{_SENTINEL_PREFIX}{position}-{uuid4().hex[:8]}{_SENTINEL_SUFFIX}"
+    return candidate
+
+
 def batch_replace_in_document(doc: Document, replace_pairs: Dict[str, str]) -> Dict[str, int]:
-    """批量替换文档中的多组键值对，返回每个目标词的替换命中次数统计。"""
+    """批量替换文档中的多组键值对，返回每个目标词在原文中的替换命中次数统计。
+
+    逐对串行替换会有"A→B、B→C"污染（{"甲方":"乙方","乙方":"丙方"}会把甲方最终变成丙方），
+    故改用占位符两阶段替换，命中数也只统计原文中的真实出现次数。
+    """
     stats: Dict[str, int] = {}
-    for old_text, new_text in replace_pairs.items():
-        if not old_text:
-            continue
-        c = replace_in_document(doc, old_text, str(new_text))
-        stats[old_text] = c
+    valid_pairs = [(old, str(new)) for old, new in (replace_pairs or {}).items() if old]
+    if not valid_pairs:
+        return stats
+
+    doc_text = "\n".join(p.text or "" for p in _iter_replace_paragraphs(doc))
+
+    #阶段一：旧词 -> 哨兵串，此时的命中数即原文真实出现次数
+    sentinel_of: Dict[str, str] = {}
+    for position, (old_text, _) in enumerate(valid_pairs):
+        sentinel = _make_sentinel(doc_text, position)
+        sentinel_of[old_text] = sentinel
+        stats[old_text] = replace_in_document(doc, old_text, sentinel)
+
+    #阶段二：哨兵串 -> 新词，新词里即使含其它组的旧词也不会被再替换
+    for old_text, new_text in valid_pairs:
+        replace_in_document(doc, sentinel_of[old_text], new_text)
+
     return stats

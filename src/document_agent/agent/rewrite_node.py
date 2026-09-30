@@ -1081,9 +1081,10 @@ def _inherit_paragraph_format(new_item: ParagraphItem, base_item,
     )
 
 
-def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None) -> int:
-    #按下标从大到小执行，避免增删导致后续下标错位
+def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None) -> Tuple[int, List[str]]:
+    #按下标从大到小执行，避免增删导致后续下标错位；返回(生效数, 未落地的修改明细)
     applied = 0
+    failed: List[str] = []
     body_profile = extract_body_profile(base_items)
 
     #扫描文档末尾连续的 tail_meta（落款/日期等），定位落款起始下标
@@ -1132,6 +1133,7 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
 
         if edit.index < 0 or edit.index >= len(nodes):
             print(f"忽略越界的修改下标：{edit.index}")
+            failed.append(f"第{edit.index}个元素的{action}未生效：下标越界（文档共{len(nodes)}个元素）")
             continue
         node = nodes[edit.index]
         base_item = base_items[edit.index]
@@ -1147,6 +1149,7 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
                 if isinstance(node, Table):
                     if not isinstance(edit.table, TableItem) or edit.table.rows <= 0 or edit.table.cols <= 0 or not edit.table.grid:
                         print(f"第{edit.index}个元素是表格，但未提供有效的表格内容，跳过替换")
+                        failed.append(f"第{edit.index}个表格未改写：模型未给出有效的表格内容")
                         continue
                     #表格替换会重建对象，必须写回nodes，否则同下标的insert_after会拿到已移除的旧元素
                     if element_has_protected_content(node._element):
@@ -1161,6 +1164,7 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
                         replace_items = [edit.paragraph]
                     if not replace_items:
                         print(f"第{edit.index}个元素是段落，但模型没有给出段落内容，跳过")
+                        failed.append(f"第{edit.index}个段落未改写：模型未给出改写后的段落内容")
                         continue
                     #首段原地替换并继承原段落格式（is_insert=False）
                     replace_node_with_data(node, _inherit_paragraph_format(replace_items[0], base_item, body_profile, is_insert=False), doc, write_defaults=False)
@@ -1186,6 +1190,7 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
                     insert_items = [edit.paragraph]
                 if not insert_items:
                     print(f"第{edit.index}个元素的插入内容为空，跳过")
+                    failed.append(f"第{edit.index}个元素后未插入内容：模型给出的插入内容为空")
                     continue
                 #addnext 逐个插到锚点后，故倒序生成才能保持模型给出的顺序
                 for item in reversed(insert_items):
@@ -1200,6 +1205,7 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
                 old_text = edit.old_text or ""
                 if not old_text:
                     print(f"第{edit.index}个元素缺少old_text，跳过")
+                    failed.append(f"第{edit.index}个元素未做子串替换：模型未给出 old_text")
                     continue
                 new_text = edit.new_text or ""
                 if isinstance(node, Paragraph):
@@ -1215,9 +1221,11 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
                 print(f"已在第{edit.index}个元素中替换{count}处“{old_text}”")
             else:
                 print(f"忽略未知的修改动作：{edit.action}")
+                failed.append(f"第{edit.index}个元素未处理：未知的修改动作“{edit.action}”")
         except Exception as e:
             print(f"应用第{edit.index}个元素的修改失败：{e}")
-    return applied
+            failed.append(f"第{edit.index}个元素的{action}执行异常：{e}")
+    return applied, failed
 
 class ReplacementMapping(BaseModel):
     pairs: Dict[str, str] = Field(
@@ -1256,11 +1264,23 @@ def run_patch_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, node
         print(f"【局部修补】文档约{estimated_tokens} tokens，启用工具化改写")
         edits, error = _rewrite_with_tools(llm, f"{dialog}\n{retrieved_info}", nodes, description, base_items)
         if error:
-            return 0, error
+            if not edits:
+                return 0, error
+            #轮次跑满但已有暂存的修改：部分落地好过整体丢弃
+            print(f"【局部修补】警告：{error}；仍将落地已暂存的 {len(edits)} 条修改，请核对是否覆盖全部要求")
+            error = ""
         if not edits:
             return 0, "模型没有提交任何修改"
 
-    applied = apply_rewrite_plan(doc, nodes, base_items, edits, description)
+    applied, failed = apply_rewrite_plan(doc, nodes, base_items, edits, description)
+    if failed:
+        print(f"【局部修补】有 {len(failed)} 条修改未能生效：")
+        for detail in failed:
+            print(f"   - {detail}")
+        if applied == 0:
+            return 0, "全部修改均未能生效：" + "；".join(failed)
+        #部分失败也要回报明细，不能静默当成全部成功
+        return applied, f"{len(failed)} 条修改未能生效（另 {applied} 条已写入）：" + "；".join(failed)
     return applied, ""
 
 
@@ -1878,6 +1898,12 @@ def _describe_role_spec(role_spec: Optional[RoleFormatSpec]) -> str:
     return "，".join(parts) if parts else "保持原样"
 
 
+def _clip_text(text: Optional[str], limit: int = 20) -> str:
+    #把文本截断成适合打印的短片段
+    text = (text or "").replace("\n", " ")
+    return text if len(text) <= limit else text[:limit]
+
+
 def _document_text_length(nodes) -> int:
     #统计文档纯文字长度，用于格式规范化后的保真校验
     total = 0
@@ -1889,6 +1915,28 @@ def _document_text_length(nodes) -> int:
                 for cell in row.cells:
                     total += len(cell.text or "")
     return total
+
+
+def _document_text_snapshot(nodes) -> List[Optional[str]]:
+    """逐元素记录纯文字快照用于保真校验；非段落/表格返回None表示不参与。"""
+    snapshot: List[Optional[str]] = []
+    for node in nodes:
+        if isinstance(node, Paragraph):
+            snapshot.append(node.text or "")
+        elif isinstance(node, Table):
+            seen = set()
+            parts = []
+            for row in node.rows:
+                for cell in row.cells:
+                    #合并单元格会重复指向同一个 w:tc，去重避免同一段文字被比对两次
+                    if cell._tc in seen:
+                        continue
+                    seen.add(cell._tc)
+                    parts.append(cell.text or "")
+            snapshot.append("\n".join(parts))
+        else:
+            snapshot.append(None)
+    return snapshot
 
 
 def run_format_rewrite(llm, dialog: str, retrieved_info: str, doc: Document,
@@ -1939,6 +1987,7 @@ def run_format_rewrite(llm, dialog: str, retrieved_info: str, doc: Document,
     print("【格式规范】大纲级别写入：" + ("开启" if spec.apply_outline_level else "关闭"))
 
     before_len = _document_text_length(nodes)
+    before_texts = _document_text_snapshot(nodes)
     heading_applied = 0
     body_applied = 0
     table_applied = 0
@@ -1988,10 +2037,23 @@ def run_format_rewrite(llm, dialog: str, retrieved_info: str, doc: Document,
             skipped += 1
 
     after_len = _document_text_length(nodes)
-    if before_len == after_len:
-        print(f"【格式规范】文字保全校验通过：全文 {before_len} 字，改写前后一致")
-    else:
-        print(f"【格式规范】警告：文字长度变化（{before_len} → {after_len}），请核对")
+    after_texts = _document_text_snapshot(nodes)
+    changed_indexes = [
+        index for index, (before, after) in enumerate(zip(before_texts, after_texts))
+        if before is not None and before != after
+    ]
+    if changed_indexes:
+        #承诺过一字不改，出现改动即失败：返回0让上层不落盘
+        details = "；".join(
+            f"第{index}个元素：“{_clip_text(before_texts[index])}…” -> “{_clip_text(after_texts[index])}…”"
+            for index in changed_indexes[:5]
+        )
+        message = (f"文字保全校验失败：{len(changed_indexes)} 个元素的文字被改动"
+                   f"（原文 {before_len} 字 -> {after_len} 字），已放弃保存排版结果。{details}")
+        print(f"【格式规范】{message}")
+        return 0, message
+
+    print(f"【格式规范】文字保全校验通过：{len(before_texts)} 个元素逐元素比对一致（全文 {after_len} 字）")
 
     applied = heading_applied + body_applied + table_applied
     print(f"【格式规范】完成：标题 {heading_applied} 处，正文 {body_applied} 处，表格 {table_applied} 张"
@@ -2198,10 +2260,12 @@ def create_rewrite_node(llm):
         print("改写后的文档已保存到：", str(save_path))
         if error:
             #多步执行中途失败：已完成的部分修改仍然保存，避免前功尽弃
+            if failed_step and len(steps) > 1:
+                error = f"第{failed_step}步执行失败（该步之前的修改已保存）：{error}"
             return {
                 **state,
                 "state": "error",
-                "error": f"第{failed_step}步执行失败（该步之前的修改已保存）：{error}",
+                "error": error,
                 "save_path": str(save_path),
             }
         return {**state, "state": "succeeded", "save_path": str(save_path)}
