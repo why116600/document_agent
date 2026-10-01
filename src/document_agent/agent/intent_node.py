@@ -33,6 +33,13 @@ class RewriteStep(BaseModel):#复合改写指令中的一个执行步骤
         default=None,
         description="本步骤的作用范围（如章节名'工作交接部分'、'全文'），不限定范围时留空。"
     )
+    target_range: Optional[List[int]] = Field(
+        default=None,
+        description=(
+            "本步骤作用范围的正文元素下标区间 [起始下标, 结束下标]（含两端）。"
+            "仅当用户明确给出序号范围时才填，无法确定时留空，由改写节点按 target 在文档大纲中解析。"
+        )
+    )
     instruction: str = Field(
         default="",
         description="本步骤要完成的具体要求，只写与本步骤相关的内容，不要复述其它步骤的要求。"
@@ -113,6 +120,11 @@ class DocumentTaskIntent(BaseModel):
     )
 
 
+def _dedup_paths(files: List[str]) -> List[str]:
+    #同一文档可能被重复登记，按绝对路径去重后再判断歧义
+    return list(dict.fromkeys(str(Path(f).resolve()) for f in files))
+
+
 def match_candidate_file(target_str: Optional[str], candidate_files: List[str]) -> Tuple[Optional[str], Optional[str]]:
     """从候选文件列表中精准匹配目标文件。
     
@@ -143,32 +155,33 @@ def match_candidate_file(target_str: Optional[str], candidate_files: List[str]) 
 
     # 2. 按文件名完全匹配（不区分大小写）
     target_name_lower = target_path.name.lower()
-    exact_matches = [
-        str(Path(f).resolve())
-        for f in docx_candidates
-        if Path(f).name.lower() == target_name_lower
-    ]
-    if len(exact_matches) >= 1:
+    exact_matches = _dedup_paths([
+        f for f in docx_candidates if Path(f).name.lower() == target_name_lower
+    ])
+    if len(exact_matches) == 1:
         return exact_matches[0], None
+    if len(exact_matches) > 1:
+        return None, f"候选文件中有 {len(exact_matches)} 个文档同名（{target_path.name}），请指明完整路径：" + "、".join(exact_matches)
 
     # 3. 按主文件名匹配
     target_stem_lower = target_path.stem.lower()
-    stem_matches = [
-        str(Path(f).resolve())
-        for f in docx_candidates
-        if Path(f).stem.lower() == target_stem_lower
-    ]
-    if len(stem_matches) >= 1:
+    stem_matches = _dedup_paths([
+        f for f in docx_candidates if Path(f).stem.lower() == target_stem_lower
+    ])
+    if len(stem_matches) == 1:
         return stem_matches[0], None
+    if len(stem_matches) > 1:
+        return None, f"候选文件中有 {len(stem_matches)} 个文档主名相同（{target_path.stem}），请指明完整路径：" + "、".join(stem_matches)
 
     # 4. 子串模糊匹配
-    substr_matches = [
-        str(Path(f).resolve())
-        for f in docx_candidates
+    substr_matches = _dedup_paths([
+        f for f in docx_candidates
         if (target_clean.lower() in Path(f).name.lower() or Path(f).stem.lower() in target_clean.lower())
-    ]
-    if len(substr_matches) >= 1:
+    ])
+    if len(substr_matches) == 1:
         return substr_matches[0], None
+    if len(substr_matches) > 1:
+        return None, f"与 '{target_str}' 模糊匹配的文档有 {len(substr_matches)} 个，请指明具体文件名：" + "、".join(substr_matches)
 
     return None, f"在候选文件列表中未找到与 '{target_str}' 匹配的 .docx 文档"
 
@@ -289,6 +302,8 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str]) -> st
         "   -（d）顺序硬约束：replace 排最前（纯词替换、不改变文档结构）；局部增补 patch 先于整篇重写 global；"
         "format 必须排最后（内容定稿后再统一排版，否则新增段落不会被规范化）；\n"
         "   -（e）若用户既要求改内容又要求规范格式，绝不能只给 format 而丢掉内容诉求。\n"
+        "   -（f）target 只写范围的自然语言名称（章节标题或'全篇'）；target_range 仅在用户明确给出序号范围时"
+        "填写 [起始下标, 结束下标]，无法确定时必须留空，交由改写节点按 target 在文档大纲中解析。\n"
         "4. replace_pairs 提取（仅当步骤中出现 replace 模式时）：\n"
         "   - 提取需要替换的词对字典，格式为 {原词: 替换后新词}，并与该 replace 步骤的 replace_pairs 保持一致；\n"
         "   - 非 replace 模式必须为空字典。\n"
@@ -338,11 +353,13 @@ def build_rewrite_steps(task_intent, fallback_mode: str, replace_pairs: Dict[str
             "order": order,
             "mode": mode,
             "target": str(getattr(raw, "target", "") or "").strip(),
+            "target_range": getattr(raw, "target_range", None),
             "instruction": str(getattr(raw, "instruction", "") or "").strip(),
             "replace_pairs": step_pairs,
         })
     if not steps:
-        steps = [{"order": 1, "mode": fallback_mode, "target": "", "instruction": "", "replace_pairs": {}}]
+        steps = [{"order": 1, "mode": fallback_mode, "target": "", "target_range": None,
+                  "instruction": "", "replace_pairs": {}}]
     steps.sort(key=lambda step: step["order"])
     for position, step in enumerate(steps, 1):
         step["order"] = position

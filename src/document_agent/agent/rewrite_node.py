@@ -70,6 +70,7 @@ HEADING_MIN_FONT_SIZE = 14 #启发式判定标题时的大字号阈值
 VIRTUAL_BLOCK_SIZE = 18 #无标题文档按多少个元素聚合成一个虚拟块
 FORMAT_HEADING_SIZE_STEP = 3 #格式规范化时标题字号相对正文基准的递增磅值
 BLOCK_PREVIEW_CHARS = 40 #虚拟块首尾句保留的字符数
+WHOLE_DOC_TARGETS = frozenset(["全文", "全篇", "整篇", "整个文档", "整份文档", "全部"]) #表示整篇作用域的步骤范围词
 
 _P_CHAPTER = [
     re.compile(r"^第[一二三四五六七八九十百千0-9]+[编篇章部分卷]"),
@@ -1141,6 +1142,7 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
             if action == "delete":
                 if element_has_protected_content(node._element):
                     print(f"第{edit.index}个元素含图片等无法表达的内容，已跳过删除")
+                    failed.append(f"第{edit.index}个元素未删除：含图片等受保护内容")
                     continue
                 node._element.getparent().remove(node._element)
                 applied += 1
@@ -1154,6 +1156,7 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
                     #表格替换会重建对象，必须写回nodes，否则同下标的insert_after会拿到已移除的旧元素
                     if element_has_protected_content(node._element):
                         print(f"第{edit.index}个表格含图片等无法表达的内容，已跳过替换")
+                        failed.append(f"第{edit.index}个表格未改写：含图片等受保护内容")
                         continue
                     node = replace_node_with_data(node, edit.table, doc, write_defaults=False)
                     nodes[edit.index] = node
@@ -1216,6 +1219,7 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
                     count = 0
                 if count == 0:
                     print(f"第{edit.index}个元素中没有找到“{old_text}”，未做替换")
+                    failed.append(f"第{edit.index}个元素未做子串替换：未找到“{old_text}”")
                     continue
                 applied += count
                 print(f"已在第{edit.index}个元素中替换{count}处“{old_text}”")
@@ -1311,6 +1315,10 @@ def run_replace_rewrite(llm, dialog: str, doc: Document, replace_pairs: Optional
     total_replaced = sum(stats.values())
     summary_parts = [f"“{k}” -> “{v}” ({stats.get(k, 0)}处)" for k, v in pairs.items()]
     print(f"【全局替换】共替换 {total_replaced} 处：" + "，".join(summary_parts))
+    missing = [k for k, c in stats.items() if c == 0]
+    if missing:
+        #全部未命中时 total_replaced 为 0，上层据此不落盘；部分未命中则已替换的部分照常保留
+        return total_replaced, "未找到全局替换目标：" + "、".join(f"“{k}”" for k in missing)
     return total_replaced, ""
 
 
@@ -1424,11 +1432,74 @@ def extract_hierarchical_sections(nodes, description, base_items) -> list:
     return major_sections
 
 
-def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nodes, base_items, description) -> Tuple[int, str]:
+def _normalize_range(value, total: int) -> Optional[Tuple[int, int]]:
+    #把 [起始下标, 结束下标] 规范为合法区间（含两端），越界裁剪，非法返回 None
+    if not isinstance(value, (list, tuple)) or len(value) != 2 or total <= 0:
+        return None
+    try:
+        start, end = int(value[0]), int(value[1])
+    except (TypeError, ValueError):
+        return None
+    if start > end:
+        start, end = end, start
+    return max(0, min(start, total - 1)), max(0, min(end, total - 1))
+
+
+def _match_outline_range(entries, scope: str) -> Optional[Tuple[int, int]]:
+    #在大纲树中按标题匹配章节；命中多个时取范围最小的（更具体）
+    found: List[Tuple[int, int]] = []
+
+    def _walk(items):
+        for entry in items or []:
+            index_range = entry.get("index_range") or []
+            if len(index_range) == 2:
+                start, end = int(index_range[0]), int(index_range[1])
+                title = (entry.get("title") or "").strip()
+                if title and (scope in title or title in scope):
+                    found.append((start, end))
+            _walk(entry.get("children") or [])
+
+    _walk(entries)
+    return min(found, key=lambda r: r[1] - r[0]) if found else None
+
+
+def resolve_scope_range(target, target_range, nodes, description, base_items) -> Tuple[Optional[Tuple[int, int]], str]:
+    """把步骤作用域解析成元素下标区间，返回 (区间, 错误信息)；区间为 None 表示不限定范围。"""
+    scope = (target or "").strip()
+    if not scope or scope in WHOLE_DOC_TARGETS:
+        return None, ""
+    explicit = _normalize_range(target_range, len(description))
+    if explicit is not None:
+        print(f"【作用域解析】范围“{scope}”采用步骤给定的下标区间 {explicit[0]}~{explicit[1]}")
+        return explicit, ""
+    outline = build_outline_tree(nodes, description, base_items)
+    matched = _match_outline_range(outline.get("outline") or [], scope)
+    if matched is None:
+        return None, f"未能在文档大纲中找到与范围“{scope}”匹配的章节（现有章节：" + "、".join(
+            e.get("title") or "" for e in outline.get("outline") or []) + "）"
+    print(f"【作用域解析】范围“{scope}” -> 元素下标 {matched[0]}~{matched[1]}")
+    return matched, ""
+
+
+def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nodes, base_items, description,
+                       target: str = "", target_range=None) -> Tuple[int, str]:
+
+    scope_range, scope_error = resolve_scope_range(target, target_range, nodes, description, base_items)
+    if scope_error:
+        return 0, scope_error
 
     sections = extract_hierarchical_sections(nodes, description, base_items)
     if not sections:
         return 0, "无法划分文档章节结构进行全局重构"
+
+    if scope_range is not None:
+        #步骤指明局部范围时只重塑区间覆盖到的章节，避免"改第三章"变成重塑全文
+        low, high = scope_range
+        matched = [s for s in sections if s["start"] <= high and s["end"] >= low]
+        if not matched:
+            return 0, f"全局重塑的作用范围（下标 {low}~{high}）未覆盖任何章节"
+        print(f"【全局重塑】按步骤范围（下标 {low}~{high}）命中 {len(matched)} 个大章节")
+        sections = matched
 
     print(f"【全局重塑】共划分为 {len(sections)} 个大章节：")
     for s in sections:
@@ -2105,6 +2176,7 @@ def normalize_rewrite_steps(raw_steps, fallback_mode: str) -> Tuple[List[dict], 
             "order": order,
             "mode": mode,
             "target": str(raw.get("target") or "").strip(),
+            "target_range": raw.get("target_range"),
             "instruction": str(raw.get("instruction") or "").strip(),
             "replace_pairs": dict(raw.get("replace_pairs") or {}),
         })
@@ -2112,7 +2184,7 @@ def normalize_rewrite_steps(raw_steps, fallback_mode: str) -> Tuple[List[dict], 
         mode = (fallback_mode or "patch").strip().lower()
         if mode not in STEP_MODE_RANK:
             mode = "patch"
-        steps = [{"order": 1, "mode": mode, "target": "", "instruction": "", "replace_pairs": {}}]
+        steps = [{"order": 1, "mode": mode, "target": "", "target_range": None, "instruction": "", "replace_pairs": {}}]
         return steps, notes
 
     steps.sort(key=lambda step: step["order"])
@@ -2160,7 +2232,7 @@ def build_step_dialog(dialog: str, step: dict, total_steps: int) -> str:
 def dispatch_rewrite_mode(llm, mode: str, dialog: str, retrieved_info: str, doc: Document,
                           nodes, base_items, description, replace_pairs,
                           step_no: int = 0, total_steps: int = 1,
-                          target: str = "") -> Tuple[int, str]:
+                          target: str = "", target_range=None) -> Tuple[int, str]:
     """按模式调用对应改写引擎；多步骤时在日志中标出步骤序号。"""
     prefix = f"步骤{step_no}/{total_steps}：" if total_steps > 1 else ""
     if mode == "replace":
@@ -2168,11 +2240,12 @@ def dispatch_rewrite_mode(llm, mode: str, dialog: str, retrieved_info: str, doc:
         return run_replace_rewrite(llm, dialog, doc, replace_pairs)
     if mode == "global":
         print(f"【改写调度】{prefix}{STEP_MODE_LABELS['global']}")
-        return run_global_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description)
+        return run_global_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description, target, target_range)
     if mode == "format":
         #格式规范化是整篇排版：作用域只写在提示词里无法约束实际循环，故拒绝局部范围，避免"只排版某章"变成排版全文
-        if (target or "").strip():
-            return 0, (f"格式规范化暂不支持指定局部范围（本步范围：{target.strip()}），"
+        scope = (target or "").strip()
+        if scope and scope not in WHOLE_DOC_TARGETS:
+            return 0, (f"格式规范化暂不支持指定局部范围（本步范围：{scope}），"
                        "请以整篇文档为单位进行排版规范化")
         print(f"【改写调度】{prefix}{STEP_MODE_LABELS['format']}")
         return run_format_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description)
@@ -2237,6 +2310,7 @@ def create_rewrite_node(llm):
                 llm, step["mode"], build_step_dialog(dialog, step, len(steps)), retrieved_info,
                 doc, nodes, base_items, description, step_pairs,
                 step_no=position, total_steps=len(steps), target=step["target"],
+                target_range=step.get("target_range"),
             )
             applied += step_applied or 0
             if error:

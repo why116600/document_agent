@@ -18,23 +18,38 @@ _SENTINEL_PREFIX = "\ue000"
 _SENTINEL_SUFFIX = "\ue001"
 
 
+def _write_t(t_elem, text: str) -> None:
+    #写入 w:t 的文本，并按首尾空格维护 xml:space
+    t_elem.text = text
+    if text.startswith(" ") or text.endswith(" "):
+        t_elem.set(qn("xml:space"), "preserve")
+    elif t_elem.get(qn("xml:space")) is not None:
+        del t_elem.attrib[qn("xml:space")]
+
+
 def _set_run_text_keep_children(run: Run, new_text: str) -> None:
     """仅修改或清空 Run 内的 w:t 文本节点，保留其中的 drawing、pict、fldChar、oMath 等非文本子元素。"""
     r_elem = run._r
     t_elems = r_elem.findall(qn("w:t"))
-    if t_elems:
-        t_elems[0].text = new_text
-        if new_text.startswith(" ") or new_text.endswith(" "):
-            t_elems[0].set(qn("xml:space"), "preserve")
-        for extra_t in t_elems[1:]:
-            r_elem.remove(extra_t)
-    else:
+    if not t_elems:
         if new_text:
             t = OxmlElement("w:t")
             t.text = new_text
             if new_text.startswith(" ") or new_text.endswith(" "):
                 t.set(qn("xml:space"), "preserve")
             r_elem.append(t)
+        return
+
+    #受保护对象（图片/域/公式）两侧的文案分属不同 w:t：整体写进第一个会把对象之后的文案
+    #挪到对象之前。若新文案仍以这些尾部文案结尾，就原样保留尾部节点，只改写头部节点。
+    tail = "".join(t.text or "" for t in t_elems[1:])
+    if tail and new_text.endswith(tail):
+        _write_t(t_elems[0], new_text[:len(new_text) - len(tail)])
+        return
+
+    _write_t(t_elems[0], new_text)
+    for extra_t in t_elems[1:]:
+        _write_t(extra_t, "")
 
 
 def _get_paragraph_runs(p: Paragraph) -> List[Run]:
@@ -177,7 +192,11 @@ def batch_replace_in_document(doc: Document, replace_pairs: Dict[str, str]) -> D
     故改用占位符两阶段替换，命中数也只统计原文中的真实出现次数。
     """
     stats: Dict[str, int] = {}
-    valid_pairs = [(old, str(new)) for old, new in (replace_pairs or {}).items() if old]
+    #长词优先：{"甲":"X","甲方":"Y"} 这类有重叠的键，短词先替换会吃掉长词的文本
+    valid_pairs = sorted(
+        ((old, str(new)) for old, new in (replace_pairs or {}).items() if old),
+        key=lambda pair: -len(pair[0]),
+    )
     if not valid_pairs:
         return stats
 
