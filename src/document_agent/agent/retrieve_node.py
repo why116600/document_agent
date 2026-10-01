@@ -1,11 +1,15 @@
-
+﻿
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
 from pathlib import Path
 import traceback
 
-from llm_client import llm_invoke, llm_model_invoke
-from agent_core import AgentState
+try:
+    from document_agent.agent.llm_client import llm_invoke, llm_model_invoke
+    from document_agent.agent.agent_core import AgentState
+except ImportError:
+    from llm_client import llm_invoke, llm_model_invoke
+    from agent_core import AgentState
 from document_agent.retrieve_tool.extract_document import extract_document_content
 
 class RetrieveFuncCallable(BaseModel):

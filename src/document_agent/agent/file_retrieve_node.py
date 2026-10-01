@@ -1,11 +1,15 @@
-
+﻿
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
 from pathlib import Path
 import traceback
 
-from llm_client import llm_invoke, llm_model_invoke
-from agent_core import AgentState
+try:
+    from document_agent.agent.llm_client import llm_invoke, llm_model_invoke
+    from document_agent.agent.agent_core import AgentState
+except ImportError:
+    from llm_client import llm_invoke, llm_model_invoke
+    from agent_core import AgentState
 from document_agent.retrieve_tool.extract_document import extract_document_content
 
 # 文件检索节点
@@ -24,7 +28,7 @@ def create_file_retrieve_node(llm):
         query=params.get("query")
         print(f"对文件{path}进行检索")
         if (path,query) in file_retrieved_items.keys():
-            tool_response=f"重复对文件{path}检索：",query
+            tool_response=f"重复对文件{path}检索：{query}"
             print(tool_response)
             retrieved_items.append(tool_response)
             return {**state,"state":"error","error":"文件检索出现相同内容","retrieved_content":retrieved_items}

@@ -1,9 +1,12 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
+import sys
+import json
 import httpx
+import re
 from functools import lru_cache
-from typing import TypeVar, Type
+from typing import TypeVar, Type, Optional, Union, List
 from pydantic import BaseModel
 
 from langchain_openai import ChatOpenAI
@@ -11,14 +14,41 @@ from langchain_openai import ChatOpenAI
 DEFAULT_BASE_URL = "https://api.deepseek.com/v1"
 DEFAULT_MODEL = "deepseek-chat"
 
-def get_api_key():
+def get_api_key(interactive: bool = True) -> str:
     """
-    Get the DeepSeek API key from environment variable or prompt the user for it.
+    获取 DeepSeek API Key：优先读环境变量 MODEL_API_KEY；未设置且 interactive=True 时交互式询问一次，
+    并写回 os.environ 供本次运行复用（不落盘，不写入任何文件）。
     """
     api_key = os.getenv("MODEL_API_KEY")
+    if not api_key and interactive:
+        api_key = _prompt_api_key()
     if not api_key:
-        raise ValueError("MODEL_API_KEY environment variable is not set.")
+        raise ValueError(
+            "未检测到 MODEL_API_KEY 环境变量；可直接在程序提示时输入（仅本次运行有效，不写入任何文件），"
+            "也可先设置环境变量后重试：PowerShell 会话变量 $env:MODEL_API_KEY=你的密钥，或 "
+            "[System.Environment]::SetEnvironmentVariable('MODEL_API_KEY','你的密钥','User')"
+        )
     return api_key
+
+
+def _prompt_api_key() -> str:
+    """在控制台交互式询问 API Key（不落盘），返回空串表示未取得。
+
+    仅 TTY 下询问：管道喂入需求（echo 需求 | python -m document_agent.console_app）时
+    input() 会把需求当成密钥，故跳过询问，交由 get_api_key() 给出配置提示。
+    """
+    if not sys.stdin.isatty():
+        return ""
+    try:
+        api_key = input("未检测到 MODEL_API_KEY 环境变量，请输入 DeepSeek API Key（仅本次运行有效，不会保存到文件）：").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return ""
+    if api_key:
+        # 写回环境变量：本次运行内复用，不再重复询问
+        os.environ["MODEL_API_KEY"] = api_key
+    return api_key
+
 
 @lru_cache(maxsize=1)
 def get_deepseek_llm() -> ChatOpenAI:
@@ -30,17 +60,10 @@ def get_deepseek_llm() -> ChatOpenAI:
       - MODEL_NAME        (default: deepseek-chat)
       - MODEL_API_KEY     (required)
     """
-
     base_url = os.getenv("MODEL_BASE_URL", DEFAULT_BASE_URL)
     model = os.getenv("MODEL_NAME", DEFAULT_MODEL)
 
-    api_key = get_api_key()#os.getenv("DEEPSEEK_API_KEY")
-    if not api_key:
-        # Ask at runtime so we don't hardcode secrets into the repo.
-        api_key = input("DeepSeek API key (will not be saved to file): ").strip()
-        if not api_key:
-            raise ValueError("MODEL_API_KEY is required to use DeepSeek.")
-        os.environ["MODEL_API_KEY"] = api_key
+    api_key = get_api_key()
 
     # temperature=0 makes planning more consistent.
     # 生成内容越多，耗时越长，timeout设置短了会超时
@@ -70,6 +93,36 @@ def llm_invoke(llm,prompt : str,retry=3):
 
 # 定义类型变量，限定为 BaseModel 的子类
 T = TypeVar('T', bound=BaseModel)
+
+def extract_json_from_text(text: str, return_all: bool = False) -> Optional[Union[dict, list, List[str]]]:
+    """从文本中提取 JSON 对象或数组。
+
+    :param text: 待提取的文本内容
+    :param return_all: 若为 True，返回提取出的所有合法 JSON 字符串列表；若为 False，返回首个成功解析出的 Python 对象（dict 或 list）。
+    """
+    if not text or not isinstance(text, str):
+        return [] if return_all else None
+
+    results = []
+    decoder = json.JSONDecoder()
+    pattern = re.compile(r'[\{\[]')
+
+    for match in pattern.finditer(text):
+        start_index = match.start()
+        try:
+            obj, end_index = decoder.raw_decode(text, start_index)
+            if return_all:
+                results.append(text[start_index:end_index])
+            else:
+                return obj
+        except json.JSONDecodeError:
+            continue
+
+    if return_all:
+        return results
+    return None
+
+
 def llm_model_invoke(llm, prompt: str, model_class: Type[T], retry=3) -> T | None:
     """
     Invoke the LLM and parse the response into a Pydantic model.

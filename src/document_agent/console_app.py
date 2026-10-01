@@ -12,11 +12,11 @@ if __name__ == "__main__":
     if not os.path.exists("setting.json"):
         print("没找到配置文件")
         sys.exit(-1)
-    with open("setting.json","r") as fp:
-        setstr=fp.read()
-    settings=json.loads(setstr)
-    gdb=MemgraphNodeManager(uri=settings["gdb_uri"],model_name=settings["embedding_model"])
-    #改写目标、参考文件、输出路径都由自然语言描述，由intent节点自动识别
+    with open("setting.json", "r", encoding="utf-8") as fp:
+        settings = json.loads(fp.read())
+    gdb = MemgraphNodeManager(uri=settings["gdb_uri"], model_name=settings["embedding_model"])
+
+    # 改写目标、参考文件、输出路径都由自然语言描述，由intent节点自动识别
     user_input = input("请输入你的需求（自然语言）：")
     core = agent_core.AgentCore()
     core.build_graph(gdb)

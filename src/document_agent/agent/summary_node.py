@@ -1,58 +1,93 @@
+from pathlib import Path
 
-from llm_client import llm_invoke, llm_model_invoke
-from agent_core import AgentState
+try:
+    from document_agent.agent.llm_client import llm_invoke
+    from document_agent.agent.agent_core import AgentState, get_last_user_text
+except ImportError:
+    from llm_client import llm_invoke
+    from agent_core import AgentState, get_last_user_text
 from document_agent.retrieve_tool.extract_document import extract_document_content
 
 
-def get_last_user_text(messages) -> str:
-    """取出最后一条用户消息的文本，兼容消息对象与字典两种形式。"""
-    for message in reversed(list(messages or [])):
-        if isinstance(message, dict):
-            if message.get("role") == "user":
-                return str(message.get("content") or "")
-        elif getattr(message, "type", "") == "human":
-            return str(getattr(message, "content", "") or "")
-    return ""
-
-
 def create_summary_node(llm):
-    def summary_node(state : AgentState) -> AgentState:
-        s=state["messages"]
-        files_to_summarize=state.get('input_file_path') or []
-        if not files_to_summarize and not state.get('file_summaries'):
-            #没有参考文件时不需要生成摘要，直接用用户的要求作为检索目标
-            retrieve_target=get_last_user_text(s)
-            print("没有提供参考文件，跳过摘要，检索目标：",retrieve_target)
-            return {**state,"file_summaries":{},"retrieve_target":retrieve_target}
-        summary_result=dict(state.get('file_summaries') or {})
+    def summary_node(state: AgentState) -> AgentState:
+        s = state["messages"]
+        files_to_summarize = state.get("input_file_path") or []
+        user_query = get_last_user_text(s)
+
+        # 1. 没有参考文件时，直接跳过摘要阶段，将用户原始要求作为检索目标
+        if not files_to_summarize and not state.get("file_summaries"):
+            print("【参考资料】未提供参考文件，跳过摘要阶段")
+            return {
+                **state,
+                "file_summaries": {},
+                "retrieved_content": [],
+                "retrieve_target": user_query,
+            }
+
+        # 2. 逐一提取并生成文件摘要
+        summary_result = dict(state.get("file_summaries") or {})
         for path in files_to_summarize:
-            if path in state['file_summaries']:
-                print(f"文件已存在摘要，跳过：{path}")
+            if path in summary_result:
                 continue
-            content=extract_document_content(path)
-            if content is None:
-                print(f"不支持的文件类型：{path}")
+            content = extract_document_content(path)
+            if not content:
+                print(f"【参考资料】不支持或无法读取文件：{path}")
                 continue
-            prompt=(
-                "你是一个文档摘要助手，你的任务是根据用户提供的文档内容，生成该文档的摘要。\n"
-                f"用户提供的文档内容：{content}\n"
-                "请生成该文档的摘要，仅输出结果。"
+
+            prompt = (
+                "你是一个专业的文档摘要助手，你的任务是提炼用户文档的核心内容。\n"
+                f"文档内容：\n{content}\n"
+                "请生成该文档的结构化摘要，涵盖核心主题、主要章节目录与关键数据，仅输出摘要文本。"
             )
-            res=llm_invoke(llm, prompt)
-            result=getattr(res,"content",None)
-            if result is None:
-                print(f"摘要生成失败：{path}")
-                continue
-            summary_result[path]=result
-        summaries_prompt="\n".join([f"文件路径：{path}\n文件摘要：{summary}" for path, summary in summary_result.items()])
-        prompt=(
-            "你是一个文档检索助手，你的任务是根据用户对话和用户提供的文档及其摘要判断用户想要检索的目标内容。\n"
-            f"{summaries_prompt}"
-            f"用户对话内容：{s}\n"
-            "仅输出结果，不要输出其他内容。"
+            res = llm_invoke(llm, prompt)
+            result = getattr(res, "content", None)
+            if result:
+                summary_result[path] = str(result).strip()
+            else:
+                summary_result[path] = content[:300] + "..."
+
+        if not summary_result:
+            print("【参考资料】未提取到有效内容，改用用户输入作为目标")
+            return {
+                **state,
+                "file_summaries": {},
+                "retrieved_content": [],
+                "retrieve_target": user_query,
+            }
+
+        # 3. 结合各文件角色、摘要与用户输入，智能提炼精准的待检索目标
+        file_roles = state.get("file_roles") or {}
+        user_intent = state.get("user_intent") or "new"
+        rewrite_file = state.get("rewrite_file")
+
+        summaries_lines = []
+        for path, summary in summary_result.items():
+            role_tag = file_roles.get(str(Path(path).resolve()), "参考资料")
+            summaries_lines.append(f"- 文件路径：{path} [角色：{role_tag}]\n  文件摘要：{summary}")
+        summaries_prompt = "\n".join(summaries_lines)
+
+        task_desc = f"任务模式：{'改写已有文档 (REWRITE)' if user_intent == 'rewrite' else '全新文档撰写 (NEW)'}"
+        if rewrite_file:
+            task_desc += f"，待修改目标文档为：{Path(rewrite_file).name}"
+
+        prompt = (
+            "你是一个文档检索助手，你的任务是根据用户任务、用户指令和各文件摘要，提炼出需要在参考资料或目标文档中重点检索的核心目标。\n"
+            f"【任务规划】{task_desc}\n"
+            f"【文档清单与摘要】\n{summaries_prompt}\n"
+            f"【用户对话内容】{user_query}\n"
+            "请注意：若为改写任务，待修改文档内容后续将由改写引擎处理，检索重点通常应放在参考文档的排版规范、样式特征、补充数据或对照点上。\n"
+            "仅输出提炼出的精准检索目标，不要输出其他客套内容。"
         )
-        res=llm_invoke(llm, prompt)
-        result=getattr(res,"content","")
-        print("检索目标内容：", result)
-        return {**state, "file_summaries": summary_result,"retrieve_target":result}
+        res = llm_invoke(llm, prompt)
+        retrieve_target = getattr(res, "content", "").strip() or user_query
+        print(f"【检索目标提炼】{retrieve_target}")
+
+        return {
+            **state,
+            "file_summaries": summary_result,
+            "retrieved_content": [],
+            "retrieve_target": retrieve_target,
+        }
+
     return summary_node
