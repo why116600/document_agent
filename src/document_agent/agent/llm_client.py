@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import sys
@@ -14,39 +14,13 @@ from langchain_openai import ChatOpenAI
 DEFAULT_BASE_URL = "https://api.deepseek.com/v1"
 DEFAULT_MODEL = "deepseek-chat"
 
-def get_api_key(interactive: bool = True) -> str:
+def get_api_key():
     """
-    获取 DeepSeek API Key：优先读环境变量 MODEL_API_KEY；未设置且 interactive=True 时交互式询问一次，
-    并写回 os.environ 供本次运行复用（不落盘，不写入任何文件）。
+    Get the DeepSeek API key from environment variable or prompt the user for it.
     """
     api_key = os.getenv("MODEL_API_KEY")
-    if not api_key and interactive:
-        api_key = _prompt_api_key()
     if not api_key:
-        raise ValueError(
-            "未检测到 MODEL_API_KEY 环境变量；可直接在程序提示时输入（仅本次运行有效，不写入任何文件），"
-            "也可先设置环境变量后重试：PowerShell 会话变量 $env:MODEL_API_KEY=你的密钥，或 "
-            "[System.Environment]::SetEnvironmentVariable('MODEL_API_KEY','你的密钥','User')"
-        )
-    return api_key
-
-
-def _prompt_api_key() -> str:
-    """在控制台交互式询问 API Key（不落盘），返回空串表示未取得。
-
-    仅 TTY 下询问：管道喂入需求（echo 需求 | python -m document_agent.console_app）时
-    input() 会把需求当成密钥，故跳过询问，交由 get_api_key() 给出配置提示。
-    """
-    if not sys.stdin.isatty():
-        return ""
-    try:
-        api_key = input("未检测到 MODEL_API_KEY 环境变量，请输入 DeepSeek API Key（仅本次运行有效，不会保存到文件）：").strip()
-    except (EOFError, KeyboardInterrupt):
-        print()
-        return ""
-    if api_key:
-        # 写回环境变量：本次运行内复用，不再重复询问
-        os.environ["MODEL_API_KEY"] = api_key
+        raise ValueError("MODEL_API_KEY environment variable is not set.")
     return api_key
 
 

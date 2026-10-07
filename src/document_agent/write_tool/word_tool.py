@@ -635,43 +635,6 @@ def paragraph_has_protected_content(para) -> bool:
     return element_has_protected_content(para._element)
 
 
-def _replace_text_runs_keep_protected(node: Paragraph, new_data: ParagraphItem,
-                                      write_defaults: bool) -> None:
-    """只重建段落的纯文本 run，保留图片等受保护元素（用于含图片段落的改写）。"""
-    element = node._element
-    has_new_math = any(r.text_type == "latex" for r in new_data.runs)
-    for child in list(element):
-        if child.tag == qn("w:pPr"):
-            continue
-        if child.tag == qn("w:hyperlink"):
-            #超链接内只移除可替换的纯文本 run，保留图片/域代码等受保护子元素及超链接本身
-            for h_child in list(child):
-                if h_child.tag == qn("w:r") and not any(
-                    h_child.findall(".//" + _tag_name(tag)) for tag in PROTECTED_PARA_TAGS
-                ):
-                    child.remove(h_child)
-            continue
-        if child.tag in (qn("m:oMath"), qn("m:oMathPara")):
-            # 如果新内容显式提供了新的公式，则移除旧公式；否则原样保留
-            if has_new_math:
-                element.remove(child)
-            continue
-        if child.tag != qn("w:r"):
-            continue
-        if any(child.findall(".//" + _tag_name(tag)) for tag in PROTECTED_PARA_TAGS):
-            continue  #含图片/域代码的 run 原样保留
-        element.remove(child)
-    _apply_paragraph_format(node.paragraph_format, new_data, write_defaults)
-    _apply_heading_level(node, new_data.heading_level)
-    for run_item in new_data.runs:
-        if run_item.text_type == "latex":
-            print("生成公式：", run_item.text)
-            math2docx.add_math(node, run_item.text)
-            continue
-        run = node.add_run(run_item.text)
-        _apply_run_format(run, run_item, write_defaults)
-
-
 def replace_node_with_data(node, new_data, doc=None, write_defaults: bool = True):
     """
     原地替换文档中的节点（Paragraph 或 Table）为新数据定义的内容。
@@ -694,16 +657,10 @@ def replace_node_with_data(node, new_data, doc=None, write_defaults: bool = True
 
     # ----- 替换段落 -----
     if isinstance(node, Paragraph) and isinstance(new_data, ParagraphItem):
-        if paragraph_has_protected_content(node):
-            #段内含图片/图形/域代码：整段清空会丢内容，改为只替换纯文本 run
-            _replace_text_runs_keep_protected(node, new_data, write_defaults)
-            return node
         # 清空所有子元素（保留段落本身与 w:pPr，即保留段落样式等原有格式）
         node._element.clear_content()
         # 设置段落格式
         _apply_paragraph_format(node.paragraph_format, new_data, write_defaults)
-        # 写入真实大纲级别（若模型标注了标题级别）
-        _apply_heading_level(node, new_data.heading_level)
         # 添加新的 runs
         for run_item in new_data.runs:
             if run_item.text_type=="latex":

@@ -783,8 +783,12 @@ def _record_single_edit(description, edit_dict, edited) -> str:
         return "edit失败：replace必须提供paragraph（段落）或table（表格）字段"
     if action == "insert_after" and edit.paragraph is None and not edit.paragraphs:
         return "edit失败：insert_after必须提供paragraph（单段）或paragraphs（多段）字段"
-    if action == "replace_text" and not (edit.old_text or "").strip():
-        return "edit失败：replace_text必须提供old_text字段（要替换的原文片段）"
+    if action == "replace_text":
+        if not (edit.old_text or "").strip():
+            return "edit失败：replace_text必须提供old_text字段（要替换的原文片段）"
+        #缺 new_text 会被当成空串，等于把匹配到的原文全部删除
+        if edit.new_text is None:
+            return "edit失败：replace_text必须提供new_text字段（确需删除该片段时请显式传空字符串）"
 
     for position, existing in enumerate(edited):
         if existing.index == edit.index and (existing.action or "").strip().lower() == action:
@@ -1082,7 +1086,8 @@ def _inherit_paragraph_format(new_item: ParagraphItem, base_item,
     )
 
 
-def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None) -> Tuple[int, List[str]]:
+def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None,
+                       scope_range: Optional[Tuple[int, int]] = None) -> Tuple[int, List[str]]:
     #按下标从大到小执行，避免增删导致后续下标错位；返回(生效数, 未落地的修改明细)
     applied = 0
     failed: List[str] = []
@@ -1135,6 +1140,11 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
         if edit.index < 0 or edit.index >= len(nodes):
             print(f"忽略越界的修改下标：{edit.index}")
             failed.append(f"第{edit.index}个元素的{action}未生效：下标越界（文档共{len(nodes)}个元素）")
+            continue
+        #步骤声明了作用范围时，越界的下标一律拒绝，避免"只改第三章"动到别的章节
+        if scope_range is not None and not (scope_range[0] <= edit.index <= scope_range[1]):
+            print(f"忽略超出本步作用范围的修改下标：{edit.index}（范围 {scope_range[0]}~{scope_range[1]}）")
+            failed.append(f"第{edit.index}个元素的{action}未生效：超出本步作用范围（下标 {scope_range[0]}~{scope_range[1]}）")
             continue
         node = nodes[edit.index]
         base_item = base_items[edit.index]
@@ -1210,7 +1220,12 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
                     print(f"第{edit.index}个元素缺少old_text，跳过")
                     failed.append(f"第{edit.index}个元素未做子串替换：模型未给出 old_text")
                     continue
-                new_text = edit.new_text or ""
+                new_text = edit.new_text
+                if new_text is None:
+                    #直出方案不走工具校验，缺 new_text 会被当成空串、等于删除匹配到的原文
+                    print(f"第{edit.index}个元素缺少new_text，跳过")
+                    failed.append(f"第{edit.index}个元素未做子串替换：模型未给出 new_text")
+                    continue
                 if isinstance(node, Paragraph):
                     count = replace_in_paragraph(node, old_text, new_text)
                 elif isinstance(node, Table):
@@ -1238,7 +1253,12 @@ class ReplacementMapping(BaseModel):
     )
 
 
-def run_patch_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nodes, base_items, description) -> Tuple[int, str]:
+def run_patch_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nodes, base_items, description,
+                      target: str = "", target_range=None) -> Tuple[int, str]:
+    scope_range, scope_error = resolve_scope_range(target, target_range, nodes, description, base_items)
+    if scope_error:
+        #作用域解析不出来就报错，而不是放宽到全文：否则"只改第三章"会动到别的章节
+        return 0, scope_error
     estimated_tokens = _estimate_description_tokens(description)
     if estimated_tokens <= MAX_DIRECT_TOKENS:
         print(f"【局部修补】文档约{estimated_tokens} tokens，直接整篇改写")
@@ -1268,23 +1288,16 @@ def run_patch_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, node
         print(f"【局部修补】文档约{estimated_tokens} tokens，启用工具化改写")
         edits, error = _rewrite_with_tools(llm, f"{dialog}\n{retrieved_info}", nodes, description, base_items)
         if error:
-            if not edits:
-                return 0, error
-            #轮次跑满但已有暂存的修改：部分落地好过整体丢弃
-            print(f"【局部修补】警告：{error}；仍将落地已暂存的 {len(edits)} 条修改，请核对是否覆盖全部要求")
-            error = ""
+            return 0, error
         if not edits:
             return 0, "模型没有提交任何修改"
 
-    applied, failed = apply_rewrite_plan(doc, nodes, base_items, edits, description)
+    applied, failed = apply_rewrite_plan(doc, nodes, base_items, edits, description, scope_range)
     if failed:
         print(f"【局部修补】有 {len(failed)} 条修改未能生效：")
         for detail in failed:
             print(f"   - {detail}")
-        if applied == 0:
-            return 0, "全部修改均未能生效：" + "；".join(failed)
-        #部分失败也要回报明细，不能静默当成全部成功
-        return applied, f"{len(failed)} 条修改未能生效（另 {applied} 条已写入）：" + "；".join(failed)
+        return 0, "修改未能全部生效，已放弃保存：" + "；".join(failed)
     return applied, ""
 
 
@@ -1317,8 +1330,7 @@ def run_replace_rewrite(llm, dialog: str, doc: Document, replace_pairs: Optional
     print(f"【全局替换】共替换 {total_replaced} 处：" + "，".join(summary_parts))
     missing = [k for k, c in stats.items() if c == 0]
     if missing:
-        #全部未命中时 total_replaced 为 0，上层据此不落盘；部分未命中则已替换的部分照常保留
-        return total_replaced, "未找到全局替换目标：" + "、".join(f"“{k}”" for k in missing)
+        return 0, "未找到全局替换目标：" + "、".join(f"“{k}”" for k in missing)
     return total_replaced, ""
 
 
@@ -1433,7 +1445,7 @@ def extract_hierarchical_sections(nodes, description, base_items) -> list:
 
 
 def _normalize_range(value, total: int) -> Optional[Tuple[int, int]]:
-    #把 [起始下标, 结束下标] 规范为合法区间（含两端），越界裁剪，非法返回 None
+    #把 [起始下标, 结束下标] 规范为合法区间（含两端）；越界或非法一律返回 None 交上层报错，不做裁剪
     if not isinstance(value, (list, tuple)) or len(value) != 2 or total <= 0:
         return None
     try:
@@ -1442,7 +1454,9 @@ def _normalize_range(value, total: int) -> Optional[Tuple[int, int]]:
         return None
     if start > end:
         start, end = end, start
-    return max(0, min(start, total - 1)), max(0, min(end, total - 1))
+    if start < 0 or end > total - 1:
+        return None
+    return start, end
 
 
 def _match_outline_range(entries, scope: str) -> Optional[Tuple[int, int]]:
@@ -1466,12 +1480,16 @@ def _match_outline_range(entries, scope: str) -> Optional[Tuple[int, int]]:
 def resolve_scope_range(target, target_range, nodes, description, base_items) -> Tuple[Optional[Tuple[int, int]], str]:
     """把步骤作用域解析成元素下标区间，返回 (区间, 错误信息)；区间为 None 表示不限定范围。"""
     scope = (target or "").strip()
+    #显式区间优先：即使没写 target 也要生效，否则有界改写会被放大成全文改写
+    if target_range is not None:
+        explicit = _normalize_range(target_range, len(description))
+        if explicit is None:
+            return None, (f"步骤给定的下标区间 {target_range} 无效（文档共 {len(description)} 个元素，"
+                          f"合法范围 0~{len(description) - 1}）")
+        print(f"【作用域解析】采用步骤给定的下标区间 {explicit[0]}~{explicit[1]}")
+        return explicit, ""
     if not scope or scope in WHOLE_DOC_TARGETS:
         return None, ""
-    explicit = _normalize_range(target_range, len(description))
-    if explicit is not None:
-        print(f"【作用域解析】范围“{scope}”采用步骤给定的下标区间 {explicit[0]}~{explicit[1]}")
-        return explicit, ""
     outline = build_outline_tree(nodes, description, base_items)
     matched = _match_outline_range(outline.get("outline") or [], scope)
     if matched is None:
@@ -1493,9 +1511,23 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
         return 0, "无法划分文档章节结构进行全局重构"
 
     if scope_range is not None:
-        #步骤指明局部范围时只重塑区间覆盖到的章节，避免"改第三章"变成重塑全文
+        #步骤指明局部范围时只重塑区间覆盖到的部分：章节与子章节都裁到区间内，
+        #否则命中某个小节会把整个父章节（及相邻章节）一起重塑
         low, high = scope_range
-        matched = [s for s in sections if s["start"] <= high and s["end"] >= low]
+        matched = []
+        for s in sections:
+            start = max(s["start"], low)
+            end = min(s["end"], high)
+            if start > end:
+                continue
+            clipped = dict(s)
+            clipped["start"] = start
+            clipped["end"] = end
+            clipped["subsections"] = [
+                sub for sub in s.get("subsections") or []
+                if sub.get("index_range") and sub["index_range"][0] <= high and sub["index_range"][1] >= low
+            ]
+            matched.append(clipped)
         if not matched:
             return 0, f"全局重塑的作用范围（下标 {low}~{high}）未覆盖任何章节"
         print(f"【全局重塑】按步骤范围（下标 {low}~{high}）命中 {len(matched)} 个大章节")
@@ -1639,8 +1671,9 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
         print(f"【全局重塑】以下 {len(skipped_sections)} 个大章节含无法改写的内容，已原样保留："
               + "、".join(skipped_sections))
     if failed_sections:
-        print(f"【全局重塑】以下 {len(failed_sections)} 个大章节生成失败，已原样保留："
+        print(f"【全局重塑】以下 {len(failed_sections)} 个大章节生成失败："
               + "、".join(failed_sections))
+        return 0, "全局重塑部分大章节生成失败，已放弃保存：" + "、".join(failed_sections)
     if total_sections_rewritten == 0:
         return 0, "全局重塑未能改写任何大章节（所有章节都含图片等无法表达的内容，或生成失败）"
     return total_sections_rewritten, ""
@@ -2192,7 +2225,6 @@ def normalize_rewrite_steps(raw_steps, fallback_mode: str) -> Tuple[List[dict], 
         for mode, label, note in (
             ("replace", "全局查找替换", "已合并为一次全局查找替换（词对取并集）"),
             ("format", "格式规范化", "已合并为一次格式规范化"),
-            ("global", "全局重构与润色", "全局重塑会整篇重写，重复的只保留第一个"),
         ):
             same = [step for step in steps if step["mode"] == mode]
             if len(same) <= 1:
@@ -2204,6 +2236,20 @@ def normalize_rewrite_steps(raw_steps, fallback_mode: str) -> Tuple[List[dict], 
             dropped = {id(step) for step in same[1:]}
             steps = [step for step in steps if id(step) not in dropped]
             notes.append(f"检测到 {len(same)} 个{label}步骤，{note}")
+
+        #global 只在作用域相同时合并：作用域不同的多个 global 是对不同章节的独立诉求，不能丢弃
+        same_global = [step for step in steps if step["mode"] == "global"]
+        if len(same_global) > 1:
+            groups: Dict[tuple, list] = {}
+            for step in same_global:
+                scope_key = (step["target"], tuple(step["target_range"]) if step.get("target_range") else None)
+                groups.setdefault(scope_key, []).append(step)
+            if len(groups) == 1:
+                dropped = {id(step) for step in same_global[1:]}
+                steps = [step for step in steps if id(step) not in dropped]
+                notes.append(f"检测到 {len(same_global)} 个全局重塑步骤，全局重塑会整篇重写，重复的只保留第一个")
+            else:
+                notes.append(f"检测到 {len(same_global)} 个全局重塑步骤且作用域不同，已按作用域分别保留")
 
         ordered = sorted(steps, key=lambda step: STEP_MODE_RANK[step["mode"]])
         if [step["mode"] for step in ordered] != [step["mode"] for step in steps]:
@@ -2250,7 +2296,7 @@ def dispatch_rewrite_mode(llm, mode: str, dialog: str, retrieved_info: str, doc:
         print(f"【改写调度】{prefix}{STEP_MODE_LABELS['format']}")
         return run_format_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description)
     print(f"【改写调度】{prefix}{STEP_MODE_LABELS['patch']}")
-    return run_patch_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description)
+    return run_patch_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description, target, target_range)
 
 
 def create_rewrite_node(llm):
@@ -2306,42 +2352,38 @@ def create_rewrite_node(llm):
                 nodes, base_items, description = build_document_description(doc)
                 print(f"【步骤编排】已重新解析文档结构：共 {len(nodes)} 个元素")
             step_pairs = dict(step["replace_pairs"] or replace_pairs) if step["mode"] == "replace" else replace_pairs
-            step_applied, error = dispatch_rewrite_mode(
-                llm, step["mode"], build_step_dialog(dialog, step, len(steps)), retrieved_info,
-                doc, nodes, base_items, description, step_pairs,
-                step_no=position, total_steps=len(steps), target=step["target"],
-                target_range=step.get("target_range"),
-            )
+            try:
+                step_applied, error = dispatch_rewrite_mode(
+                    llm, step["mode"], build_step_dialog(dialog, step, len(steps)), retrieved_info,
+                    doc, nodes, base_items, description, step_pairs,
+                    step_no=position, total_steps=len(steps), target=step["target"],
+                    target_range=step.get("target_range"),
+                )
+            except Exception as e:
+                error = f"执行第{position}步（{STEP_MODE_LABELS.get(step['mode'], step['mode'])}）时发生异常：{e}"
+                step_applied = 0
             applied += step_applied or 0
             if error:
                 failed_step = position
                 print(f"【步骤编排】第{position}步（{STEP_MODE_LABELS[step['mode']]}）失败：{error}")
                 break
 
-        if error and applied == 0:
-            #没有任何改动落地（含单步骤失败）：与旧行为一致，直接报错、不保存
+        if error:
+            # 遇到任何不可恢复异常、模型输出格式崩溃或工具超时，系统一律不产生任何落盘，直接标记 state: error，确保要么彻底成功，要么原封不动。
+            if failed_step and len(steps) > 1 and not error.startswith(f"第{failed_step}步"):
+                error = f"第{failed_step}步执行失败：{error}"
             return {**state, "state": "error", "error": error}
 
         if applied == 0:
-            print("未产生任何有效修改，文档内容保持不变")
+            print("模型没有给出有效的修改，文档内容保持不变")
 
         if state.get("save_path"):
-            save_path = resolve_save_path(state["save_path"])
+            save_path = resolve_save_path(state["save_path"])#有指定路径就另存，复用补后缀和建目录
         else:
-            save_path = Path(rewrite_path)
+            save_path = Path(rewrite_path)#没有指定路径时默认原地覆盖原文件
 
         save_path = save_document(doc, save_path)  #目标被占用时会避让另存并返回实际路径
         print("改写后的文档已保存到：", str(save_path))
-        if error:
-            #多步执行中途失败：已完成的部分修改仍然保存，避免前功尽弃
-            if failed_step and len(steps) > 1:
-                error = f"第{failed_step}步执行失败（该步之前的修改已保存）：{error}"
-            return {
-                **state,
-                "state": "error",
-                "error": error,
-                "save_path": str(save_path),
-            }
         return {**state, "state": "succeeded", "save_path": str(save_path)}
 
     return rewrite_node

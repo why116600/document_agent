@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, List, Tuple, Optional, Dict, Literal
@@ -120,6 +120,25 @@ class DocumentTaskIntent(BaseModel):
     )
 
 
+def resolve_rewrite_file(rewrite_path: str, input_files) -> tuple:
+    """确定需要改写的文档路径，返回 (路径, 错误信息)。
+
+    优先使用明确给出的路径；没有给出时，从用户提到的文件里挑选docx文档作为改写对象。
+    用户提到的文件可能只是供检索用的参考资料（如pdf、txt），因此只考虑docx，
+    并且只有候选唯一时才自动采用，避免改错文档。
+    """
+    rewrite_path = (rewrite_path or "").strip()
+    if rewrite_path:
+        return rewrite_path, ""
+    docx_files = [str(path) for path in (input_files or []) if str(path).lower().endswith(".docx")]
+    if len(docx_files) == 1:
+        print("未指定改写文件，使用唯一的docx文件：", docx_files[0])
+        return docx_files[0], ""
+    if not docx_files:
+        return "", "识别到改写意图，但没有可用的docx文档，请在需求里说明需要改写的文档路径"
+    return "", f"识别到改写意图，但有多个docx文档：{docx_files}，请在需求里说明需要改写哪一个"
+
+
 def _dedup_paths(files: List[str]) -> List[str]:
     #同一文档可能被重复登记，按绝对路径去重后再判断歧义
     return list(dict.fromkeys(str(Path(f).resolve()) for f in files))
@@ -138,6 +157,10 @@ def match_candidate_file(target_str: Optional[str], candidate_files: List[str]) 
         return None, "目标文档名称为空"
 
     target_path = Path(target_clean)
+
+    #显式给出非 .docx 后缀时直接拒绝：否则 foo.pdf 会在后续按主名/子串匹配到 foo.docx，改写错文档
+    if target_path.suffix and target_path.suffix.lower() != ".docx":
+        return None, f"改写目标必须是 .docx 文档：{target_clean}"
 
     # 1. 尝试直接按路径匹配（必须是 .docx）
     if target_path.exists() and target_path.suffix.lower() == ".docx":
@@ -394,7 +417,6 @@ def create_intent_node(llm=None):
             }
 
         user_prompt = get_last_user_text(state.get("messages")).strip()
-        docx_candidates = [f for f in valid_input_files if Path(f).suffix.lower() == ".docx"]
 
         rewrite_file = None
         rewrite_mode = None
@@ -415,30 +437,15 @@ def create_intent_node(llm=None):
                     target_candidate = task_intent.target_file
                     matched_file, match_err = match_candidate_file(target_candidate, valid_input_files)
 
-                    if not matched_file:
-                        # 匹配失败一律报错退出：绝不自动采用候选中的 docx，避免改错文档
-                        if len(docx_candidates) == 0:
-                            err_msg = (
-                                "识别到您的需求为修改已有文档，但在提供的候选文件列表中未找到任何可修改的 Word (.docx) 文档。\n"
-                                f"（当前候选文件：{valid_input_files}）"
-                            )
-                        elif len(docx_candidates) == 1:
-                            err_msg = (
-                                f"识别到改写需求，但未能确定要修改哪一个文档：模型识别目标为 '{target_candidate}'"
-                                f"（匹配失败原因: {match_err}）。\n"
-                                f"候选列表中唯一的 .docx 文档是 {docx_candidates[0]}，请确认它是否就是要改的文档，"
-                                "并在需求里指明具体文件名后重试。\n"
-                                "（为避免改错文档，系统不会自动猜测采用候选文件。）"
-                            )
-                        else:
-                            err_msg = (
-                                f"识别到改写需求，但候选列表中存在多个 docx 文档 ({docx_candidates})，"
-                                f"未能明确确定要修改哪一个（模型识别目标: '{target_candidate}'）。请在指令中指明具体要修改的文件名。"
-                            )
-                        print(f"[意图识别错误] {err_msg}")
-                        return {**state, "user_intent": "rewrite", "state": "error", "error": err_msg}
+                    if match_err and target_candidate and Path(target_candidate.strip().strip("'\"")).suffix.lower() not in ("", ".docx"):
+                        print(f"[意图识别错误] {match_err}")
+                        return {**state, "user_intent": "rewrite", "state": "error", "error": match_err}
 
-                    rewrite_file = matched_file
+                    #模型没有给出明确路径时，从用户提到的文件里挑选docx文档，挑不到则直接报错
+                    rewrite_file, error = resolve_rewrite_file(matched_file, valid_input_files)
+                    if error:
+                        return {**state, "user_intent": "rewrite", "rewrite_file": None, "state": "error", "error": error}
+
                     #顶层 replace_pairs 作为兜底：模型把词对写在步骤内时，build_rewrite_steps 会并入
                     if task_intent.replace_pairs:
                         replace_pairs.update(task_intent.replace_pairs)
