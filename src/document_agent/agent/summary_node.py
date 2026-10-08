@@ -8,7 +8,14 @@ from document_agent.retrieve_tool.extract_document import extract_document_conte
 def create_summary_node(llm):
     def summary_node(state: AgentState) -> AgentState:
         s = state["messages"]
-        files_to_summarize = state.get("input_file_path") or []
+        files_to_summarize = [
+            path for path in (state.get("input_file_path") or [])
+            if not (
+                state.get("user_intent") == "rewrite"
+                and state.get("rewrite_file")
+                and Path(path).resolve() == Path(state["rewrite_file"]).resolve()
+            )
+        ]
         user_query = get_last_user_text(s)
 
         # 1. 没有参考文件时，直接跳过摘要阶段，将用户原始要求作为检索目标
@@ -76,7 +83,7 @@ def create_summary_node(llm):
             "仅输出提炼出的精准检索目标，不要输出其他客套内容。"
         )
         res = llm_invoke(llm, prompt)
-        retrieve_target = getattr(res, "content", "").strip() or user_query
+        retrieve_target = str(getattr(res, "content", "") or "").strip() or user_query
         print(f"【检索目标提炼】{retrieve_target}")
 
         return {

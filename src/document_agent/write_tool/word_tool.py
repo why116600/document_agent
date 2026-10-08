@@ -267,6 +267,29 @@ def convert_run(run: Run, preserve_none: bool = False) -> TextRunItem:
         font_color=_rgb_to_hex(run_rgb) if run_rgb is not None else "#000000"
     )
 
+def _extract_heading_level(para: Paragraph) -> Optional[int]:
+    """从段落中提取大纲级别（1~4）或根据标题样式推断。"""
+    try:
+        pPr = para._element.pPr
+        if pPr is not None:
+            outline = pPr.find(qn("w:outlineLvl"))
+            if outline is not None:
+                val = outline.get(qn("w:val"))
+                if val is not None and val.isdigit():
+                    lvl = int(val) + 1
+                    if 1 <= lvl <= 4:
+                        return lvl
+    except Exception:
+        pass
+    try:
+        style_name = getattr(para.style, "name", "") or ""
+        for i in range(1, 5):
+            if style_name in (f"Heading {i}", f"标题 {i}"):
+                return i
+    except Exception:
+        pass
+    return None
+
 def convert_paragraph(para: Paragraph, preserve_none: bool = False) -> ParagraphItem:
     """将 Paragraph 转换为 ParagraphItem，保留其所有 Run 的格式。
 
@@ -283,6 +306,7 @@ def convert_paragraph(para: Paragraph, preserve_none: bool = False) -> Paragraph
             latex = officemath2latex.process_math_string(omml_str)
             runs.append(TextRunItem(text=latex,text_type="latex"))
     para_format = para.paragraph_format
+    heading_lvl = _extract_heading_level(para)
     if preserve_none:
         return ParagraphItem(
             runs=runs,
@@ -293,6 +317,7 @@ def convert_paragraph(para: Paragraph, preserve_none: bool = False) -> Paragraph
             first_line_indent=_get_pt_value(para_format.first_line_indent) if para_format.first_line_indent is not None else None,
             left_indent=_get_pt_value(para_format.left_indent) if para_format.left_indent is not None else None,
             right_indent=_get_pt_value(para_format.right_indent) if para_format.right_indent is not None else None,
+            heading_level=heading_lvl,
         )
     return ParagraphItem(
         runs=runs,
@@ -303,6 +328,7 @@ def convert_paragraph(para: Paragraph, preserve_none: bool = False) -> Paragraph
         first_line_indent=_get_pt_value(para_format.first_line_indent),
         left_indent=_get_pt_value(para_format.left_indent),
         right_indent=_get_pt_value(para_format.right_indent),
+        heading_level=heading_lvl,
     )
 
 def convert_cell(cell: _Cell, row_idx: int, col_idx: int) -> GridItem:
@@ -314,6 +340,16 @@ def convert_cell(cell: _Cell, row_idx: int, col_idx: int) -> GridItem:
         row_span=1,  # 将在表格转换时修正
         col_span=1   # 将在表格转换时修正
     )
+
+def _get_tc_vmerge(tc) -> Optional[str]:
+    tcPr = getattr(tc, "tcPr", None)
+    if tcPr is None:
+        return None
+    vMerge = tcPr.find(qn("w:vMerge"))
+    if vMerge is None:
+        return None
+    val = vMerge.get(qn("w:val"))
+    return val if val is not None else "continue"
 
 def convert_table(table: Table) -> TableItem:
     """
@@ -334,7 +370,7 @@ def convert_table(table: Table) -> TableItem:
 
             cell = table.cell(r, c)
             # 获取合并信息
-            vMerge = cell._tc.vMerge
+            vMerge = _get_tc_vmerge(cell._tc)
             grid_span = cell._tc.grid_span
 
             # 计算合并跨度
@@ -345,7 +381,7 @@ def convert_table(table: Table) -> TableItem:
                 # 向下寻找直到遇到 vMerge 为 None 或 'restart'
                 for dr in range(r + 1, rows):
                     next_cell = table.cell(dr, c)
-                    if next_cell._tc.vMerge == 'continue':
+                    if _get_tc_vmerge(next_cell._tc) == 'continue':
                         row_span += 1
                     else:
                         break
@@ -661,6 +697,7 @@ def replace_node_with_data(node, new_data, doc=None, write_defaults: bool = True
         node._element.clear_content()
         # 设置段落格式
         _apply_paragraph_format(node.paragraph_format, new_data, write_defaults)
+        _apply_heading_level(node, getattr(new_data, "heading_level", None))
         # 添加新的 runs
         for run_item in new_data.runs:
             if run_item.text_type=="latex":
@@ -763,11 +800,15 @@ def save_document(doc: Document, save_path) -> Path:
             # 目标文件无法覆盖（被其他程序打开占用、权限不足或重名冲突等）：
             # 不让整个生成成果前功尽弃，自动另存为同目录 "<原名>_(N).docx" 的唯一新文件
             index = 1
-            alt = path.with_name(f"{path.stem}_({index}){path.suffix}")
-            while alt.exists():
-                index += 1
+            while True:
                 alt = path.with_name(f"{path.stem}_({index}){path.suffix}")
-            _atomic_replace(tmp_path, alt)
+                if not alt.exists():
+                    try:
+                        _atomic_replace(tmp_path, alt, retries=1)
+                        break
+                    except PermissionError:
+                        pass
+                index += 1
             print(f"[警告] 无法覆盖目标文件（被占用或权限不足）：{path}")
             print(f"[警告] 本次成果已自动另存为：{alt}")
             return alt

@@ -290,6 +290,8 @@ def validate_reference_paths(reference_paths: Optional[List[str]]) -> Tuple[List
         path_obj = Path(path)
         if not path_obj.exists():
             return valid, f"用户指定的参考文件不存在：{path}，请确认路径后重试"
+        if not path_obj.is_file():
+            return valid, f"用户指定的参考路径不是文件：{path}，请提供具体文件路径"
         if path_obj.suffix.lower() not in SUPPORTED_REFERENCE_SUFFIXES:
             return valid, (f"用户指定的参考文件类型不支持：{path}"
                            f"（支持的类型：{'、'.join(sorted(SUPPORTED_REFERENCE_SUFFIXES))}）")

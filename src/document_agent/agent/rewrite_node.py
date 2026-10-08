@@ -1075,6 +1075,7 @@ def _inherit_paragraph_format(new_item: ParagraphItem, base_item,
             spacing_after=spacing_after,
             line_spacing=line_spacing,
             first_line_indent=first_line_indent,
+            heading_level=new_item.heading_level,
         )
 
     # is_insert 为 False：替换原段落（尽量继承原段落格式）
@@ -1090,6 +1091,7 @@ def _inherit_paragraph_format(new_item: ParagraphItem, base_item,
         first_line_indent=base_item.first_line_indent if new_item.first_line_indent is None else new_item.first_line_indent,
         left_indent=base_item.left_indent if new_item.left_indent is None else new_item.left_indent,
         right_indent=base_item.right_indent if new_item.right_indent is None else new_item.right_indent,
+        heading_level=new_item.heading_level if new_item.heading_level is not None else getattr(base_item, "heading_level", None),
     )
 
 
@@ -1216,12 +1218,12 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
                     print(f"第{edit.index}个元素的插入内容为空，跳过")
                     failed.append(f"第{edit.index}个元素后未插入内容：模型给出的插入内容为空")
                     continue
-                #addnext 逐个插到锚点后，故倒序生成才能保持模型给出的顺序
-                for item in reversed(insert_items):
+                curr_elem = node._element
+                for item in insert_items:
                     new_paragraph = doc.add_paragraph("")
                     replace_node_with_data(new_paragraph, _inherit_paragraph_format(item, base_item, body_profile, is_insert=True), write_defaults=False)
-                    #add_paragraph 会追加到文档末尾，这里移到目标元素之后
-                    node._element.addnext(new_paragraph._element)
+                    curr_elem.addnext(new_paragraph._element)
+                    curr_elem = new_paragraph._element
                 applied += len(insert_items)
                 print(f"已在第{edit.index}个元素后插入{len(insert_items)}个新段落")
             elif action == "replace_text":
@@ -1273,11 +1275,17 @@ def run_patch_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, node
     estimated_tokens = _estimate_description_tokens(description)
     if estimated_tokens <= MAX_DIRECT_TOKENS:
         print(f"【局部修补】文档约{estimated_tokens} tokens，直接整篇改写")
+        scope_line = (
+            f"【修改范围严格限制】本次修改仅允许针对下标 {scope_range[0]}~{scope_range[1]} 的元素进行，"
+            f"严禁提交任何在此范围之外的修改（超出此区间的 index 会被系统直接拦截拒绝）。\n"
+            if scope_range is not None else ""
+        )
         prompt = (
             "你是一个企业文档改写助手，需要按照用户的要求改写已有文档。\n"
             "你只能通过给出修改列表来修改文档，不要重写整篇文档。\n"
             f"用户对话内容：{dialog}\n"
             f"{retrieved_info}"
+            f"{scope_line}"
             "待改写文档的结构如下，items中每个元素的下标index与文档中的位置一一对应，请严格使用这些下标：\n"
             f"{json.dumps(description, ensure_ascii=False)}\n"
             "改写要求：\n"
@@ -1975,16 +1983,22 @@ def _apply_role_format_to_paragraph(paragraph: Paragraph, run_spec: Optional[Rol
 
 def _apply_role_format_to_table(table: Table, run_spec: Optional[RoleFormatSpec],
                                 para_spec: Optional[RoleFormatSpec]) -> None:
-    #表格内同样只改字体属性；合并单元格会被重复枚举，按底层元素去重
+    #表格内同样只改字体属性；合并单元格会被重复枚举，按底层元素去重；支持嵌套表格递归格式化
     seen = set()
-    for row in table.rows:
-        for cell in row.cells:
-            key = id(cell._tc)
-            if key in seen:
-                continue
-            seen.add(key)
-            for paragraph in cell.paragraphs:
-                _apply_role_format_to_paragraph(paragraph, run_spec, para_spec)
+
+    def _format_table(tbl: Table) -> None:
+        for row in tbl.rows:
+            for cell in row.cells:
+                key = id(cell._tc)
+                if key in seen:
+                    continue
+                seen.add(key)
+                for paragraph in cell.paragraphs:
+                    _apply_role_format_to_paragraph(paragraph, run_spec, para_spec)
+                for nested in getattr(cell, "tables", []):
+                    _format_table(nested)
+
+    _format_table(table)
 
 
 def _heading_spec_for_level(spec: DocumentFormatSpec, level: int) -> Optional[RoleFormatSpec]:

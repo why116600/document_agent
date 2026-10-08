@@ -87,7 +87,7 @@ python -m document_agent.console_app D:/docs/粗糙草稿.docx
 ## 工作流
 `intent`（参数校验与初始化）→ `summary`（参考文件摘要）→ `retrieve`（检索相关素材）→ 按意图分流：
 - `new_docx`：规划章节并逐章生成新文档
-- `rewrite_docx`：解析原文档结构，由模型给出"逐元素修改方案"并原地改写，保留原有格式、表格与页面设置
+- `rewrite_docx`：解析原文档结构，由模型给出"逐元素修改方案"并改写文档结构（保留未改动部分的原始格式、表格与页面设置），默认另存为新文件
 
 使用以下命令将文档录入知识库中（需先启动本地 Memgraph 图数据库，连接配置见 `src/setting.json`）：
 ```bash

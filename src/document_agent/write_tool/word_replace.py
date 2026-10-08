@@ -136,14 +136,12 @@ def replace_in_paragraph(p: Paragraph, old_text: str, new_text: str) -> int:
         start_run_idx, start_char_idx = char_map[start_pos]
         end_run_idx, end_char_idx = char_map[end_pos - 1]
 
-        # 跨 Run 匹配若跨越含受保护元素（图片/公式/域代码）的中间 Run，跳过以免破坏结构
-        if start_run_idx != end_run_idx:
-            has_protected_mid = any(
-                element_has_protected_content(runs[mid]._r)
-                for mid in range(start_run_idx + 1, end_run_idx)
-            )
-            if has_protected_mid:
-                continue
+        # 匹配若跨越或位于含受保护元素（图片/公式/域代码）的 Run 中，跳过以免破坏结构
+        if any(
+            element_has_protected_content(runs[idx]._r)
+            for idx in range(start_run_idx, end_run_idx + 1)
+        ):
+            continue
 
         start_run = runs[start_run_idx]
         end_run = runs[end_run_idx]
