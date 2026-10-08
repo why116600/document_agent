@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from agent_core import AgentState, get_last_user_text
 from llm_client import llm_model_invoke
 
-# 参考文件支持的后缀，与 extract_document 的解析能力保持一致
+#参考文件支持的后缀，与 extract_document 的解析能力保持一致
 SUPPORTED_REFERENCE_SUFFIXES = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".txt", ".json", ".csv", ".md"}
 
 
@@ -289,9 +289,9 @@ def validate_reference_paths(reference_paths: Optional[List[str]]) -> Tuple[List
             continue
         path_obj = Path(path)
         if not path_obj.exists():
-            return valid, f"指定的参考文件不存在：{path}，请确认路径后重试"
+            return valid, f"用户指定的参考文件不存在：{path}，请确认路径后重试"
         if path_obj.suffix.lower() not in SUPPORTED_REFERENCE_SUFFIXES:
-            return valid, (f"指定的参考文件类型不支持：{path} "
+            return valid, (f"用户指定的参考文件类型不支持：{path}"
                            f"（支持的类型：{'、'.join(sorted(SUPPORTED_REFERENCE_SUFFIXES))}）")
         valid.append(str(path_obj.resolve()))
     return valid, ""

@@ -311,8 +311,8 @@ def convert_cell(cell: _Cell, row_idx: int, col_idx: int) -> GridItem:
         content=[convert_paragraph(p) for p in cell.paragraphs],
         row=row_idx,
         col=col_idx,
-        row_span=1,  # 表格转换时修正
-        col_span=1   # 表格转换时修正
+        row_span=1,  # 将在表格转换时修正
+        col_span=1   # 将在表格转换时修正
     )
 
 def convert_table(table: Table) -> TableItem:
@@ -324,7 +324,7 @@ def convert_table(table: Table) -> TableItem:
     cols = len(table.rows[0].cells) if rows > 0 else 0
     grid_items = []
 
-    # 二维标记：记录网格位置是否已被处理（合并起始或已跳过）
+    # 创建一个二维标记数组，记录某个网格位置是否已被处理（合并起始或已跳过）
     processed = [[False] * cols for _ in range(rows)]
 
     for r in range(rows):
@@ -339,7 +339,7 @@ def convert_table(table: Table) -> TableItem:
 
             # 计算合并跨度
             col_span = grid_span if grid_span is not None else 1
-            # 纵向合并行数：连续 vMerge='continue' 的个数
+            # 计算纵向合并的行数：从当前行开始，找到连续 vMerge='continue' 的个数
             row_span = 1
             if vMerge == 'restart':
                 # 向下寻找直到遇到 vMerge 为 None 或 'restart'
@@ -695,7 +695,7 @@ def replace_node_with_data(node, new_data, doc=None, write_defaults: bool = True
         # 4. 删除旧表格元素
         parent.remove(old_element)
 
-        # 5. 返回新表格对象（原对象已失效），调用方需替换 nodes 中的引用
+        # 5. 返回新表格对象（原对象已随旧元素失效），调用方需用它替换 nodes 中的引用
         return new_table
 
     else:

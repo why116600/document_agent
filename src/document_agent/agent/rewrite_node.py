@@ -323,7 +323,7 @@ def _estimate_description_tokens(description) -> int:#用序列化后的JSON估�
 
 
 def _item_text(item: dict) -> str:
-    #取出元素的纯文本
+    #取出元素的纯文本，用于关键词搜索
     if item.get("type") == "paragraph":
         return "".join(run.get("text", "") for run in item.get("runs", []))
     if item.get("type") == "table":
@@ -332,7 +332,7 @@ def _item_text(item: dict) -> str:
 
 
 def _get_outline_level(node):
-    #读取段落大纲级别（w:outlineLvl），未设置返回None
+    #读取段落的大纲级别（w:outlineLvl），没有设置时返回None
     try:
         p_pr = node._element.find(qn("w:pPr"))
         if p_pr is None:
@@ -347,7 +347,7 @@ def _get_outline_level(node):
 
 
 def _looks_like_visual_heading(base_item) -> bool:
-    #正文里"加粗或大字号"的短段落，作为无编号标题的线索
+    #正文里"加粗或大字号"的短段落，作为无编号标题的辅助线索
     if not isinstance(base_item, ParagraphItem) or not base_item.runs:
         return False
     first_run = base_item.runs[0]
@@ -357,7 +357,10 @@ def _looks_like_visual_heading(base_item) -> bool:
 
 
 def _detect_heading(node, base_item, text, patterns=None):
-    """识别标题，返回(层级, 标题文本)；依次尝试：标准标题样式 → 大纲级别 → 编号正则 → 短文本且加粗/大字号。"""
+    """识别标题，返回(层级, 标题文本)，不是标题时返回None。
+
+    依次尝试：标准标题样式 → 大纲级别 → 编号正则 → 短文本且加粗/大字号。
+    """
     if not text:
         return None
     style_name = ""
@@ -2354,7 +2357,7 @@ def create_rewrite_node(llm):
         nodes, base_items, description = build_document_description(doc)
         if not nodes:
             return {**state, "state": "error", "error": f"文档内容为空，无法改写：{rewrite_path}"}
-        print(f"待改写文档共 {len(nodes)} 个元素")
+        print(f"待改写文档共{len(nodes)}个元素")
 
         retrieved_items = state.get("retrieved_content") or []
         retrieved_info = ""

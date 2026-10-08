@@ -62,7 +62,7 @@ class AgentCore:
         self.agent_invoke=None
         self.checkpointer=InMemorySaver()#使用检查点记录会话内容
         
-    def build_graph(self, gdb): # 构建agent图
+    def build_graph(self, gdb): #构建agent图
         from intent_node import create_intent_node, route_after_intent
         from summary_node import create_summary_node
         from retrieve_node import create_retrieve_node

@@ -17,12 +17,12 @@ def create_gdb_retrieve_node(llm,gdb : MemgraphNodeManager):
         params=state["retrieve_params"]
         retrieve_target=state["retrieve_target"]
         retrieved_items=state["retrieved_content"]
-        expandable_nodes={}#节点id → (retrieved_items 下标, 节点内容)
+        expandable_nodes={}#可以展开的节点id到retrieved_items对应项的下标以及节点内容的映射
         data_label=state["gdb_label"]
         data_node_backward={}
         if params is None:
             return {**state,"state":"error","error":"图数据库检索缺少参数"}
-        print("="*20,"图数据库检索，目标：",retrieve_target,"="*20)
+        print("="*20,"开始进行图数据库的检索，检索目标：",retrieve_target,"="*20)
         print("检索参数：",params)
         res=gdb.search_by_vector(data_label,retrieve_target)
         nroot=len(res)
@@ -42,7 +42,7 @@ def create_gdb_retrieve_node(llm,gdb : MemgraphNodeManager):
                 retrieved_items.append(f"可展开的图数据库节点{nid}的内容：{item['summary']}")
             else:
                 retrieved_items.append(f"不可展开的图数据库节点{nid}的内容：{item['content']}")
-        # 大模型摘要式 dag 检索
+        # 开始大模型摘要dag检索
         for _ in range(10*nroot):
             retrieved_str="\n".join(retrieved_items)
             think_prompt=(
