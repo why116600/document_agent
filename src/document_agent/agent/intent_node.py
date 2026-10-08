@@ -202,7 +202,7 @@ def match_candidate_file(target_str: Optional[str], candidate_files: List[str]) 
         if (target_clean.lower() in Path(f).name.lower() or Path(f).stem.lower() in target_clean.lower())
     ])
     if len(substr_matches) == 1:
-        return substr_matches[0], None
+        return None, f"未能在候选文件中精准匹配目标文档：{target_str}，请提供完整文件名或路径"
     if len(substr_matches) > 1:
         return None, f"与 '{target_str}' 模糊匹配的文档有 {len(substr_matches)} 个，请指明具体文件名：" + "、".join(substr_matches)
 
@@ -261,11 +261,22 @@ def resolve_save_target(
     # 5. 组装最终绝对路径
     if rewrite_file:
         target_dir = Path(rewrite_file).resolve().parent
-        return str((target_dir / clean_name).resolve())
     else:
         data_dir = Path("data").resolve()
         data_dir.mkdir(parents=True, exist_ok=True)
-        return str((data_dir / clean_name).resolve())
+        target_dir = data_dir
+
+    target_candidate = (target_dir / clean_name).resolve()
+    # 另存为新文件模式下，若目标路径已存在，递增编号确保文件名唯一，避免意外覆盖历史生成文件
+    if target_candidate.exists():
+        base_stem = target_candidate.stem
+        ext = target_candidate.suffix
+        counter = 1
+        while (target_dir / f"{base_stem}_({counter}){ext}").resolve().exists():
+            counter += 1
+        target_candidate = (target_dir / f"{base_stem}_({counter}){ext}").resolve()
+
+    return str(target_candidate)
 
 
 
@@ -435,16 +446,17 @@ def create_intent_node(llm=None):
                 if task_intent.task_type == "rewrite":
                     user_intent = "rewrite"
                     target_candidate = task_intent.target_file
-                    matched_file, match_err = match_candidate_file(target_candidate, valid_input_files)
-
-                    if match_err and target_candidate and Path(target_candidate.strip().strip("'\"")).suffix.lower() not in ("", ".docx"):
-                        print(f"[意图识别错误] {match_err}")
-                        return {**state, "user_intent": "rewrite", "state": "error", "error": match_err}
-
-                    #模型没有给出明确路径时，从用户提到的文件里挑选docx文档，挑不到则直接报错
-                    rewrite_file, error = resolve_rewrite_file(matched_file, valid_input_files)
-                    if error:
-                        return {**state, "user_intent": "rewrite", "rewrite_file": None, "state": "error", "error": error}
+                    if target_candidate and target_candidate.strip():
+                        matched_file, match_err = match_candidate_file(target_candidate, valid_input_files)
+                        if match_err:
+                            print(f"[意图识别错误] {match_err}")
+                            return {**state, "user_intent": "rewrite", "state": "error", "error": match_err}
+                        rewrite_file = matched_file
+                    else:
+                        # 模型没有给出明确路径时，从用户提到的文件里挑选docx文档，挑不到则直接报错
+                        rewrite_file, error = resolve_rewrite_file(None, valid_input_files)
+                        if error:
+                            return {**state, "user_intent": "rewrite", "rewrite_file": None, "state": "error", "error": error}
 
                     #顶层 replace_pairs 作为兜底：模型把词对写在步骤内时，build_rewrite_steps 会并入
                     if task_intent.replace_pairs:

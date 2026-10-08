@@ -769,13 +769,15 @@ def _tool_read(description, arguments) -> str:
     return text
 
 
-def _record_single_edit(description, edit_dict, edited) -> str:
+def _record_single_edit(description, edit_dict, edited, scope_range=None) -> str:
     try:
         edit = ParagraphEdit.model_validate(edit_dict)
     except Exception as e:
         return f"edit失败：修改内容不合法（{e}）"
     if edit.index < 0 or edit.index >= len(description):
         return f"edit失败：下标{edit.index}越界，文档元素的下标范围是0~{len(description) - 1}"
+    if scope_range is not None and not (scope_range[0] <= edit.index <= scope_range[1]):
+        return f"edit失败：下标{edit.index}超出本任务作用范围（有效范围为 {scope_range[0]}~{scope_range[1]}），请仅修改指定范围内的元素"
     action = (edit.action or "").strip().lower()
     if action not in ("replace", "delete", "insert_after", "replace_text"):
         return f"edit失败：不支持的动作{edit.action}，只支持replace/delete/insert_after/replace_text"
@@ -804,7 +806,7 @@ def _record_single_edit(description, edit_dict, edited) -> str:
     )
 
 
-def _tool_edit(description, arguments, edited) -> str:
+def _tool_edit(description, arguments, edited, scope_range=None) -> str:
     #校验并记录一条或多条修改
     if isinstance(arguments, dict) and "edits" in arguments and isinstance(arguments["edits"], list):
         edits_list = arguments["edits"]
@@ -813,17 +815,17 @@ def _tool_edit(description, arguments, edited) -> str:
         results = []
         for single in edits_list:
             if isinstance(single, dict):
-                results.append(_record_single_edit(description, single, edited))
+                results.append(_record_single_edit(description, single, edited, scope_range=scope_range))
         feedback_details = "\n".join(results)
         return (
             f"edit工具反馈：批量处理完成（共成功暂存 {len(edited)} 项修改）：\n"
             f"{feedback_details}\n"
             f"【注意】：若已完成全部改写规划，请立即调用 end 工具结束改写并应用生效！"
         )
-    return _record_single_edit(description, arguments, edited)
+    return _record_single_edit(description, arguments, edited, scope_range=scope_range)
 
 
-def _execute_tool(tool, description, outline_tree, edited) -> str:
+def _execute_tool(tool, description, outline_tree, edited, scope_range=None) -> str:
     #执行工具，返回给模型的反馈文本
     name = (tool.tool_name or "").strip().lower()
     arguments = tool.arguments or {}
@@ -834,7 +836,7 @@ def _execute_tool(tool, description, outline_tree, edited) -> str:
     if name == "read":
         return _tool_read(description, arguments)
     if name == "edit":
-        return _tool_edit(description, arguments, edited)
+        return _tool_edit(description, arguments, edited, scope_range=scope_range)
     if name == "end":
         return f"end工具反馈：结束改写，共提交{len(edited)}条修改"
     return f"未知工具{name}，可用工具：outline/search/read/edit/end"
@@ -847,7 +849,7 @@ def _clip_feedback(text: str, limit: int = FEEDBACK_MAX_CHARS_PER_ROUND) -> str:
     return f"{text[:limit]}……(已截断，原文共{len(text)}字，如需完整内容请read更小的范围)"
 
 
-def _rewrite_with_tools(llm, dialog, nodes, description, base_items):
+def _rewrite_with_tools(llm, dialog, nodes, description, base_items, scope_range=None):
     #工具化改写：模型按需探查文档并逐条提交修改，返回(修改列表, 错误信息)
     outline_tree = build_outline_tree(nodes, description, base_items)
     summary = outline_tree.get("summary", {})
@@ -856,6 +858,11 @@ def _rewrite_with_tools(llm, dialog, nodes, description, base_items):
         print("   ", entry.get("title") or entry.get("head") or "", entry.get("index_range"))
     edited = []
     history = []
+    scope_hint = (
+        f"\n【重要限制】本次改写的作用范围严格限制在文档元素下标 {scope_range[0]} ~ {scope_range[1]}，"
+        f"超出此范围的修改将被系统拒绝，请勿修改范围外的元素。\n"
+        if scope_range is not None else ""
+    )
     for _ in range(MAX_TOOL_ROUNDS):
         #只把最近几轮的工具结果放进prompt
         feedback = "\n".join(history[-FEEDBACK_MAX_ROUNDS:])
@@ -863,6 +870,7 @@ def _rewrite_with_tools(llm, dialog, nodes, description, base_items):
             "你是文档改写助手。不要把整篇文档读进来，而是用工具按需探查和修改。\n"
             f"{TOOL_DESCRIPTION}\n"
             f"用户对话内容：{dialog}\n"
+            f"{scope_hint}"
             f"{feedback}\n"
             f"【状态提示】当前待执行队列中已暂存的修改数量：{len(edited)}条。\n"
             + ("（提示：您已暂存了修改，若已登记完所有修改项，请直接调用 end 工具提交生效！）\n" if edited else "")
@@ -874,7 +882,7 @@ def _rewrite_with_tools(llm, dialog, nodes, description, base_items):
             continue
         if tool.reason:
             print(f"改写思路：{tool.reason}")
-        result = _execute_tool(tool, description, outline_tree, edited)
+        result = _execute_tool(tool, description, outline_tree, edited, scope_range=scope_range)
         print(f"改写工具：{tool.tool_name} {tool.arguments} -> {result[:200]}")
         history.append(f"调用{tool.tool_name}({tool.arguments}) -> {_clip_feedback(result)}")
         if (tool.tool_name or "").strip().lower() == "end":
@@ -1179,6 +1187,10 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
                         print(f"第{edit.index}个元素是段落，但模型没有给出段落内容，跳过")
                         failed.append(f"第{edit.index}个段落未改写：模型未给出改写后的段落内容")
                         continue
+                    if element_has_protected_content(node._element):
+                        print(f"第{edit.index}个段落含图片等无法表达的内容，已跳过替换")
+                        failed.append(f"第{edit.index}个段落未改写：含图片等受保护内容")
+                        continue
                     #首段原地替换并继承原段落格式（is_insert=False）
                     replace_node_with_data(node, _inherit_paragraph_format(replace_items[0], base_item, body_profile, is_insert=False), doc, write_defaults=False)
                     #其余段落依次插到其后，使用正文基准格式（is_insert=True）
@@ -1286,7 +1298,7 @@ def run_patch_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, node
         edits = plan.edits
     else:
         print(f"【局部修补】文档约{estimated_tokens} tokens，启用工具化改写")
-        edits, error = _rewrite_with_tools(llm, f"{dialog}\n{retrieved_info}", nodes, description, base_items)
+        edits, error = _rewrite_with_tools(llm, f"{dialog}\n{retrieved_info}", nodes, description, base_items, scope_range=scope_range)
         if error:
             return 0, error
         if not edits:
@@ -1679,7 +1691,7 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
     return total_sections_rewritten, ""
 
 
-# ================== 模式四：格式规范化（只改排版，不动文字） ==================
+# 格式规范化（只改排版，不动文字）
 
 class RoleFormatSpec(BaseModel):
     """单一角色（标题/正文/落款/表格文字）的排版格式规范。"""
@@ -2165,7 +2177,7 @@ def run_format_rewrite(llm, dialog: str, retrieved_info: str, doc: Document,
     return applied, ""
 
 
-# ================== 复合指令：有序步骤清单的落地执行 ==================
+# 步骤清单编排与执行
 
 STEP_MODE_LABELS = {
     "replace": "模式二：全局查找替换",
@@ -2222,20 +2234,43 @@ def normalize_rewrite_steps(raw_steps, fallback_mode: str) -> Tuple[List[dict], 
 
     steps.sort(key=lambda step: step["order"])
     if len(steps) > 1:
-        for mode, label, note in (
-            ("replace", "全局查找替换", "已合并为一次全局查找替换（词对取并集）"),
-            ("format", "格式规范化", "已合并为一次格式规范化"),
-        ):
-            same = [step for step in steps if step["mode"] == mode]
-            if len(same) <= 1:
-                continue
+        same_replace = [step for step in steps if step["mode"] == "replace"]
+        if len(same_replace) > 1:
             merged_pairs: Dict[str, str] = {}
-            for step in same:
+            for step in same_replace:
                 merged_pairs.update(step["replace_pairs"])
-            same[0]["replace_pairs"] = merged_pairs
-            dropped = {id(step) for step in same[1:]}
+            same_replace[0]["replace_pairs"] = merged_pairs
+            # 汇总所有替换步骤的要求，避免丢失后续步骤的具体指令
+            instructions = [s["instruction"] for s in same_replace if s.get("instruction")]
+            if instructions:
+                same_replace[0]["instruction"] = "；".join(dict.fromkeys(instructions))
+            # 若有局部范围要求，保留局部 target / target_range 以便在调度时校验与阻断
+            targets = [s["target"] for s in same_replace if s.get("target") and s["target"] not in WHOLE_DOC_TARGETS]
+            if targets:
+                same_replace[0]["target"] = targets[0]
+            ranges = [s["target_range"] for s in same_replace if s.get("target_range")]
+            if ranges:
+                same_replace[0]["target_range"] = ranges[0]
+            dropped = {id(step) for step in same_replace[1:]}
             steps = [step for step in steps if id(step) not in dropped]
-            notes.append(f"检测到 {len(same)} 个{label}步骤，{note}")
+            notes.append(f"检测到 {len(same_replace)} 个全局查找替换步骤，已合并为一次全局查找替换（词对取并集，已汇总全部指令）")
+
+        same_format = [step for step in steps if step["mode"] == "format"]
+        if len(same_format) > 1:
+            # 汇总所有格式化步骤的具体排版指令，避免丢失不同角色的格式要求
+            instructions = [s["instruction"] for s in same_format if s.get("instruction")]
+            if instructions:
+                same_format[0]["instruction"] = "；".join(dict.fromkeys(instructions))
+            # 若有局部范围要求，保留局部 target / target_range 以便在调度时校验与阻断
+            targets = [s["target"] for s in same_format if s.get("target") and s["target"] not in WHOLE_DOC_TARGETS]
+            if targets:
+                same_format[0]["target"] = targets[0]
+            ranges = [s["target_range"] for s in same_format if s.get("target_range")]
+            if ranges:
+                same_format[0]["target_range"] = ranges[0]
+            dropped = {id(step) for step in same_format[1:]}
+            steps = [step for step in steps if id(step) not in dropped]
+            notes.append(f"检测到 {len(same_format)} 个格式规范化步骤，已合并为一次格式规范化（已汇总全部排版要求）")
 
         #global 只在作用域相同时合并：作用域不同的多个 global 是对不同章节的独立诉求，不能丢弃
         same_global = [step for step in steps if step["mode"] == "global"]
@@ -2244,11 +2279,15 @@ def normalize_rewrite_steps(raw_steps, fallback_mode: str) -> Tuple[List[dict], 
             for step in same_global:
                 scope_key = (step["target"], tuple(step["target_range"]) if step.get("target_range") else None)
                 groups.setdefault(scope_key, []).append(step)
-            if len(groups) == 1:
-                dropped = {id(step) for step in same_global[1:]}
-                steps = [step for step in steps if id(step) not in dropped]
-                notes.append(f"检测到 {len(same_global)} 个全局重塑步骤，全局重塑会整篇重写，重复的只保留第一个")
-            else:
+            for scope_key, g_steps in groups.items():
+                if len(g_steps) > 1:
+                    instructions = [s["instruction"] for s in g_steps if s.get("instruction")]
+                    if instructions:
+                        g_steps[0]["instruction"] = "；".join(dict.fromkeys(instructions))
+                    dropped = {id(step) for step in g_steps[1:]}
+                    steps = [step for step in steps if id(step) not in dropped]
+                    notes.append(f"检测到同作用域的 {len(g_steps)} 个全局重塑步骤，已合并需求为一次全局重塑")
+            if len(groups) > 1:
                 notes.append(f"检测到 {len(same_global)} 个全局重塑步骤且作用域不同，已按作用域分别保留")
 
         ordered = sorted(steps, key=lambda step: STEP_MODE_RANK[step["mode"]])
@@ -2282,6 +2321,10 @@ def dispatch_rewrite_mode(llm, mode: str, dialog: str, retrieved_info: str, doc:
     """按模式调用对应改写引擎；多步骤时在日志中标出步骤序号。"""
     prefix = f"步骤{step_no}/{total_steps}：" if total_steps > 1 else ""
     if mode == "replace":
+        scope = (target or "").strip()
+        if (scope and scope not in WHOLE_DOC_TARGETS) or target_range is not None:
+            return 0, (f"全局查找替换暂不支持指定局部范围（本步范围：{scope}），"
+                       "如需局部替换请改用局部修补模式")
         print(f"【改写调度】{prefix}{STEP_MODE_LABELS['replace']}")
         return run_replace_rewrite(llm, dialog, doc, replace_pairs)
     if mode == "global":
@@ -2290,7 +2333,7 @@ def dispatch_rewrite_mode(llm, mode: str, dialog: str, retrieved_info: str, doc:
     if mode == "format":
         #格式规范化是整篇排版：作用域只写在提示词里无法约束实际循环，故拒绝局部范围，避免"只排版某章"变成排版全文
         scope = (target or "").strip()
-        if scope and scope not in WHOLE_DOC_TARGETS:
+        if (scope and scope not in WHOLE_DOC_TARGETS) or target_range is not None:
             return 0, (f"格式规范化暂不支持指定局部范围（本步范围：{scope}），"
                        "请以整篇文档为单位进行排版规范化")
         print(f"【改写调度】{prefix}{STEP_MODE_LABELS['format']}")
