@@ -10,12 +10,8 @@ from docx.text.paragraph import Paragraph
 from docx.text.run import Run
 from pydantic import BaseModel, Field, model_validator
 
-try:
-    from document_agent.agent.llm_client import llm_invoke, llm_model_invoke
-    from document_agent.agent.agent_core import AgentState
-except ImportError:
-    from llm_client import llm_invoke, llm_model_invoke
-    from agent_core import AgentState
+from llm_client import llm_invoke, llm_model_invoke
+from agent_core import AgentState
 from document_agent.write_tool.word_tool import (
     DEFAULT_FONT_SIZE,
     DEFAULT_FONT_COLOR,

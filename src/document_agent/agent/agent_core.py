@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, TypedDict, Annotated, Tuple
+import sys
+from typing import Any, Callable, Dict, List, Optional, TypedDict, Tuple, Annotated
 from langgraph.graph import END, StateGraph
 from langgraph.checkpoint.memory import InMemorySaver
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
-try:
-    from document_agent.agent.llm_client import get_deepseek_llm
-except ImportError:
-    from llm_client import get_deepseek_llm
+from llm_client import get_deepseek_llm
 
 class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
@@ -19,8 +17,8 @@ class AgentState(TypedDict):
     retrieve_params: Optional[Dict[str,str]]
     retrieve_count_limit: int#检索的限制次数
     file_retrived_items: Optional[Dict[Tuple,str]]#检索文档、关键词到检索结果的映射
-    retrieved_content: List[str]#检索出来的内容
-    input_file_path: List[str]#用户提供的参考文件路径
+    retrieved_content: List[str]# 检索出来的内容
+    input_file_path: List[str]#用户提供的作为参考内容的文件路径
     file_summaries: Dict[str, str]#文件路径到文件摘要的映射
     gdb_label: str#要查询的图数据库的节点标签
     user_intent: Optional[str]#用户写作意图，new表示全新写作，rewrite表示改写
@@ -65,22 +63,13 @@ class AgentCore:
         self.checkpointer=InMemorySaver()#使用检查点记录会话内容
         
     def build_graph(self, gdb): # 构建agent图
-        try:
-            from document_agent.agent.intent_node import create_intent_node, route_after_intent
-            from document_agent.agent.summary_node import create_summary_node
-            from document_agent.agent.retrieve_node import create_retrieve_node
-            from document_agent.agent.docx_node import create_new_docx_node
-            from document_agent.agent.rewrite_node import create_rewrite_node
-            from document_agent.agent.file_retrieve_node import create_file_retrieve_node
-            from document_agent.agent.gdb_retrieve_node import create_gdb_retrieve_node
-        except ImportError:
-            from intent_node import create_intent_node, route_after_intent
-            from summary_node import create_summary_node
-            from retrieve_node import create_retrieve_node
-            from docx_node import create_new_docx_node
-            from rewrite_node import create_rewrite_node
-            from file_retrieve_node import create_file_retrieve_node
-            from gdb_retrieve_node import create_gdb_retrieve_node
+        from intent_node import create_intent_node, route_after_intent
+        from summary_node import create_summary_node
+        from retrieve_node import create_retrieve_node
+        from docx_node import create_new_docx_node
+        from rewrite_node import create_rewrite_node
+        from file_retrieve_node import create_file_retrieve_node
+        from gdb_retrieve_node import create_gdb_retrieve_node
 
         self.graph = StateGraph(AgentState)
         self.graph.add_node("intent", create_intent_node(self.llm))

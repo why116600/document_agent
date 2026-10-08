@@ -4,12 +4,8 @@ from pathlib import Path
 from typing import Any, List, Tuple, Optional, Dict, Literal
 from pydantic import BaseModel, Field
 
-try:
-    from document_agent.agent.agent_core import AgentState, get_last_user_text
-    from document_agent.agent.llm_client import llm_model_invoke
-except ImportError:
-    from agent_core import AgentState, get_last_user_text
-    from llm_client import llm_model_invoke
+from agent_core import AgentState, get_last_user_text
+from llm_client import llm_model_invoke
 
 # 参考文件支持的后缀，与 extract_document 的解析能力保持一致
 SUPPORTED_REFERENCE_SUFFIXES = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".txt", ".json", ".csv", ".md"}

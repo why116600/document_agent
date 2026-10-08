@@ -3,12 +3,8 @@ from docx import Document
 from docx.oxml.ns import qn
 import json
 
-try:
-    from document_agent.agent.llm_client import llm_invoke, llm_model_invoke, extract_json_from_text
-    from document_agent.agent.agent_core import AgentState
-except ImportError:
-    from llm_client import llm_invoke, llm_model_invoke, extract_json_from_text
-    from agent_core import AgentState
+from llm_client import llm_invoke, llm_model_invoke, extract_json_from_text
+from agent_core import AgentState
 from document_agent.write_tool.word_tool import replace_node_with_data,ParagraphItem,TableItem,DocxRoot,resolve_save_path,save_document
 
 def create_new_docx_node(llm):#从零编写文档的节点

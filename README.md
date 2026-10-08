@@ -12,23 +12,12 @@ D:\Conda\envs\docx_agent\python.exe -m pip install -e .
 解析 PDF 参考文件时，若文件中含表格，会调用 `camelot` 提取表格（已随上面的依赖一起安装）。
 `camelot` 的 `lattice` 模式还需要系统安装 Ghostscript；如果环境中没有 `camelot`，解析 PDF 时会自动降级为只提取文本，不会直接报错。
 
-模型配置（DeepSeek，OpenAI 兼容接口），通过环境变量配置：
-
-- **方式一：终端会话环境变量**：
-  ```bash
-  # PowerShell
-  $env:MODEL_API_KEY="你的密钥"
-  
-  # CMD
-  set MODEL_API_KEY=你的密钥
-  ```
-
-- **方式二：Windows 永久用户环境变量**：
-  ```powershell
-  [System.Environment]::SetEnvironmentVariable('MODEL_API_KEY', '你的密钥', 'User')
-  ```
-
-  > 若未检测到 `MODEL_API_KEY` 环境变量，程序启动时会直接报错提示并退出，确保生产环境与脚本执行的可预测性。
+模型配置（DeepSeek，OpenAI 兼容接口），使用前需设置环境变量：
+```bash
+set MODEL_API_KEY=你的密钥
+set MODEL_BASE_URL=https://api.deepseek.com/v1
+set MODEL_NAME=deepseek-chat
+```
 
 ## 运行控制台程序
 在 `src` 目录下运行。采用**自然语言交互模式**：文件路径直接作为位置参数传入（终端支持按 `Tab` 键自动补齐），改写目标、改写模式、输出文件名等全部由你在提示符中输入的自然语言描述，意图识别节点（大模型）会自动分析：

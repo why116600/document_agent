@@ -1,11 +1,7 @@
 from pathlib import Path
 
-try:
-    from document_agent.agent.llm_client import llm_invoke
-    from document_agent.agent.agent_core import AgentState, get_last_user_text
-except ImportError:
-    from llm_client import llm_invoke
-    from agent_core import AgentState, get_last_user_text
+from llm_client import llm_invoke
+from agent_core import AgentState, get_last_user_text
 from document_agent.retrieve_tool.extract_document import extract_document_content
 
 

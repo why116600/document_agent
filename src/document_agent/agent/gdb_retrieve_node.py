@@ -1,15 +1,11 @@
-﻿
+
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
 from pathlib import Path
 import traceback
 
-try:
-    from document_agent.agent.llm_client import llm_invoke, llm_model_invoke
-    from document_agent.agent.agent_core import AgentState
-except ImportError:
-    from llm_client import llm_invoke, llm_model_invoke
-    from agent_core import AgentState
+from llm_client import llm_invoke, llm_model_invoke
+from agent_core import AgentState
 from document_agent.memory.neo_graph_db import MemgraphNodeManager
 
 class GraphRetrieveDecision(BaseModel):
