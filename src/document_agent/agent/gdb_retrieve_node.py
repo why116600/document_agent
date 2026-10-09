@@ -39,9 +39,9 @@ def create_gdb_retrieve_node(llm,gdb : MemgraphNodeManager):
             if len(backwards)>0:
                 # print(f"可展开的节点[{nid}]内容：",item["content"])
                 expandable_nodes[nid]=(len(retrieved_items),item["summary"])
-                retrieved_items.append(f"可展开的图数据库节点{nid}的内容：{item["summary"]}")
+                retrieved_items.append(f"可展开的图数据库节点{nid}的内容：{item['summary']}")
             else:
-                retrieved_items.append(f"不可展开的图数据库节点{nid}的内容：{item["content"]}")
+                retrieved_items.append(f"不可展开的图数据库节点{nid}的内容：{item['content']}")
         # 开始大模型摘要dag检索
         for _ in range(10*nroot):
             retrieved_str="\n".join(retrieved_items)
@@ -86,9 +86,9 @@ def create_gdb_retrieve_node(llm,gdb : MemgraphNodeManager):
                     if len(sub_backwards)>0:
                         expandable_nodes[mid]=(len(retrieved_items),item["content"])
                         # print(f"\t可展开的节点[{mid}]内容：",item["content"])
-                        retrieved_items.append(f"可展开的图数据库节点{mid}的内容：{item["summary"]}")
+                        retrieved_items.append(f"可展开的图数据库节点{mid}的内容：{item['summary']}")
                     else:
-                        retrieved_items.append(f"不可展开的图数据库节点{mid}的内容：{item["content"]}")
+                        retrieved_items.append(f"不可展开的图数据库节点{mid}的内容：{item['content']}")
                 
         
         return {**state,"retrieved_content":retrieved_items}

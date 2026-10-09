@@ -24,7 +24,7 @@ def create_file_retrieve_node(llm):
         query=params.get("query")
         print(f"对文件{path}进行检索")
         if (path,query) in file_retrieved_items.keys():
-            tool_response=f"重复对文件{path}检索：",query
+            tool_response=f"重复对文件{path}检索：{query}"
             print(tool_response)
             retrieved_items.append(tool_response)
             return {**state,"state":"error","error":"文件检索出现相同内容","retrieved_content":retrieved_items}
