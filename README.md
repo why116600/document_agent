@@ -93,3 +93,62 @@ python -m document_agent.console_app D:/docs/粗糙草稿.docx
 ```bash
 python -m document_agent.knowledge_base_record <file1> <file2> ...
 ```
+
+## 知识图谱记忆（`document_agent.memory.knowledge_graph`）
+
+`KnowledgeGraphMemory` 是一个基于 **Neo4j** 的知识图谱类，对外提供两个接口：
+
+| 接口 | 作用 |
+| --- | --- |
+| `add_text(text, source=..., metadata=...)` | 输入字符串：调用大模型抽取实体与关系，去重合并后写入知识图谱 |
+| `query(prompt, top_k=..., depth=...)` | 输入提示词：向量检索相关实体 + 邻居关系 + 原文片段，交给大模型归纳作答 |
+
+### 写入与查询原理
+
+- **实体去重**：先按名称精确匹配，再用向量相似度（余弦 ≥ 0.95）合并同义表述，例如"示例科技"会并入"示例科技有限公司"；
+- **图谱结构**：`(:KGEntity)` 实体、`(:KGDocument)` 原始文档、`(:KGEntity)-[:相关关系]->(:KGEntity)`、`(:KGDocument)-[:MENTIONS]->(:KGEntity)`；
+- **检索**：使用 Neo4j 原生向量索引（`db.index.vector.queryNodes`）；索引不可用时自动退化为本地余弦计算，功能不受影响；
+- **降级**：大模型不可用时仍可写入（退化为规则抽取），此时 `query` 返回图谱上下文原文；设 `require_llm: true` 可改为直接报错。
+
+### 用法
+
+在 `src` 目录下运行（与 `console_app` 一致）：
+
+```python
+from document_agent.memory.knowledge_graph import KnowledgeGraphMemory
+
+kg = KnowledgeGraphMemory()                       # 自动读取 src/setting.json
+kg.add_text("张三于 2024 年加入示例科技有限公司，担任技术总监。", source="员工手册.docx")
+print(kg.query("张三在哪个公司担任什么职务？"))
+print(kg.stats())                                 # 实体/文档/关系数量
+kg.close()
+```
+
+### 配置项（`src/setting.json`）
+
+| 键 | 说明 |
+| --- | --- |
+| `neo4j_uri` | Neo4j 连接串，如 `bolt://localhost:7687`（也兼容原有的 `gdb_uri`） |
+| `neo4j_user` / `neo4j_password` | 登录账号；**密码留空表示无鉴权连接** |
+| `neo4j_database` | 数据库名，默认 `neo4j` |
+| `embedding_model` | 句向量模型名或**本地模型目录的绝对路径** |
+| `hf_endpoint` | HuggingFace 镜像，默认 `https://hf-mirror.com`；置空则用官方站 |
+| `hf_home` | 模型缓存目录，默认项目内 `.models/` |
+| `entity_vector_index` / `document_vector_index` | 向量索引名 |
+| `top_k` / `neighbor_limit` | 查询召回实体数 / 邻居关系上限 |
+| `enable_vector_index` | 是否使用 Neo4j 向量索引（关掉则本地计算） |
+| `require_llm` | 缺少大模型配置时是否直接报错（`false` 则降级运行） |
+
+模型、账号等也可用环境变量覆盖：`NEO4J_URI`、`NEO4J_USER`、`NEO4J_PASSWORD`、`NEO4J_DATABASE`。
+
+### 依赖与模型
+
+该模块需要 `neo4j`、`sentence-transformers`（已装入 conda 环境 `llm`）：
+
+```bash
+C:\Users\wangh\anaconda3\envs\llm\python.exe -m pip install "neo4j==6.3.0" sentence-transformers
+```
+
+默认句向量模型 `all-MiniLM-L6-v2`（384 维）已下载到 `.models/all-MiniLM-L6-v2`（已加入 `.gitignore`），
+代码会优先加载该本地目录，因此**离线也能直接使用**；若换用别的模型名，会在首次使用时联网下载。
+
