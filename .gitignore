@@ -218,3 +218,8 @@ __marimo__/
 .streamlit/secrets.toml
 
 src/data/
+
+# 项目专用：本地句向量模型缓存与 pip 临时目录
+.models/
+.piptmp/
+.pipcache/

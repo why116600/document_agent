@@ -1,4 +1,15 @@
 {
-    "embedding_model":"all-MiniLM-L6-v2",
-    "gdb_uri":"bolt://localhost:7687"
+    "embedding_model": "all-MiniLM-L6-v2",
+    "hf_endpoint": "https://hf-mirror.com",
+    "gdb_uri": "bolt://localhost:7687",
+    "neo4j_uri": "bolt://localhost:7687",
+    "neo4j_user": "neo4j",
+    "neo4j_password": "neo4j",
+    "neo4j_database": "neo4j",
+    "entity_vector_index": "kg_entity_embedding",
+    "document_vector_index": "kg_document_embedding",
+    "top_k": 8,
+    "neighbor_limit": 8,
+    "enable_vector_index": true,
+    "require_llm": true
 }
