@@ -62,7 +62,7 @@ class AgentCore:
         self.agent_invoke=None
         self.checkpointer=InMemorySaver()#使用检查点记录会话内容
         
-    def build_graph(self, gdb): #构建agent图
+    def build_graph(self, gdb, kg=None): #构建agent图
         from intent_node import create_intent_node, route_after_intent
         from summary_node import create_summary_node
         from retrieve_node import create_retrieve_node
@@ -76,7 +76,7 @@ class AgentCore:
         self.graph.add_node("summary", create_summary_node(self.llm))
         self.graph.add_node("retrieve", create_retrieve_node(self.llm))
         self.graph.add_node("retrieve_file", create_file_retrieve_node(self.llm))
-        self.graph.add_node("retrieve_gdb", create_gdb_retrieve_node(self.llm, gdb))
+        self.graph.add_node("retrieve_gdb", create_gdb_retrieve_node(self.llm, gdb, kg))
         self.graph.add_node("new_docx", create_new_docx_node(self.llm))
         self.graph.add_node("rewrite_docx", create_rewrite_node(self.llm))
         self.graph.set_entry_point("intent")
