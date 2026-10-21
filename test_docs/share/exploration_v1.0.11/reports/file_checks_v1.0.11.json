@@ -1,0 +1,99 @@
+{
+  "version": "v1.0.11",
+  "inspection_date": "2026-10-21",
+  "method": "read-only inspection of post-run archived synthetic files; no model or workflow rerun",
+  "hash_capture_stage": "post-run archive; not a pre-run hash",
+  "formal_plan_cases_executed": 0,
+  "new_document": {
+    "case_id": "EX-001",
+    "output_sha256": "909552b6709c845bb961043901c72977c3bedcdfa603b99533d7866cac0e5d62",
+    "title": [
+      "设备借用说明 v1.0.0"
+    ],
+    "tables": 1,
+    "table_rows": [
+      11
+    ],
+    "text_runs": 23,
+    "all_explicit_east_asia_fonts_simsun": true,
+    "all_explicit_text_colors_black": true,
+    "body_table_han_characters": 199,
+    "body_table_nonwhitespace_characters": 244,
+    "length_verdict": "needs clarification: original 200-word/character counting rule unspecified",
+    "observation": "OBS-001: mostly direct transfer into a table; summarization expectation unspecified"
+  },
+  "rewrite_document": {
+    "case_id": "EX-002",
+    "evidence_source": "user-confirmed manual execution plus current archived-file inspection",
+    "before_sha256": "3e750181e64858d75bccabb7c23337f8fd014cca96dec57e92763bd6ed5eb151",
+    "after_sha256": "8ef6fd1e8b53fd0070fb148e73affc135403cbc1a6118ea95cd73a98bdef1d5d",
+    "before_paragraphs": 10,
+    "after_paragraphs": 10,
+    "before_text_runs": 10,
+    "after_text_runs": 10,
+    "changed_paragraph_indices_zero_based": [
+      0,
+      5,
+      7
+    ],
+    "target_replacements": [
+      {
+        "before": "7天",
+        "after": "3天",
+        "before_occurrences": 1,
+        "after_old_occurrences": 0,
+        "after_new_occurrences": 1
+      },
+      {
+        "before": "1个工作日",
+        "after": "2个工作日",
+        "before_occurrences": 1,
+        "after_old_occurrences": 0,
+        "after_new_occurrences": 1
+      },
+      {
+        "before": "v1.0.0",
+        "after": "v1.0.1",
+        "before_occurrences": 1,
+        "after_old_occurrences": 0,
+        "after_new_occurrences": 1
+      }
+    ],
+    "body_text_equals_expected_replacements": true,
+    "all_run_properties_unchanged": true,
+    "before_zip_parts": 17,
+    "after_zip_parts": 19,
+    "added_zip_parts": [
+      "word/footer1.xml",
+      "word/header1.xml"
+    ],
+    "removed_zip_parts": [],
+    "changed_common_parts": [
+      "[Content_Types].xml",
+      "word/_rels/document.xml.rels",
+      "word/document.xml"
+    ],
+    "unchanged_common_parts": 14,
+    "added_header_footer_reference_kinds": [
+      "headerReference",
+      "footerReference"
+    ],
+    "document_tree_equals_expected_after_excluding_added_header_footer_refs": true,
+    "observation": "OBS-002: empty header/footer structures added; page effect and requirement interpretation not yet verified",
+    "original_untouched_at_runtime": "not established: no pre-run hash was frozen",
+    "new_parts_details": [
+      {
+        "name": "word/footer1.xml",
+        "bytes": 1293,
+        "paragraphs": 1,
+        "visible_text": ""
+      },
+      {
+        "name": "word/header1.xml",
+        "bytes": 1293,
+        "paragraphs": 1,
+        "visible_text": ""
+      }
+    ]
+  }
+}

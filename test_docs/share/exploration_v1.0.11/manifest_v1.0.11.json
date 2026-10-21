@@ -1,0 +1,58 @@
+{
+  "package_version": "v1.0.11",
+  "archive_date": "2026-10-21",
+  "test_type": "user-executed exploratory tests; post-run materials organization",
+  "cases": [
+    "EX-001",
+    "EX-002"
+  ],
+  "formal_plan_cases_executed": 0,
+  "privacy": "synthetic materials only; no personal environment/account/logs included",
+  "artifacts": [
+    {
+      "case_id": "EX-001",
+      "role": "input",
+      "path": "inputs/EX-001/星桥演示设备借用规则_v1.0.0.txt",
+      "original_filename": "星桥演示设备借用规则_v1.0.0.txt",
+      "bytes": 710,
+      "sha256": "ec34dfa3c39f8848c4aa1b096412c68535a2bbfdf4a6b45cbf9ce4ccbb65c74e",
+      "copy_verification": "byte-identical to current source",
+      "capture_stage": "post-run archiving; not a pre-run frozen hash"
+    },
+    {
+      "case_id": "EX-001",
+      "role": "actual_output",
+      "path": "outputs/EX-001/设备借用说明_v1.0.0.docx",
+      "original_filename": "设备借用说明_v1.0.0.docx",
+      "bytes": 37581,
+      "sha256": "909552b6709c845bb961043901c72977c3bedcdfa603b99533d7866cac0e5d62",
+      "copy_verification": "byte-identical to current source",
+      "capture_stage": "post-run archiving; not a pre-run frozen hash"
+    },
+    {
+      "case_id": "EX-002",
+      "role": "input",
+      "path": "inputs/EX-002/设备借用办法_v1.0.0.docx",
+      "original_filename": "设备借用办法_v1.0.0.docx",
+      "bytes": 37176,
+      "sha256": "3e750181e64858d75bccabb7c23337f8fd014cca96dec57e92763bd6ed5eb151",
+      "copy_verification": "byte-identical to current source",
+      "capture_stage": "post-run archiving; not a pre-run frozen hash"
+    },
+    {
+      "case_id": "EX-002",
+      "role": "actual_output",
+      "path": "outputs/EX-002/设备借用办法_v1.0.1.docx",
+      "original_filename": "设备借用办法_v1.0.1.docx",
+      "bytes": 38231,
+      "sha256": "8ef6fd1e8b53fd0070fb148e73affc135403cbc1a6118ea95cd73a98bdef1d5d",
+      "copy_verification": "byte-identical to current source",
+      "capture_stage": "post-run archiving; not a pre-run frozen hash"
+    }
+  ],
+  "limits": [
+    "Runtime code/configuration and pre-run hashes were not frozen.",
+    "Current file hashes do not prove the exact bytes at the time of execution.",
+    "Original sample/output filenames retain their real artifact versions."
+  ]
+}
