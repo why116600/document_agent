@@ -1,0 +1,269 @@
+{
+  "package_version": "v1.0.15",
+  "package_kind": "prepared_test_corpus",
+  "prepared_date": "2026-10-23",
+  "execution_status": "not_executed",
+  "business_validation": "not_performed",
+  "cases": [
+    "CP-001",
+    "CP-002",
+    "CP-003",
+    "CP-004",
+    "CP-005",
+    "CP-006",
+    "CP-007",
+    "CP-008",
+    "CP-009",
+    "CP-010",
+    "CP-011",
+    "CP-012"
+  ],
+  "case_catalog": [
+    {
+      "case_id": "CP-001",
+      "title": "单份规则生成短文",
+      "mode": "new",
+      "related_plan": [
+        "TC-07",
+        "TC-08"
+      ],
+      "status": "未执行",
+      "expected_outcome": "按给定资料生成并逐项核对"
+    },
+    {
+      "case_id": "CP-002",
+      "title": "长资料定位三个分散事实",
+      "mode": "new",
+      "related_plan": [
+        "TC-07",
+        "TC-08"
+      ],
+      "status": "未执行",
+      "expected_outcome": "按给定资料生成并逐项核对"
+    },
+    {
+      "case_id": "CP-003",
+      "title": "明确新版优先的规则冲突",
+      "mode": "new",
+      "related_plan": [
+        "TC-07"
+      ],
+      "status": "未执行",
+      "expected_outcome": "按给定资料生成并逐项核对"
+    },
+    {
+      "case_id": "CP-004",
+      "title": "资料夹带指令时遵守用户要求",
+      "mode": "new",
+      "related_plan": [
+        "TC-07"
+      ],
+      "status": "未执行",
+      "expected_outcome": "按给定资料生成并逐项核对"
+    },
+    {
+      "case_id": "CP-005",
+      "title": "资料未说明时不补造规则",
+      "mode": "new",
+      "related_plan": [
+        "TC-07"
+      ],
+      "status": "未执行",
+      "expected_outcome": "按给定资料生成并逐项核对"
+    },
+    {
+      "case_id": "CP-006",
+      "title": "空资料的不足信息处理",
+      "mode": "new",
+      "related_plan": [
+        "TC-08"
+      ],
+      "status": "未执行",
+      "expected_outcome": "明确资料不足；文件/退出码口径待确认"
+    },
+    {
+      "case_id": "CP-007",
+      "title": "跨片段和多位置全文替换",
+      "mode": "rewrite",
+      "related_plan": [
+        "TC-11",
+        "TC-12",
+        "TC-13"
+      ],
+      "status": "未执行",
+      "expected_outcome": "按授权范围完成；不存在目标时明确拒绝"
+    },
+    {
+      "case_id": "CP-008",
+      "title": "只改指定章节正文",
+      "mode": "rewrite",
+      "related_plan": [
+        "TC-15"
+      ],
+      "status": "未执行",
+      "expected_outcome": "按授权范围完成；不存在目标时明确拒绝"
+    },
+    {
+      "case_id": "CP-009",
+      "title": "只改表格一个单元格",
+      "mode": "rewrite",
+      "related_plan": [
+        "TC-16"
+      ],
+      "status": "未执行",
+      "expected_outcome": "按授权范围完成；不存在目标时明确拒绝"
+    },
+    {
+      "case_id": "CP-010",
+      "title": "只调整字号和段距",
+      "mode": "rewrite",
+      "related_plan": [
+        "TC-21"
+      ],
+      "status": "未执行",
+      "expected_outcome": "按授权范围完成；不存在目标时明确拒绝"
+    },
+    {
+      "case_id": "CP-011",
+      "title": "润色时保留事实和否定条件",
+      "mode": "rewrite",
+      "related_plan": [
+        "TC-19"
+      ],
+      "status": "未执行",
+      "expected_outcome": "按授权范围完成；不存在目标时明确拒绝"
+    },
+    {
+      "case_id": "CP-012",
+      "title": "不存在章节时拒绝扩大修改",
+      "mode": "rewrite",
+      "related_plan": [
+        "TC-18"
+      ],
+      "status": "未执行",
+      "expected_outcome": "按授权范围完成；不存在目标时明确拒绝"
+    }
+  ],
+  "artifacts": [
+    {
+      "case_id": "CP-001",
+      "role": "input",
+      "path": "inputs/CP-001/海栎仪器借用规则_v1.0.15.txt",
+      "bytes": 564,
+      "sha256": "c6d519bdf563ca5482fb471420a675810cc9934d980d3dc8b66a1a918bfc560c",
+      "original_filename": "海栎仪器借用规则_v1.0.15.txt",
+      "capture_stage": "prepared before model execution"
+    },
+    {
+      "case_id": "CP-002",
+      "role": "input",
+      "path": "inputs/CP-002/云芦园区长指南_v1.0.15.txt",
+      "bytes": 9317,
+      "sha256": "d0a41b1cbfb6276ebe3d16497e0847fe3fad5f1a8db72127a6b3a4a0c31c0b6b",
+      "original_filename": "云芦园区长指南_v1.0.15.txt",
+      "capture_stage": "prepared before model execution"
+    },
+    {
+      "case_id": "CP-003",
+      "role": "input",
+      "path": "inputs/CP-003/沐川会议设备旧规则_v1.0.14.txt",
+      "bytes": 245,
+      "sha256": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10",
+      "original_filename": "沐川会议设备旧规则_v1.0.14.txt",
+      "capture_stage": "prepared before model execution"
+    },
+    {
+      "case_id": "CP-003",
+      "role": "input",
+      "path": "inputs/CP-003/沐川会议设备新规则_v1.0.15.txt",
+      "bytes": 287,
+      "sha256": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d",
+      "original_filename": "沐川会议设备新规则_v1.0.15.txt",
+      "capture_stage": "prepared before model execution"
+    },
+    {
+      "case_id": "CP-004",
+      "role": "input",
+      "path": "inputs/CP-004/松汀借用资料含附录_v1.0.15.txt",
+      "bytes": 550,
+      "sha256": "c928a711ba67f5ab3ccf7009da0268b65622d78abd01bdaacf0a5ebc4287e720",
+      "original_filename": "松汀借用资料含附录_v1.0.15.txt",
+      "capture_stage": "prepared before model execution"
+    },
+    {
+      "case_id": "CP-005",
+      "role": "input",
+      "path": "inputs/CP-005/青岫录音室简要资料_v1.0.15.txt",
+      "bytes": 297,
+      "sha256": "780bfe74f17b5dbe0ba0321f463beda25e9ad40834545e85d35edf76f1e8ec97",
+      "original_filename": "青岫录音室简要资料_v1.0.15.txt",
+      "capture_stage": "prepared before model execution"
+    },
+    {
+      "case_id": "CP-006",
+      "role": "input",
+      "path": "inputs/CP-006/空白资料_v1.0.15.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_filename": "空白资料_v1.0.15.txt",
+      "capture_stage": "prepared before model execution"
+    },
+    {
+      "case_id": "CP-007",
+      "role": "input",
+      "path": "inputs/CP-007/借用替换样例_v1.0.15.docx",
+      "bytes": 38096,
+      "sha256": "5c4f1110b31e5952edec9d3dea65d2470a2ff845173b5319166ca031ad94e6d1",
+      "original_filename": "借用替换样例_v1.0.15.docx",
+      "capture_stage": "prepared before model execution"
+    },
+    {
+      "case_id": "CP-008",
+      "role": "input",
+      "path": "inputs/CP-008/检查办法_v1.0.15.docx",
+      "bytes": 37378,
+      "sha256": "f33df397cd43628442a5518592ef0a2255d3a0816d7ce0ba3f9fa538d85a2f73",
+      "original_filename": "检查办法_v1.0.15.docx",
+      "capture_stage": "prepared before model execution"
+    },
+    {
+      "case_id": "CP-009",
+      "role": "input",
+      "path": "inputs/CP-009/巡检清单_v1.0.15.docx",
+      "bytes": 37363,
+      "sha256": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
+      "original_filename": "巡检清单_v1.0.15.docx",
+      "capture_stage": "prepared before model execution"
+    },
+    {
+      "case_id": "CP-010",
+      "role": "input",
+      "path": "inputs/CP-010/记录排版样例_v1.0.15.docx",
+      "bytes": 37424,
+      "sha256": "6f571cdbb6ecf9090c142aa4657aeeeae7ed8ed235bd98624fe22274c9768a8f",
+      "original_filename": "记录排版样例_v1.0.15.docx",
+      "capture_stage": "prepared before model execution"
+    },
+    {
+      "case_id": "CP-011",
+      "role": "input",
+      "path": "inputs/CP-011/工具间口语草稿_v1.0.15.docx",
+      "bytes": 37281,
+      "sha256": "26dd119241d9787e9121b532ef0feefdf5abc4087c02177401c86254c4252ff5",
+      "original_filename": "工具间口语草稿_v1.0.15.docx",
+      "capture_stage": "prepared before model execution"
+    },
+    {
+      "case_id": "CP-012",
+      "role": "input",
+      "path": "inputs/CP-012/培训室规则_v1.0.15.docx",
+      "bytes": 37061,
+      "sha256": "30aa520e8324f549f13a371d98d190e424237ba340da17aace8a385c9d6cadbf",
+      "original_filename": "培训室规则_v1.0.15.docx",
+      "capture_stage": "prepared before model execution"
+    }
+  ],
+  "privacy": "Synthetic inputs only; no personal runtime configuration, credentials or original logs.",
+  "formal_plan_cases_executed": 0,
+  "note": "Preparation manifest has inputs only. Create a separate run manifest after real execution; never fabricate outputs."
+}

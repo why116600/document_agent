@@ -1,0 +1,173 @@
+{
+  "validator_version": "v1.0.15",
+  "package_kind": "prepared_test_corpus",
+  "static_preparation_passed": true,
+  "business_validation": "not_performed",
+  "manual_review_required": true,
+  "visual_validation": "单独由主任务报告",
+  "scope": "read-only preparation structure, hashes, source conditions and explicit XML attributes; not product execution",
+  "counts": {
+    "cases": 12,
+    "inputs": 13,
+    "word_files": 6,
+    "local_links": 117,
+    "text_files": 51
+  },
+  "source_condition_checks": {
+    "CP-007": [
+      {
+        "rule": "CP007_FOUR_7DAY_OCCURRENCES",
+        "condition_present": true
+      },
+      {
+        "rule": "CP007_ADJACENT_RUN_SPLIT_7_AND_DAY",
+        "condition_present": true
+      },
+      {
+        "rule": "CP007_BODY_TABLE_HEADER_LOCATIONS",
+        "condition_present": true
+      }
+    ],
+    "CP-008": [
+      {
+        "rule": "CP008_TWO_BODY_AND_ONE_TABLE_REPETITIONS",
+        "condition_present": true
+      }
+    ],
+    "CP-009": [
+      {
+        "rule": "CP009_3X3_TABLE_AND_DEVICE_QUANTITIES",
+        "condition_present": true
+      }
+    ],
+    "CP-010": [
+      {
+        "rule": "CP010_INTENTIONAL_BODY_FORMAT_VARIATION_RETAINED",
+        "condition_present": true
+      }
+    ],
+    "CP-011": [
+      {
+        "rule": "CP011_FACTS_UNITS_RELATIONSHIPS_AND_NEGATION",
+        "condition_present": true
+      }
+    ],
+    "CP-012": [
+      {
+        "rule": "CP012_REQUESTED_SECTION_AND_OLD_WORD_ABSENT_IN_INPUT",
+        "condition_present": true
+      }
+    ]
+  },
+  "issues": [],
+  "limits": [
+    "No output is required or fabricated.",
+    "XML attributes do not prove rendered appearance.",
+    "Limited sensitive-pattern checks are not a complete privacy audit."
+  ],
+  "visual_preparation": {
+    "version": "v1.0.15",
+    "scope": "prepared_input_pages",
+    "case_count": 6,
+    "page_count": 6,
+    "records": [
+      {
+        "case_id": "CP-007",
+        "page_count": 1,
+        "source_unchanged": true,
+        "shared_copy_matches": true,
+        "readable": true,
+        "clipping": false,
+        "overlap": false,
+        "missing_glyphs": false,
+        "broken_table": false,
+        "title_border_present": false,
+        "chinese_run_eastasia_font": "宋体",
+        "all_text_run_color": "000000",
+        "preparation_visual_review": "pass",
+        "business_test_executed": false
+      },
+      {
+        "case_id": "CP-008",
+        "page_count": 1,
+        "source_unchanged": true,
+        "shared_copy_matches": true,
+        "readable": true,
+        "clipping": false,
+        "overlap": false,
+        "missing_glyphs": false,
+        "broken_table": false,
+        "title_border_present": false,
+        "chinese_run_eastasia_font": "宋体",
+        "all_text_run_color": "000000",
+        "preparation_visual_review": "pass",
+        "business_test_executed": false
+      },
+      {
+        "case_id": "CP-009",
+        "page_count": 1,
+        "source_unchanged": true,
+        "shared_copy_matches": true,
+        "readable": true,
+        "clipping": false,
+        "overlap": false,
+        "missing_glyphs": false,
+        "broken_table": false,
+        "title_border_present": false,
+        "chinese_run_eastasia_font": "宋体",
+        "all_text_run_color": "000000",
+        "preparation_visual_review": "pass",
+        "business_test_executed": false
+      },
+      {
+        "case_id": "CP-010",
+        "page_count": 1,
+        "source_unchanged": true,
+        "shared_copy_matches": true,
+        "readable": true,
+        "clipping": false,
+        "overlap": false,
+        "missing_glyphs": false,
+        "broken_table": false,
+        "title_border_present": false,
+        "chinese_run_eastasia_font": "宋体",
+        "all_text_run_color": "000000",
+        "preparation_visual_review": "pass",
+        "business_test_executed": false
+      },
+      {
+        "case_id": "CP-011",
+        "page_count": 1,
+        "source_unchanged": true,
+        "shared_copy_matches": true,
+        "readable": true,
+        "clipping": false,
+        "overlap": false,
+        "missing_glyphs": false,
+        "broken_table": false,
+        "title_border_present": false,
+        "chinese_run_eastasia_font": "宋体",
+        "all_text_run_color": "000000",
+        "preparation_visual_review": "pass",
+        "business_test_executed": false
+      },
+      {
+        "case_id": "CP-012",
+        "page_count": 1,
+        "source_unchanged": true,
+        "shared_copy_matches": true,
+        "readable": true,
+        "clipping": false,
+        "overlap": false,
+        "missing_glyphs": false,
+        "broken_table": false,
+        "title_border_present": false,
+        "chinese_run_eastasia_font": "宋体",
+        "all_text_run_color": "000000",
+        "preparation_visual_review": "pass",
+        "business_test_executed": false
+      }
+    ],
+    "business_validation": "not_performed"
+  }
+}

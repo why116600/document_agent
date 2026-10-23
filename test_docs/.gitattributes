@@ -1,0 +1,4 @@
+# Keep frozen test inputs and archived results byte-for-byte (v1.0.19).
+samples/inputs/** -text
+results/inputs/** -text
+results/outputs/** -text

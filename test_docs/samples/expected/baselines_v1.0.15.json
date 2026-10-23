@@ -1,0 +1,721 @@
+{
+  "version": "v1.0.15",
+  "kind": "input_baselines",
+  "cases": {
+    "CP-007": {
+      "paragraphs": [
+        {
+          "text": "海岚设备借用替换样例 v1.0.15",
+          "style": "Title",
+          "runs": [
+            {
+              "text": "海岚设备借用替换样例 v1.0.15",
+              "font": "宋体",
+              "size_pt": 18.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "语料标识 CP-007。以下组织、设备与规则均为虚构测试材料。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "语料标识 CP-007。以下组织、设备与规则均为虚构测试材料。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "一、普通正文",
+          "style": "Heading 1",
+          "runs": [
+            {
+              "text": "一、普通正文",
+              "font": "宋体",
+              "size_pt": 14.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "第一台展示设备每次最多借用7天。借用申请提前1个工作日提交。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "第一台展示设备每次最多借用7天。借用申请提前1个工作日提交。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "二、跨格式片段",
+          "style": "Heading 1",
+          "runs": [
+            {
+              "text": "二、跨格式片段",
+              "font": "宋体",
+              "size_pt": 14.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "第二台展示设备每次最多借用7天。不同文字片段仍组成同一词组。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "第二台展示设备每次最多借用",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            },
+            {
+              "text": "7",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": true,
+              "color": "000000"
+            },
+            {
+              "text": "天",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            },
+            {
+              "text": "。不同文字片段仍组成同一词组。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "三、设备表",
+          "style": "Heading 1",
+          "runs": [
+            {
+              "text": "三、设备表",
+              "font": "宋体",
+              "size_pt": 14.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        }
+      ],
+      "tables": [
+        [
+          [
+            "设备",
+            "借用期限",
+            "库存数量"
+          ],
+          [
+            "展示设备丙",
+            "7天",
+            "12台"
+          ],
+          [
+            "展示设备丁",
+            "5天",
+            "7台"
+          ]
+        ]
+      ],
+      "headers": [
+        "海岚内部展示设备借用期限7天"
+      ],
+      "page": {
+        "width_emu": 7772400,
+        "height_emu": 10058400
+      },
+      "note": "Input baseline only. No model output has been generated or compared."
+    },
+    "CP-008": {
+      "paragraphs": [
+        {
+          "text": "云杉仪器检查办法 v1.0.15",
+          "style": "Title",
+          "runs": [
+            {
+              "text": "云杉仪器检查办法 v1.0.15",
+              "font": "宋体",
+              "size_pt": 18.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "语料标识 CP-008。以下制度均为虚构测试材料。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "语料标识 CP-008。以下制度均为虚构测试材料。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "一、常规检查",
+          "style": "Heading 1",
+          "runs": [
+            {
+              "text": "一、常规检查",
+              "font": "宋体",
+              "size_pt": 14.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "环境记录仪每季度检查一次。完成后登记台账。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "环境记录仪每季度检查一次。完成后登记台账。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "二、专项检查",
+          "style": "Heading 1",
+          "runs": [
+            {
+              "text": "二、专项检查",
+              "font": "宋体",
+              "size_pt": 14.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "振动传感器每季度检查一次。检查完成后由演示值班员复核。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "振动传感器每季度检查一次。检查完成后由演示值班员复核。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "三、归档",
+          "style": "Heading 1",
+          "runs": [
+            {
+              "text": "三、归档",
+              "font": "宋体",
+              "size_pt": 14.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "记录保留30天。未完成复核不得归档。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "记录保留30天。未完成复核不得归档。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        }
+      ],
+      "tables": [
+        [
+          [
+            "附属设备",
+            "检查频率",
+            "数量"
+          ],
+          [
+            "备用温度计",
+            "每季度检查一次",
+            "4支"
+          ]
+        ]
+      ],
+      "headers": [],
+      "page": {
+        "width_emu": 7772400,
+        "height_emu": 10058400
+      },
+      "note": "Input baseline only. No model output has been generated or compared."
+    },
+    "CP-009": {
+      "paragraphs": [
+        {
+          "text": "白榆设备巡检清单 v1.0.15",
+          "style": "Title",
+          "runs": [
+            {
+              "text": "白榆设备巡检清单 v1.0.15",
+              "font": "宋体",
+              "size_pt": 18.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "语料标识 CP-009。以下设备和数量均为虚构测试材料。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "语料标识 CP-009。以下设备和数量均为虚构测试材料。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "一、正文约定",
+          "style": "Heading 1",
+          "runs": [
+            {
+              "text": "一、正文约定",
+              "font": "宋体",
+              "size_pt": 14.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "设备A与设备B的正文基准均为每季度检查一次，本次只允许调整指定表格单元格。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "设备A与设备B的正文基准均为每季度检查一次，本次只允许调整指定表格单元格。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "二、巡检表",
+          "style": "Heading 1",
+          "runs": [
+            {
+              "text": "二、巡检表",
+              "font": "宋体",
+              "size_pt": 14.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "检查完成后填写巡检记录，未检查不得签字。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "检查完成后填写巡检记录，未检查不得签字。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        }
+      ],
+      "tables": [
+        [
+          [
+            "设备标识",
+            "检查频率",
+            "数量"
+          ],
+          [
+            "设备A",
+            "每季度检查一次",
+            "12台"
+          ],
+          [
+            "设备B",
+            "每季度检查一次",
+            "7台"
+          ]
+        ]
+      ],
+      "headers": [],
+      "page": {
+        "width_emu": 7772400,
+        "height_emu": 10058400
+      },
+      "note": "Input baseline only. No model output has been generated or compared."
+    },
+    "CP-010": {
+      "paragraphs": [
+        {
+          "text": "澄湾记录整理规范 v1.0.15",
+          "style": "Title",
+          "runs": [
+            {
+              "text": "澄湾记录整理规范 v1.0.15",
+              "font": "宋体",
+              "size_pt": 18.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "语料标识 CP-010。文字与规则均为虚构测试材料。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "语料标识 CP-010。文字与规则均为虚构测试材料。",
+              "font": "宋体",
+              "size_pt": 10.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "一、记录内容",
+          "style": "Heading 1",
+          "runs": [
+            {
+              "text": "一、记录内容",
+              "font": "宋体",
+              "size_pt": 14.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "每份记录包括设备编号、检查日期和复核结论，数量固定为8份。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "每份记录包括设备编号、检查日期和复核结论，数量固定为8份。",
+              "font": "宋体",
+              "size_pt": 11.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "二、归档要求",
+          "style": "Heading 1",
+          "runs": [
+            {
+              "text": "二、归档要求",
+              "font": "宋体",
+              "size_pt": 14.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "记录保留45天。未完成复核不得归档，不得补写未经确认的结果。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "记录保留45天。未完成复核不得归档，不得补写未经确认的结果。",
+              "font": "宋体",
+              "size_pt": 14.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        }
+      ],
+      "tables": [
+        [
+          [
+            "记录类别",
+            "份数",
+            "保留天数"
+          ],
+          [
+            "检查记录",
+            "5份",
+            "45天"
+          ],
+          [
+            "复核记录",
+            "3份",
+            "45天"
+          ]
+        ]
+      ],
+      "headers": [],
+      "page": {
+        "width_emu": 7772400,
+        "height_emu": 10058400
+      },
+      "note": "Input baseline only. No model output has been generated or compared."
+    },
+    "CP-011": {
+      "paragraphs": [
+        {
+          "text": "星沚工具间使用草稿 v1.0.15",
+          "style": "Title",
+          "runs": [
+            {
+              "text": "星沚工具间使用草稿 v1.0.15",
+              "font": "宋体",
+              "size_pt": 18.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "语料标识 CP-011。以下工具、角色和规则均为虚构测试材料。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "语料标识 CP-011。以下工具、角色和规则均为虚构测试材料。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "一、领用",
+          "style": "Heading 1",
+          "runs": [
+            {
+              "text": "一、领用",
+              "font": "宋体",
+              "size_pt": 14.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "我们这儿就只给内部演示用，外面的人先别借。工具总共18套，分开放：甲柜11套，乙柜7套。要借的话，提前2个工作日申请。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "我们这儿就只给内部演示用，外面的人先别借。工具总共18套，分开放：甲柜11套，乙柜7套。要借的话，提前2个工作日申请。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "二、使用",
+          "style": "Heading 1",
+          "runs": [
+            {
+              "text": "二、使用",
+              "font": "宋体",
+              "size_pt": 14.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "每回最多借3天。演示管理员确认工具可用后才能批准，不是申请了就能直接拿走。工具不能转借。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "每回最多借3天。演示管理员确认工具可用后才能批准，不是申请了就能直接拿走。工具不能转借。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "三、归还",
+          "style": "Heading 1",
+          "runs": [
+            {
+              "text": "三、归还",
+              "font": "宋体",
+              "size_pt": 14.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "归还时要做外观检查并登记时间。记录留60天。资料里没写收费或押金，也没有写逾期处罚，别自己加。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "归还时要做外观检查并登记时间。记录留60天。资料里没写收费或押金，也没有写逾期处罚，别自己加。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        }
+      ],
+      "tables": [],
+      "headers": [],
+      "page": {
+        "width_emu": 7772400,
+        "height_emu": 10058400
+      },
+      "note": "Input baseline only. No model output has been generated or compared."
+    },
+    "CP-012": {
+      "paragraphs": [
+        {
+          "text": "镜叶培训室规则 v1.0.15",
+          "style": "Title",
+          "runs": [
+            {
+              "text": "镜叶培训室规则 v1.0.15",
+              "font": "宋体",
+              "size_pt": 18.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "语料标识 CP-012。以下地点和规则均为虚构测试材料。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "语料标识 CP-012。以下地点和规则均为虚构测试材料。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "一、预约",
+          "style": "Heading 1",
+          "runs": [
+            {
+              "text": "一、预约",
+              "font": "宋体",
+              "size_pt": 14.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "培训室每次最多使用2小时，预约提前1个工作日提交。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "培训室每次最多使用2小时，预约提前1个工作日提交。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "二、使用",
+          "style": "Heading 1",
+          "runs": [
+            {
+              "text": "二、使用",
+              "font": "宋体",
+              "size_pt": 14.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "场内最多容纳8人，不得转借门禁卡。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "场内最多容纳8人，不得转借门禁卡。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "三、归还",
+          "style": "Heading 1",
+          "runs": [
+            {
+              "text": "三、归还",
+              "font": "宋体",
+              "size_pt": 14.0,
+              "bold": true,
+              "color": "000000"
+            }
+          ]
+        },
+        {
+          "text": "离开前关闭照明并登记使用结束时间。",
+          "style": "Normal",
+          "runs": [
+            {
+              "text": "离开前关闭照明并登记使用结束时间。",
+              "font": "宋体",
+              "size_pt": 12.0,
+              "bold": false,
+              "color": "000000"
+            }
+          ]
+        }
+      ],
+      "tables": [],
+      "headers": [],
+      "page": {
+        "width_emu": 7772400,
+        "height_emu": 10058400
+      },
+      "note": "Input baseline only. No model output has been generated or compared."
+    }
+  }
+}
