@@ -1,13 +1,13 @@
-# 文档测试入口 v1.0.20
+# 文档测试入口 v1.0.22
 
-更新日期：2026-10-24。顶层保留下面三份主要文档；每个子文件夹都有固定的README，说明用途、文件格式和先看什么，不增加版本化说明文件。
+更新日期：2026-10-24。**隔离审核稿，未暂存、未提交、未推送。** 顶层保留下面三份主要文档；每个子文件夹都有固定的README，说明用途、文件格式和先看什么，不增加版本化说明文件。
 
 | 文件或目录 | 你用它做什么 |
 | --- | --- |
 | 本页 README | 怎么开始、成果在哪里、当前做到了什么 |
 | [本批三项缺陷测试结果](results/latest_run/README.md) | 看真实结论、失败成果与复现依据 |
-| [测试计划](test_plan_v1.0.20.md) | 测什么、怎么判定、怎样记录；已合并控制规则、流程和清单 |
-| [缺陷登记表](defect_register_v1.0.20.md) | 记录有证据的问题，不设条数上限 |
+| [测试计划](test_plan_v1.0.22.md) | 测什么、怎么判定、怎样记录；已合并控制规则、流程和清单 |
+| [缺陷登记表](defect_register_v1.0.22.md) | 记录有证据的问题，不设条数上限 |
 | [samples：测试样例](samples/README.md) | 12项已准备好的输入、中文需求、预期和步骤 |
 | [results：已有成果](results/README.md) | 已做两项探索的原输入、实际Word成果和对比证据 |
 | `start`：本机启动菜单 | 仅本机保留，一个中文菜单及其调用脚本；不随测试资料推送 |
@@ -57,7 +57,7 @@
 | 新建Word | 已生成并由用户打开；3天、提前2个工作日等事实和当前文字格式符合检查 | 原资料基本进入表格，精简程度及“200字”口径待确认 |
 | 旧Word替换另存 | 7天→3天、1个工作日→2个工作日、v1.0.0→v1.0.1均正确，其他正文及文字格式属性保持 | 增加空页眉/页脚部件，页面影响尚未独立核对 |
 
-直接看[新建成果](results/outputs/EX-001/设备借用说明_v1.0.0.docx)、[替换前](results/inputs/EX-002/设备借用办法_v1.0.0.docx)、[替换后](results/outputs/EX-002/设备借用办法_v1.0.1.docx)。详细证据见[两项探索报告](results/reports/exploration_report_v1.0.20.md)。原探索的预期和归档哈希为事后整理，缺失证据不补造，不将两项整体写成全部通过。
+直接看[新建成果](results/outputs/EX-001/设备借用说明_v1.0.0.docx)、[替换前](results/inputs/EX-002/设备借用办法_v1.0.0.docx)、[替换后](results/outputs/EX-002/设备借用办法_v1.0.1.docx)。详细证据见[两项探索报告](results/reports/exploration_report_v1.0.22.md)。原探索的预期和归档哈希为事后整理，缺失证据不补造，不将两项整体写成全部通过。
 
 ## 测试协作约定
 
@@ -96,3 +96,51 @@ v1.0.18只补目录README和本页格式导航，不改变文件夹层级、测�
 本次v1.0.19仅修正共享入口和相关引用、补提交历史说明，并增加测试目录文件字节规则。改动的版本化说明已更名，旧版保存在项目外；仍只保留三份顶层主要文档。样例、实际Word、manifest、检查数据、菜单、产品和环境未修改；没有新增业务执行、暂存、提交或推送。
 
 本次v1.0.20只提交前三项真实缺陷、4项支持场景的记录与1份实际Word，并更新必要阅读导航。后三项问题与其余已测记录完整保留，待第二批提交。产品代码、已有启动菜单、环境、模型和原稿均未修改；旧版说明已备份项目外，顶层仍只保留三份主要文档。
+
+## 本次待审范围 v1.0.22
+
+上一笔v1.0.20已由`3ce9133`提交并推送。本审核稿在该提交的独立工作目录中准备，原项目工作区保持；这里只补前三项的证据，不包含第二批缺陷。你审核后才决定是否提交这一版。
+
+| 拟纳入内容 | 用途 |
+| --- | --- |
+| [缺陷登记表v1.0.22](defect_register_v1.0.22.md) | 仍只有DEF-001～DEF-003，补需求原文、前后对比、日志原文及页面图 |
+| [本批报告](results/latest_run/README.md) | 说明补证来源及审核状态，原执行次数不变 |
+| [Word真实页面图](results/latest_run/DEF-003_actual_word_page_v1.0.21.png) | 直接看7日、30分钟和缺少75天；原像素保留 |
+| [补证清单v1.0.22](results/latest_run/review_evidence_v1.0.22.json) | 程序可读的准确日志摘录、行号、来源哈希与图片哈希 |
+| [DEF-003正误标注图](results/latest_run/DEF-003_annotated_comparison_v1.0.22.png) | 黑框指出错误，右侧列正确值；派生说明，原始证据保留 |
+| 必要版本导航 | 测试计划和历史探索说明只更新当前登记表/报告引用及自身版本，不改正式36条用例或历史测试事实 |
+
+原始Word和`execution_manifest_v1.0.20.json`均已在上一笔提交，本次不重复生成或修改。产品源码、根配置、个人脚本、环境、密钥、原始日志、本机运行目录、数据库和第二批完整记录均不纳入拟提交范围。
+
+### 精确拟提交路径
+
+以下只供审核，未执行git add。M为修改，D为旧版本移除，A为新文件；旧版保存在项目外备份，输入和原始成果保持。
+
+```text
+ M test_docs/README.md
+ D test_docs/defect_register_v1.0.20.md
+ M test_docs/results/cases/README.md
+ D test_docs/results/cases/case_EX-001_v1.0.20.md
+ D test_docs/results/cases/case_EX-002_v1.0.20.md
+ M test_docs/results/expected/README.md
+ D test_docs/results/expected/expected_EX-001_v1.0.20.md
+ D test_docs/results/expected/expected_EX-002_v1.0.20.md
+ M test_docs/results/inputs/EX-001/README.md
+ M test_docs/results/inputs/EX-002/README.md
+ M test_docs/results/latest_run/README.md
+ M test_docs/results/outputs/EX-001/README.md
+ M test_docs/results/outputs/EX-002/README.md
+ M test_docs/results/reports/README.md
+ D test_docs/results/reports/exploration_report_v1.0.20.md
+ D test_docs/test_plan_v1.0.20.md
+A  test_docs/defect_register_v1.0.22.md
+A  test_docs/results/cases/case_EX-001_v1.0.22.md
+A  test_docs/results/cases/case_EX-002_v1.0.22.md
+A  test_docs/results/expected/expected_EX-001_v1.0.22.md
+A  test_docs/results/expected/expected_EX-002_v1.0.22.md
+A  test_docs/results/latest_run/DEF-003_actual_word_page_v1.0.21.png
+A  test_docs/results/latest_run/DEF-003_annotated_comparison_v1.0.22.png
+A  test_docs/results/latest_run/review_evidence_v1.0.22.json
+A  test_docs/results/reports/exploration_report_v1.0.22.md
+A  test_docs/test_plan_v1.0.22.md
+```

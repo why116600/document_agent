@@ -1,0 +1,213 @@
+{
+  "version": "v1.0.22",
+  "review_status": "awaiting_user_review_not_staged_not_committed_not_pushed",
+  "created_at": "2026-10-24T21:56:52.769151+08:00",
+  "scope": [
+    "DEF-001",
+    "DEF-002",
+    "DEF-003"
+  ],
+  "previous_submission_commit": "3ce913321c10e6b14749d3038a4d977c38b12f31",
+  "execution_manifest": "execution_manifest_v1.0.20.json",
+  "new_business_executions": 0,
+  "private_logs_included": false,
+  "evidence_display_note": "Exact excerpts of existing 2026-10-24 execution logs; not a screenshot of a newly run terminal. Exit codes come from preserved execution JSON.",
+  "records": [
+    {
+      "defect": "DEF-001",
+      "provenance": [
+        {
+          "attempt": "CP-007",
+          "request": "请对《借用替换样例_v1.0.15.docx》执行全文查找替换，将全部“7天”改为“3天”，将“1个工作日”改为“2个工作日”。范围包括正文、表格和页眉；不要把库存数量“7台”改掉，也不要修改“5天”。只做这些替换，其他文字、段落、表格结构和格式保持，中文仍宋体、全部文字黑色，不检索知识库，不覆盖原稿，另存为CP-007_结果_v1.0.15.docx。",
+          "log_source": "cases/CP-007/execution.log",
+          "log_sha256": "3591b893119adf4ad4a43e5c555d24a1fc8e863f6a77bedfeddaa2a483b9a434",
+          "excerpt_lines": [
+            {
+              "line": 15,
+              "text": "【改写编排】单步骤：模式二：全局查找替换（范围：全篇（含正文、表格和页眉））"
+            },
+            {
+              "line": 94,
+              "text": "待改写文档共8个元素"
+            },
+            {
+              "line": 95,
+              "text": "【步骤编排】第1步（模式二：全局查找替换）失败：全局查找替换暂不支持指定局部范围（本步范围：全篇（含正文、表格和页眉）），如需局部替换请改用局部修补模式"
+            }
+          ],
+          "execution_source": "cases/CP-007/execution.json",
+          "execution_sha256": "e09055d66eb36b70831a94a1d8262fc1831c0a129cb121fe23bb8a385c0a888e",
+          "started": "2026-10-24T19:40:54.609428+08:00",
+          "finished": "2026-10-24T19:44:15.538116+08:00",
+          "model_requested": "hy3",
+          "exit_code": 1,
+          "outputs_count": 0,
+          "input_copies_preserved": true
+        },
+        {
+          "attempt": "CP-007-R2",
+          "request": "请对《借用替换样例_v1.0.15.docx》执行全文查找替换，将全部“7天”改为“3天”，将“1个工作日”改为“2个工作日”。范围包括正文、表格和页眉；不要把库存数量“7台”改掉，也不要修改“5天”。只做这些替换，其他文字、段落、表格结构和格式保持，中文仍宋体、全部文字黑色，不检索知识库，不覆盖原稿，另存为CP-007_结果_v1.0.15.docx。",
+          "log_source": "cases/CP-007-R2/execution.log",
+          "log_sha256": "c03a3f46c45c252b0ed1ea3642cafef143a5a878eef8e6c029e8ab395dffffd9",
+          "excerpt_lines": [
+            {
+              "line": 11,
+              "text": "【改写编排】单步骤：模式二：全局查找替换（范围：全篇（含正文、表格、页眉））"
+            },
+            {
+              "line": 90,
+              "text": "待改写文档共8个元素"
+            },
+            {
+              "line": 91,
+              "text": "【步骤编排】第1步（模式二：全局查找替换）失败：全局查找替换暂不支持指定局部范围（本步范围：全篇（含正文、表格、页眉）），如需局部替换请改用局部修补模式"
+            }
+          ],
+          "execution_source": "cases/CP-007-R2/execution.json",
+          "execution_sha256": "d155889a9e7795d2299bd326c7f795ec14f34c92dda441e0ba423a8e64f31844",
+          "started": "2026-10-24T19:50:55.217580+08:00",
+          "finished": "2026-10-24T19:53:37.221040+08:00",
+          "model_requested": "hy3",
+          "exit_code": 1,
+          "outputs_count": 0,
+          "input_copies_preserved": true
+        }
+      ]
+    },
+    {
+      "defect": "DEF-002",
+      "provenance": [
+        {
+          "attempt": "CP-008",
+          "request": "以《检查办法_v1.0.15.docx》为目标，只将“二、专项检查”章节正文中的“每季度检查一次”改为“每月检查一次”。不要修改该章表格，也不要修改第一章、第三章、标题或其他文字和格式。中文保持宋体、全部文字黑色，不检索知识库，不覆盖原稿，另存为CP-008_结果_v1.0.15.docx。",
+          "log_source": "cases/CP-008/execution.log",
+          "log_sha256": "29e66401db191f68fdf53b7eb6f56d2d6e99a97a57c7c49ab6c173b58e27f188",
+          "excerpt_lines": [
+            {
+              "line": 6,
+              "text": "【改写编排】单步骤：模式二：全局查找替换（范围：二、专项检查章节正文）"
+            },
+            {
+              "line": 120,
+              "text": "待改写文档共9个元素"
+            },
+            {
+              "line": 121,
+              "text": "【步骤编排】第1步（模式二：全局查找替换）失败：全局查找替换暂不支持指定局部范围（本步范围：二、专项检查章节正文），如需局部替换请改用局部修补模式"
+            }
+          ],
+          "execution_source": "cases/CP-008/execution.json",
+          "execution_sha256": "70893ed5ed30aed2e2cb585733ab402e9e61fee5c1058c11d4a6b95faa82daef",
+          "started": "2026-10-24T19:44:15.540547+08:00",
+          "finished": "2026-10-24T19:47:41.919731+08:00",
+          "model_requested": "hy3",
+          "exit_code": 1,
+          "outputs_count": 0,
+          "input_copies_preserved": true
+        },
+        {
+          "attempt": "CP-012",
+          "request": "只修改《培训室规则_v1.0.15.docx》的“五、费用管理”章节，将“免费”改为“按次计费”。如果不存在这个章节或找不到原词，请明确说明无法定位，不要修改其他章节，不要生成替代制度，也不要检索知识库。保留原稿；只有能够完成指定修改时才另存为CP-012_结果_v1.0.15.docx，中文宋体、全部文字黑色。",
+          "log_source": "cases/CP-012/execution.log",
+          "log_sha256": "fe9f1fa8fd77b563b0b9dc0a8dcc037f140492a292d2339fae5a2c7e2f8bd527",
+          "excerpt_lines": [
+            {
+              "line": 7,
+              "text": "   步骤1：模式二：全局查找替换｜范围：五、费用管理｜要求：在“五、费用管理”章节中将“免费”替换为“按次计费”"
+            },
+            {
+              "line": 84,
+              "text": "   步骤1：模式二：全局查找替换｜范围：五、费用管理｜要求：在“五、费用管理”章节中将“免费”替换为“按次计费”"
+            },
+            {
+              "line": 86,
+              "text": "【步骤编排】第1步（模式二：全局查找替换）失败：全局查找替换暂不支持指定局部范围（本步范围：五、费用管理），如需局部替换请改用局部修补模式"
+            }
+          ],
+          "execution_source": "cases/CP-012/execution.json",
+          "execution_sha256": "fc598fc6c5ddcb4d645d5e0a13d34cd8526288b5ac4052f48d9ed133afe8848b",
+          "started": "2026-10-24T20:01:38.844750+08:00",
+          "finished": "2026-10-24T20:04:15.028796+08:00",
+          "model_requested": "hy3",
+          "exit_code": 1,
+          "outputs_count": 0,
+          "input_copies_preserved": true
+        }
+      ]
+    },
+    {
+      "defect": "DEF-003",
+      "provenance": {
+        "source_file": "test_docs/samples/inputs/CP-002/云芦园区长指南_v1.0.15.txt",
+        "source_sha256": "d0a41b1cbfb6276ebe3d16497e0847fe3fad5f1a8db72127a6b3a4a0c31c0b6b",
+        "source_lines": [
+          {
+            "line": 14,
+            "exact_short_quote": "E2每15天检查一次",
+            "full_line_sha256": "aef2d37be61448f02af50917f5903e88a8aad0c74b25c8c8f6ba7d11bac773c3"
+          },
+          {
+            "line": 32,
+            "exact_short_quote": "应在4小时内向演示协调员报告",
+            "full_line_sha256": "409db50019ade16421f34ea8b329add8e889ecff08da42a171bcc4ae97213d20"
+          },
+          {
+            "line": 53,
+            "exact_short_quote": "E2校验记录保留75天",
+            "full_line_sha256": "dcad24d3f76e6873e1f24b909566efb668884c2bdde16c5ade46307b5f9cfeba"
+          }
+        ],
+        "log_source": "cases/CP-002/execution.log",
+        "log_sha256": "28e67c0edda02d82ccc40b23458cedce2cbbf5e92f27d5c5d722ae9313eb4bfe",
+        "log_excerpt_line": 38,
+        "log_excerpt_text": "使用工具： end 参数： {'retrieved_fields': {'E2例行检查频率': '监测箱E2（14套），每15天检查一次', 'E2异常报告时限及接收角色': '发现起4小时内报演示协调员', 'E2校验记录保留期': 'E2校验记录保留75天'}}",
+        "actual_word": "test_docs/results/latest_run/CP-002_结果_v1.0.15.docx",
+        "actual_word_sha256": "0428e56022a5af8edec82e73ab097068530137a799720685a064cc30812826c4",
+        "actual_word_paragraphs_1_based": {
+          "2": "监测箱E2每7日例行检查1次。",
+          "4": "E2异常报告时限及接收角色：对象为监测箱E2异常，报告时限30分钟，接收角色园区运维值班员。",
+          "6": "E2校验记录保留期。"
+        },
+        "existing_word_render_sha256": "cf2530773ff74eda327dde5af7c50b5a04c46963db59c1c82d04dc076d97d134",
+        "exit_code": 0,
+        "output_count": 1
+      }
+    }
+  ],
+  "word_page_image": {
+    "path": "DEF-003_actual_word_page_v1.0.21.png",
+    "sha256": "cf2530773ff74eda327dde5af7c50b5a04c46963db59c1c82d04dc076d97d134",
+    "kind": "existing_WPS_read_only_export_page_render_not_new_browser_screenshot",
+    "word_sha256": "0428e56022a5af8edec82e73ab097068530137a799720685a064cc30812826c4",
+    "pixel_editing_performed": false
+  },
+  "updated_at": "2026-10-24T22:16:49.948183+08:00",
+  "annotation": {
+    "path": "DEF-003_annotated_comparison_v1.0.22.png",
+    "sha256": "683c4e761de097e3b3da8ae56cbdc92297d615c2e26481bd4228d34b12d0a85a",
+    "tool": "built-in image_gen",
+    "source_image": "DEF-003_actual_word_page_v1.0.21.png",
+    "source_image_sha256": "cf2530773ff74eda327dde5af7c50b5a04c46963db59c1c82d04dc076d97d134",
+    "kind": "AI-generated derived annotation guide; not the original screenshot or original evidence",
+    "original_image_modified": false,
+    "original_word_modified": false,
+    "verification": "The three wrong/right fact pairs were visually checked against existing source and Word evidence.",
+    "labels": [
+      {
+        "number": 1,
+        "wrong": "每7日检查1次",
+        "correct": "监测箱E2每15天检查一次"
+      },
+      {
+        "number": 2,
+        "wrong": "30分钟；园区运维值班员",
+        "correct": "从发现E2异常起，4小时内向演示协调员报告"
+      },
+      {
+        "number": 3,
+        "wrong": "遗漏保留期限",
+        "correct": "E2校验记录保留75天"
+      }
+    ]
+  }
+}
