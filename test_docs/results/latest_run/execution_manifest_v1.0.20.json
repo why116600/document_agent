@@ -1,0 +1,444 @@
+{
+  "version": "v1.0.20",
+  "date": "2026-10-24",
+  "scope": "First submission only: DEF-001..003, CP-002/007/008/012, 5 real attempts; not all 12 cases or 36 formal cases",
+  "baseline_commit": "dca3fc627d8ae88c2fb0746ca35775fc9ccdf813",
+  "baseline_source_hashes": {
+    "src/document_agent/console_app.py": "febce34ea2544cccafc6ec45fecd21c4638ac62c352769b40197e33b72967e56",
+    "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+    "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/document_agent/agent/agent_core.py": "937108157b0da03363d91d736cbca91ba05514786c6eb0ec21f8e456b5078fe2",
+    "src/document_agent/agent/docx_node.py": "514fc9a0fc2c7d9dc6ec73a241911389de7ae3769b9109dd85b4207cb6caca63",
+    "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+    "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+    "src/document_agent/agent/intent_node.py": "9beb146db0f1edbb366d8677658766e3a2726fc0472296559e40c8db23c0faed",
+    "src/document_agent/agent/llm_client.py": "c48981177807e47aadc0666fd708d451f3130de123873e7f0466f20ac16128c3",
+    "src/document_agent/agent/retrieve_node.py": "67bfae7422470d911b06bfb268a55e61afad8204841faff492b1bb08d0b2e8a1",
+    "src/document_agent/agent/rewrite_node.py": "b505f0c152adc03ecaf38ab5fb72e5baf54b427811c57c3b1ff4afbc4ce74a9f",
+    "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+    "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+    "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+    "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+    "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+    "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+    "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+    "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+    "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/document_agent/write_tool/word_replace.py": "f4f7bdb3d6263b0f06b2ec47bc7f863c4bef9aaf43c6989bcfa9b7a4e912722c",
+    "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+    "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "scripts/check_runtime_v1.0.1.py": "c192b53ebef33fa387b22bfd7b5efd266e9fa84ff717479c4df5c5f7a05cc086",
+    "scripts/database_worker_v1.0.1.ps1": "16128377b40e4176b1e6ac648229731bed99bbba14501f839007417a258bb727",
+    "scripts/probe_database_v1.0.1.py": "e121cfd8c932ed38323ea17ca760b95b6e1c91647720f9771258cf88c33b4d8d",
+    "scripts/runtime_common_v1.0.1.ps1": "d5cded03bfd5fd5112c82218d8a70e1cacafb03b0446107fa9d873abac88119c",
+    "scripts/run_workbuddy_agent_v1.0.2.py": "2a64966b1601bad510ed2f55af711723b0b3c5dafbc931d7402287c7b0f75c0d",
+    "scripts/start_database_v1.0.1.ps1": "92e0a91a03673aedf1f25cb8c5d3b025ecbcd72fb40aa0a92f321f9e78145d1b",
+    "scripts/start_document_agent_v1.0.1.ps1": "9ab4b99a8390a1e34079002e41a09ca0aa2060cd55737cf4c2128f001a78fee4",
+    "scripts/start_document_agent_v1.0.2.ps1": "4b45dbc8ac39e85254920db7f174e3dcd174ab2b32bf85abbd33f90f9456c5e2",
+    "scripts/stop_database_v1.0.1.ps1": "691963032636fd717039b78204ab74a1511f60061ec23ab8b32c8361e04b82ef",
+    ".gitignore": "662dbca0eea00a1f6606d0b63d5b88981d1bedea105a56a5d8fe59ffefb5918f",
+    "pyproject.toml": "a084159994cf8eada951307c21e0e53bb8aeafaf94e164badff94c98d72b8bad",
+    "README.md": "41c9a59824639265f57b8709d0f6e941942178fe4c6268ca30aabd8274447c01"
+  },
+  "harness_differences": [
+    "reuses existing runtime credential/environment functions",
+    "original console module from byte-identical frozen source copy",
+    "isolated working directories and empty database on 17687",
+    "UTF-8 request via stdin",
+    "HTTP host guard and metadata-only receipts"
+  ],
+  "input_raw_sha256": {
+    "inputs/CP-002/云芦园区长指南_v1.0.15.txt": "d0a41b1cbfb6276ebe3d16497e0847fe3fad5f1a8db72127a6b3a4a0c31c0b6b",
+    "inputs/CP-007/借用替换样例_v1.0.15.docx": "5c4f1110b31e5952edec9d3dea65d2470a2ff845173b5319166ca031ad94e6d1",
+    "inputs/CP-008/检查办法_v1.0.15.docx": "f33df397cd43628442a5518592ef0a2255d3a0816d7ce0ba3f9fa538d85a2f73",
+    "inputs/CP-012/培训室规则_v1.0.15.docx": "30aa520e8324f549f13a371d98d190e424237ba340da17aace8a385c9d6cadbf"
+  },
+  "statistics": {
+    "失败": 4,
+    "待确认": 0,
+    "通过": 0,
+    "阻塞": 0
+  },
+  "cases": [
+    {
+      "case": "CP-002",
+      "title": "长资料定位分散事实",
+      "status": "失败",
+      "summary": "退出0且有Word，但15天写成7日，4小时/演示协调员写成30分钟/园区运维值班员，75天保留期遗漏。",
+      "finding_refs": "DEF-003",
+      "attempts": [
+        "CP-002"
+      ],
+      "actual_request": "只依据《云芦园区长指南_v1.0.15.txt》写《监测箱E2检查要点 v1.0.15》，只回答三个字段：E2例行检查频率、E2异常报告时限及接收角色、E2校验记录保留期。明确对象和单位，不使用T1、L8、工具便条或通行资料的规则。正文最多160个非空白字符，不含文档标题，包含字段名称；不用表格，不检索知识库，不补充资料没有的信息，全部文字黑色、中文宋体，另存为CP-002_结果_v1.0.15.docx。",
+      "request_utf8_sha256": "2da05f59dec0f4ab4d9b2a0ceeb0ecc70138d6c68617d0662bd863335dd00fce",
+      "expected_utf8_lf_sha256": "1744d6830c2fbe380e3d41c67b1ff7a0cfc6b05032dcdbc3db00e90a541fa77f",
+      "executions": [
+        {
+          "case": "CP-002",
+          "model_requested": "hy3",
+          "started": "2026-10-24T19:44:40.792735+08:00",
+          "finished": "2026-10-24T19:50:21.552378+08:00",
+          "elapsed_seconds": 340.77,
+          "exit_code": 0,
+          "harness_timeout_600s": false,
+          "source_copies_preserved": true,
+          "http_request_model_counts": null,
+          "http_response_status_counts": null,
+          "http_receipt_limit": "Initial transport hook did not cover httpx2",
+          "outputs": [
+            {
+              "path": "CP-002_结果_v1.0.15.docx",
+              "sha256": "0428e56022a5af8edec82e73ab097068530137a799720685a064cc30812826c4",
+              "bytes": 37039
+            }
+          ],
+          "page_review": {
+            "renderer": "WPS read-only copy export + bundled Poppler",
+            "pages_reviewed": 1,
+            "findings": [
+              "页面可读，未见文字截断或重叠",
+              "页面中确有错误的7日和30分钟，保留期未给数值"
+            ],
+            "source_unchanged": true
+          },
+          "selected_error_lines": []
+        }
+      ]
+    },
+    {
+      "case": "CP-007",
+      "title": "跨位置全文替换",
+      "status": "失败",
+      "summary": "两次均将带正文/表格/页眉说明的全文范围当成局部范围，退出1、无Word；原稿保持。",
+      "finding_refs": "DEF-001",
+      "attempts": [
+        "CP-007",
+        "CP-007-R2"
+      ],
+      "actual_request": "请对《借用替换样例_v1.0.15.docx》执行全文查找替换，将全部“7天”改为“3天”，将“1个工作日”改为“2个工作日”。范围包括正文、表格和页眉；不要把库存数量“7台”改掉，也不要修改“5天”。只做这些替换，其他文字、段落、表格结构和格式保持，中文仍宋体、全部文字黑色，不检索知识库，不覆盖原稿，另存为CP-007_结果_v1.0.15.docx。",
+      "request_utf8_sha256": "35785d50464dd93c8927cc988f537bc5b35d1ddf8d8ac466e83416a64484954d",
+      "expected_utf8_lf_sha256": "e593cda2672d276ecd69bced78361a18297b38a1462bd6f0b3647847a94877b8",
+      "executions": [
+        {
+          "case": "CP-007",
+          "model_requested": "hy3",
+          "started": "2026-10-24T19:40:54.609428+08:00",
+          "finished": "2026-10-24T19:44:15.538116+08:00",
+          "elapsed_seconds": 200.92,
+          "exit_code": 1,
+          "harness_timeout_600s": false,
+          "source_copies_preserved": true,
+          "http_request_model_counts": null,
+          "http_response_status_counts": null,
+          "http_receipt_limit": "Initial transport hook did not cover httpx2",
+          "outputs": [],
+          "selected_error_lines": [
+            "【步骤编排】第1步（模式二：全局查找替换）失败：全局查找替换暂不支持指定局部范围（本步范围：全篇（含正文、表格和页眉）），如需局部替换请改用局部修补模式",
+            "运行结果： error 全局查找替换暂不支持指定局部范围（本步范围：全篇（含正文、表格和页眉）），如需局部替换请改用局部修补模式"
+          ]
+        },
+        {
+          "case": "CP-007-R2",
+          "model_requested": "hy3",
+          "started": "2026-10-24T19:50:55.217580+08:00",
+          "finished": "2026-10-24T19:53:37.221040+08:00",
+          "elapsed_seconds": 162.0,
+          "exit_code": 1,
+          "harness_timeout_600s": false,
+          "source_copies_preserved": true,
+          "http_request_model_counts": {
+            "hy3": 5
+          },
+          "http_response_status_counts": {
+            "200": 5
+          },
+          "http_receipt_limit": "Request model names and response headers only; not underlying model weights",
+          "outputs": [],
+          "selected_error_lines": [
+            "【步骤编排】第1步（模式二：全局查找替换）失败：全局查找替换暂不支持指定局部范围（本步范围：全篇（含正文、表格、页眉）），如需局部替换请改用局部修补模式",
+            "运行结果： error 全局查找替换暂不支持指定局部范围（本步范围：全篇（含正文、表格、页眉）），如需局部替换请改用局部修补模式"
+          ]
+        }
+      ]
+    },
+    {
+      "case": "CP-008",
+      "title": "仅改指定章节正文",
+      "status": "失败",
+      "summary": "局部章节任务被选成replace，范围校验拒绝，退出1、无Word；未进入正确局部修改。",
+      "finding_refs": "DEF-002",
+      "attempts": [
+        "CP-008"
+      ],
+      "actual_request": "以《检查办法_v1.0.15.docx》为目标，只将“二、专项检查”章节正文中的“每季度检查一次”改为“每月检查一次”。不要修改该章表格，也不要修改第一章、第三章、标题或其他文字和格式。中文保持宋体、全部文字黑色，不检索知识库，不覆盖原稿，另存为CP-008_结果_v1.0.15.docx。",
+      "request_utf8_sha256": "f7f4370799303cdbadc2a9072a189e457fa23737ad1668f6bdf7e6f0b6bcf458",
+      "expected_utf8_lf_sha256": "35a70eee7667e316934c6985bb417378ebfc616da8cb97016a5456091db3b930",
+      "executions": [
+        {
+          "case": "CP-008",
+          "model_requested": "hy3",
+          "started": "2026-10-24T19:44:15.540547+08:00",
+          "finished": "2026-10-24T19:47:41.919731+08:00",
+          "elapsed_seconds": 206.39,
+          "exit_code": 1,
+          "harness_timeout_600s": false,
+          "source_copies_preserved": true,
+          "http_request_model_counts": null,
+          "http_response_status_counts": null,
+          "http_receipt_limit": "Initial transport hook did not cover httpx2",
+          "outputs": [],
+          "selected_error_lines": [
+            "【步骤编排】第1步（模式二：全局查找替换）失败：全局查找替换暂不支持指定局部范围（本步范围：二、专项检查章节正文），如需局部替换请改用局部修补模式",
+            "运行结果： error 全局查找替换暂不支持指定局部范围（本步范围：二、专项检查章节正文），如需局部替换请改用局部修补模式"
+          ]
+        }
+      ]
+    },
+    {
+      "case": "CP-012",
+      "title": "目标章节不存在",
+      "status": "失败",
+      "summary": "原稿保持且无Word，但因误选局部replace而被提前拒绝，未真正验证目标章节不存在；不能把退出1当负向通过。",
+      "finding_refs": "DEF-002",
+      "attempts": [
+        "CP-012"
+      ],
+      "actual_request": "只修改《培训室规则_v1.0.15.docx》的“五、费用管理”章节，将“免费”改为“按次计费”。如果不存在这个章节或找不到原词，请明确说明无法定位，不要修改其他章节，不要生成替代制度，也不要检索知识库。保留原稿；只有能够完成指定修改时才另存为CP-012_结果_v1.0.15.docx，中文宋体、全部文字黑色。",
+      "request_utf8_sha256": "23873cba95e34a7a97ec9eb8065794379761ef957d25510e307d53b94673c12b",
+      "expected_utf8_lf_sha256": "0dc46d0d9d21a840be1f5c63983e61c6e46cb15b0cc25c417e2060c8acf5e38c",
+      "executions": [
+        {
+          "case": "CP-012",
+          "model_requested": "hy3",
+          "started": "2026-10-24T20:01:38.844750+08:00",
+          "finished": "2026-10-24T20:04:15.028796+08:00",
+          "elapsed_seconds": 156.19,
+          "exit_code": 1,
+          "harness_timeout_600s": false,
+          "source_copies_preserved": true,
+          "http_request_model_counts": {
+            "hy3": 5
+          },
+          "http_response_status_counts": {
+            "200": 5
+          },
+          "http_receipt_limit": "Request model names and response headers only; not underlying model weights",
+          "outputs": [],
+          "selected_error_lines": [
+            "【步骤编排】第1步（模式二：全局查找替换）失败：全局查找替换暂不支持指定局部范围（本步范围：五、费用管理），如需局部替换请改用局部修补模式",
+            "运行结果： error 第1步执行失败：全局查找替换暂不支持指定局部范围（本步范围：五、费用管理），如需局部替换请改用局部修补模式"
+          ]
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "DEF-001",
+      "title": "全文替换范围附带说明时被误判为局部范围并拒绝执行",
+      "case_ids": [
+        "CP-007"
+      ],
+      "real_attempt_count": 2,
+      "observed_failure_count": 2,
+      "expected": [
+        "作为全文替换执行，全部4处7天变3天（普通段落、跨Run、表格和页眉），1处1个工作日变2个工作日。",
+        "保护7台、5天和其他文字、结构、格式；原稿不变，结果另存。"
+      ],
+      "actual": [
+        "两次均尚未进入真实替换引擎就因整篇target的附加说明被范围guard拒绝。",
+        "退出1且无Word；两次输入副本均保持。"
+      ],
+      "minimal_reproduction": [
+        "使用冻结基线和CP-007的冻结Word副本，保留原稿，启动真实控制台，传入该工作副本路径。",
+        "完整输入actual_request.txt中的原始需求，不删除“范围包括正文、表格和页眉”。",
+        "观察意图为replace且target产生带括号说明的整篇范围；两次分别为“全篇（含正文、表格和页眉）”和“全篇（含正文、表格、页眉）”。",
+        "观察替换调度将其误当成局部范围并返回error，退出1，不生成Word。"
+      ],
+      "source_evidence": [
+        {
+          "path": "src/document_agent/agent/intent_node.py",
+          "start_line": 29,
+          "end_line": 37,
+          "claim": "target是自由文本；target_range是另一独立字段，没有整体范围枚举约束。"
+        },
+        {
+          "path": "src/document_agent/agent/intent_node.py",
+          "start_line": 385,
+          "end_line": 390,
+          "claim": "仅strip后保留模型给出的target。"
+        },
+        {
+          "path": "src/document_agent/agent/rewrite_node.py",
+          "start_line": 69,
+          "end_line": 69,
+          "claim": "WHOLE_DOC_TARGETS仅含全文、全篇、整篇、整个文档、整份文档、全部六个精确词。"
+        },
+        {
+          "path": "src/document_agent/agent/rewrite_node.py",
+          "start_line": 2233,
+          "end_line": 2239,
+          "claim": "步骤规范化仍仅strip作用域文字。"
+        },
+        {
+          "path": "src/document_agent/agent/rewrite_node.py",
+          "start_line": 2336,
+          "end_line": 2342,
+          "claim": "replace时，非空target不属于精确集合就拒绝，不调用run_replace_rewrite。"
+        }
+      ],
+      "attribution": "触发guard及意图target传递属于与原作者基线相同的源代码；实际端到端失败限定为本机Hy3接入和已记录harness，不冒称纯原作者默认模型已经复现。",
+      "fix_acceptance": [
+        "原CP-007及其精确预期在同一受控输入上通过，不能仅换提示词绕开失败。",
+        "接受语义明确的整篇范围说明，同时保留真实局部范围的越界保护。",
+        "逐位置核对4+1处替换、反例不改、原稿哈希、页眉和实际页面；相邻CP-008仍必须局部生效。"
+      ],
+      "inference_limits": "2次同输入同需求均失败；不能据此宣称所有模型或所有全文表述100%失败。"
+    },
+    {
+      "id": "DEF-002",
+      "title": "指定章节正文修改被意图识别成全局replace而遭拒绝",
+      "case_ids": [
+        "CP-008",
+        "CP-012"
+      ],
+      "real_attempt_count": 2,
+      "observed_failure_count": 2,
+      "expected": [
+        "只有第二章正文“振动传感器每季度检查一次”变为“振动传感器每月检查一次”。",
+        "第一章同词、第二章备用温度计表格同词与4支、第三章30天和否定条件、标题及其他格式保持；原稿不变，结果另存。"
+      ],
+      "actual": [
+        "解析出局部target但仍选全局replace，模式与执行器能力不一致。",
+        "保护guard拒绝局部replace，任务整体失败；没有证据表明发生了越界修改。"
+      ],
+      "minimal_reproduction": [
+        "传入CP-008冻结Word的工作副本，输入actual_request.txt完整原始需求。",
+        "需求只改二、专项检查章节正文中的一句，明确禁止改同章表格、第一章、第三章、标题及其他内容。",
+        "观察意图选择mode=replace、target=二、专项检查章节正文。",
+        "替换调度不支持局部replace而拒绝，退出1，没有另存成果。"
+      ],
+      "source_evidence": [
+        {
+          "path": "src/document_agent/agent/intent_node.py",
+          "start_line": 15,
+          "end_line": 45,
+          "claim": "模式和target可独立组合，缺少局部target与replace不兼容的跨字段校验。"
+        },
+        {
+          "path": "src/document_agent/agent/intent_node.py",
+          "start_line": 325,
+          "end_line": 329,
+          "claim": "提示对局部操作建议patch、对全文换词建议replace，但实际模型仍可能组合出局部replace。"
+        },
+        {
+          "path": "src/document_agent/agent/intent_node.py",
+          "start_line": 459,
+          "end_line": 464,
+          "claim": "按模型步骤直接决定rewrite_mode，没有将不支持的局部replace纠偏为支持策略。"
+        },
+        {
+          "path": "src/document_agent/agent/rewrite_node.py",
+          "start_line": 2336,
+          "end_line": 2342,
+          "claim": "局部replace在执行阶段被保护guard拒绝。"
+        }
+      ],
+      "attribution": "上游策略选择与下游能力协议失配。guard拒绝实际局部范围是保护措施，不能为跑通而删除guard或擅自扩大成全文替换。相关源文件与原作者基线相同；实际分类结果受本机模型接入影响，纯原作者默认模型未运行。",
+      "fix_acceptance": [
+        "同一CP-008原输入和需求应成功完成局部正文修改，可以走受控patch或真实支持范围的替换实现。",
+        "检查同词在第一章及第二章表格仍原样，不能用全文替换冒充局部任务通过。",
+        "核对原稿哈希、另存文件、章节/表格/文字格式及页面；相邻全文CP-007可用。",
+        "CP-012在策略选择不再先行阻断后，应真正定位目标章节/原词并明确报告未找到；保持原稿且无替代制度。"
+      ],
+      "inference_limits": "1次原需求真实失败，未声称稳定复现率或所有模型必现。"
+    },
+    {
+      "id": "DEF-003",
+      "title": "仅摘要后直接结束检索时参考事实未交给写作导致Word事实错误",
+      "case_ids": [
+        "CP-002"
+      ],
+      "real_attempt_count": 1,
+      "observed_failure_count": 1,
+      "expected": [
+        "E2每15天检查一次。",
+        "发现E2异常起4小时内向演示协调员报告。",
+        "E2校验记录保留75天。",
+        "只依据指定源，不自行补造频率、期限、人员角色或其他设备规则。"
+      ],
+      "actual": [
+        "Word写“监测箱E2每7日例行检查1次”。",
+        "Word写30分钟、接收角色园区运维值班员。",
+        "保留期只有“E2校验记录保留期。”，没有75天数值。",
+        "程序退出0和保存成功不能证明业务内容正确。"
+      ],
+      "minimal_reproduction": [
+        "传入CP-002冻结长TXT的工作副本，输入actual_request.txt完整原需求，只回答E2三个字段。",
+        "摘要与检索阶段正确识别15天、发现后4小时内向演示协调员报告、校验记录保留75天。",
+        "本次选择end并把正确字段放在retrieved_fields中，没有调用file工具。",
+        "写作继续执行并保存Word，退出0，但事实错误及字段缺失。"
+      ],
+      "source_evidence": [
+        {
+          "path": "src/document_agent/agent/summary_node.py",
+          "start_line": 89,
+          "end_line": 94,
+          "claim": "摘要存file_summaries，同时retrieved_content初始化为空。"
+        },
+        {
+          "path": "src/document_agent/agent/retrieve_node.py",
+          "start_line": 20,
+          "end_line": 27,
+          "claim": "检索阶段可见file_summaries，因而能正确识别字段。"
+        },
+        {
+          "path": "src/document_agent/agent/retrieve_node.py",
+          "start_line": 70,
+          "end_line": 77,
+          "claim": "end参数保存在retrieve_params，没有转入retrieved_content。"
+        },
+        {
+          "path": "src/document_agent/agent/agent_core.py",
+          "start_line": 49,
+          "end_line": 56,
+          "claim": "end经route_intent直接流向新建分支。"
+        },
+        {
+          "path": "src/document_agent/agent/docx_node.py",
+          "start_line": 12,
+          "end_line": 24,
+          "claim": "规划只读取消息和retrieved_content，不读取摘要或end字段。"
+        },
+        {
+          "path": "src/document_agent/agent/docx_node.py",
+          "start_line": 54,
+          "end_line": 57,
+          "claim": "逐章节写作仍只带原始用户要求、大纲、当前章节和retrieved_info，没有未传递的源事实。"
+        }
+      ],
+      "attribution": "summary/retrieve/route数据传递为原作者相同实现。既有本机docx补丁增加原始用户要求但未改变资料传递。实际失败只归属冻结本机接入基线，不扩大成默认模型已运行。",
+      "fix_acceptance": [
+        "同一CP-002三个事实全部准确，完整对象、单位、接收角色及75天保留期不可缺失。",
+        "摘要直接end及实际file检索两种路径均应把有来源的事实交给写作。",
+        "不采用T1/L8/工具便条/通行资料数值，不补造角色；仍遵守不检索知识库。",
+        "指定总标题、正文≤160个非空白字符、无表格、宋体黑色、原稿保护及实际页面一并验收。"
+      ],
+      "inference_limits": [
+        "源代码可确认资料交接断链，但不能从输出倒推7日、30分钟或虚构角色的具体来源。",
+        "没有修改/修复后执行，不能承诺只补资料传递即可解决所有内容问题。",
+        "退出0本身不自动构成另一个独立缺陷。"
+      ]
+    }
+  ],
+  "privacy": "Synthetic materials only; keys, configurations and raw model logs retained locally",
+  "product_code_modified": false,
+  "new_dependencies_installed": false,
+  "committed_or_pushed_by_this_test_run": false,
+  "submission_batch": "1 of 2; second batch retained locally and not included in this commit",
+  "published_case_count": 4,
+  "real_attempt_count": 5,
+  "word_output_count": 1
+}

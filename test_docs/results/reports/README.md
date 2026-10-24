@@ -1,6 +1,6 @@
 # reports：已有成果的核对结论
 
-目录说明版：v1.0.19。更新日期：2026-10-24。
+目录说明版：v1.0.20。更新日期：2026-10-24。
 
 [返回上一层](../README.md) · [返回测试总入口](../../README.md)
 
@@ -8,7 +8,7 @@ MD给人读结论和限制，JSON给程序核对文件属性、哈希与结构�
 
 | 文件或子目录 | 用途与格式 |
 | --- | --- |
-| [exploration_report_v1.0.19.md](exploration_report_v1.0.19.md) | 两项探索的对比报告；MD，优先阅读 |
+| [exploration_report_v1.0.20.md](exploration_report_v1.0.20.md) | 两项探索的对比报告；MD，优先阅读 |
 | [file_checks_v1.0.11.json](file_checks_v1.0.11.json) | 归档时的文字、格式和结构检查数据；JSON |
 
 **先怎么用：**先看报告中的实际结果、观察和未验证项，需要具体数据时再查JSON。
