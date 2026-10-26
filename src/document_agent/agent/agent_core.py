@@ -53,6 +53,9 @@ def route_retrieve(state: AgentState) -> str:
     elif tool == "knowledge":
         return "knowledge"
     # 当检索完成或没有有效工具调用时，按用户意图流转至改写或新建节点
+    if tool == "end" and not (state.get("retrieved_content") or []) and (state.get("file_summaries") or {}):
+        # 有摘要却没有任何检索要点：写作节点将走摘要兜底
+        print("【资料检查】检索结束时无要点，写作阶段使用参考资料摘要兜底")
     return route_intent(state)
 
 class AgentCore:

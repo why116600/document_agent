@@ -6,6 +6,7 @@ import traceback
 
 from llm_client import llm_invoke, llm_model_invoke
 from agent_core import AgentState
+from retrieval_material import build_end_material
 from document_agent.retrieve_tool.extract_document import extract_document_content
 
 class RetrieveFuncCallable(BaseModel):
@@ -74,6 +75,17 @@ def create_retrieve_node(llm):
                 print("无检索参数，继续尝试...")
                 continue
             print("使用工具：", tool.tool_name, "参数：", tool.arguments)
+            if tool.tool_name == "end":
+                # 结束检索时模型常把已确认的要点写在 arguments 里
+                block = build_end_material(tool.arguments)
+                if block:
+                    retrived_conent = list(retrived_conent) + [block]
+                    print(f"【检索结束】已把 {block.count(chr(10))} 行要点并入写作资料（{len(block)} 字）")
+                else:
+                    print("【检索结束】结束检索时未给出要点，写作阶段将回退到参考资料摘要")
+                return {**state, "retrieve_tool":tool.tool_name,"retrieve_params":tool.arguments,
+                        "retrieve_target":query,"retrieve_count_limit":retrieve_limit-1,
+                        "retrieved_content":retrived_conent}
             return {**state, "retrieve_tool":tool.tool_name,"retrieve_params":tool.arguments,"retrieve_target":query,"retrieve_count_limit":retrieve_limit-1}
         return {**state, "retrieved_content": retrived_conent,"state":"error"}
     return retrive_node

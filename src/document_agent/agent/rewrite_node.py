@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from llm_client import llm_invoke, llm_model_invoke
 from agent_core import AgentState
+from retrieval_material import build_material_block, collect_writing_material
 from document_agent.write_tool.word_tool import (
     DEFAULT_FONT_SIZE,
     DEFAULT_FONT_COLOR,
@@ -2373,10 +2374,9 @@ def create_rewrite_node(llm):
             return {**state, "state": "error", "error": f"文档内容为空，无法改写：{rewrite_path}"}
         print(f"待改写文档共{len(nodes)}个元素")
 
-        retrieved_items = state.get("retrieved_content") or []
-        retrieved_info = ""
-        if retrieved_items:
-            retrieved_info = "可供参考的信息：\n" + "\n".join(retrieved_items) + "\n"
+        material_items, material_source = collect_writing_material(state)
+        retrieved_info = build_material_block(material_items, material_source, title="可供参考的信息：")
+        print(f"【资料】来源={material_source} 条目={len(material_items)} 字数={len(retrieved_info)}")
 
         dialog = f"{state['messages']}"
         mode = (state.get("rewrite_mode") or "patch").lower()
