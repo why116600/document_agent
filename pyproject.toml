@@ -12,6 +12,8 @@ dependencies = [
     "langchain-core>=1.6.2",
     "langchain-openai>=1.6.2",
     "openai>=3.11.0",
+    # 远程知识图谱检索客户端（document_agent.retrieve_tool.remote_kg_tool）
+    "httpx>=0.24.0",
     "pydantic>=2.13.5",
     "python-docx>=1.2.0",
     "openpyxl>=3.1.5",

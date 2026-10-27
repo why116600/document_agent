@@ -1,11 +1,11 @@
-# 检索协议（Retrieval Protocol）
+# 远程知识图谱检索协议（Retrieval Protocol）
+
+该知识图谱的服务端代码在该仓库：
+https://gitee.com/why116600/graph_rag.git
 
 给**其它智能体**调用的一组只读 HTTP 接口：查知识图谱状态、看 Schema、关键词/语义检索、
 图遍历、路径查找、读取节点正文、实体识别与消歧。
 
-> 实现位置：`graph_rag/api/routers/retrieval.py`（路由）+ `graph_rag/retrieval.py`（编排）
-> + `graph_rag/neo4j_store.py` 的读接口。服务启动后即可调用，接口定义以本文为准，
-> 也可以在 `/docs`（Swagger）或 `/openapi.json` 里看到机器可读版本。
 
 ---
 
