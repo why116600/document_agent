@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from agent_core import AgentState, get_last_user_text
 from llm_client import llm_model_invoke
+from scope_contract import MODE_TO_ACTION, Scope
 
 #参考文件支持的后缀，与 extract_document 的解析能力保持一致
 SUPPORTED_REFERENCE_SUFFIXES = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".txt", ".json", ".csv", ".md"}
@@ -13,27 +14,23 @@ SUPPORTED_REFERENCE_SUFFIXES = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".txt"
 
 
 class RewriteStep(BaseModel):#复合改写指令中的一个执行步骤
-    """复合改写指令的单个执行步骤：一条指令含多个诉求时，由大模型拆成有序的多个步骤。"""
+    """复合改写指令的单个执行步骤：先定范围（scope），再定动作（action）。"""
 
     order: int = Field(default=1, description="执行顺序，从 1 开始，按 order 从小到大依次执行。")
-    mode: Literal["replace", "patch", "global", "format"] = Field(
+    action: Literal["replace", "edit", "rewrite", "format"] = Field(
         description=(
-            "本步骤使用的改写引擎：\n"
-            "- 'replace': 全局查找替换（只换词，不改动文档结构）；\n"
-            "- 'patch': 局部增删改（补充/修改/删除特定段落、条款、表格）；\n"
-            "- 'global': 全局重塑与全文润色（整篇重写）；\n"
-            "- 'format': 只规范排版（字体字号、标题层级、行距段距、对齐方式），文字一字不改。"
+            "本步骤要做什么：\n"
+            "- 'replace': 按字面换词（句子结构不动），必须在 replace_pairs 给 {旧词: 新词}；\n"
+            "- 'edit': 增删改指定条款、段落或表格内容；\n"
+            "- 'rewrite': 整段或整章重新生成（措辞会变）；\n"
+            "- 'format': 只规范排版（字体字号、标题层级、行距段距、对齐），文字一字不改。"
         )
     )
-    target: Optional[str] = Field(
-        default=None,
-        description="本步骤的作用范围（如章节名'工作交接部分'、'全文'），不限定范围时留空。"
-    )
-    target_range: Optional[List[int]] = Field(
+    scope: Optional[Scope] = Field(
         default=None,
         description=(
-            "本步骤作用范围的正文元素下标区间 [起始下标, 结束下标]（含两端）。"
-            "仅当用户明确给出序号范围时才填，无法确定时留空，由改写节点按 target 在文档大纲中解析。"
+            "本步骤改哪里：face=whole/section/elements；section 必须给逐字标题，"
+            "elements 必须给 [起,止]；containers 按用户原话填写，用户没提就留空。"
         )
     )
     instruction: str = Field(
@@ -42,7 +39,15 @@ class RewriteStep(BaseModel):#复合改写指令中的一个执行步骤
     )
     replace_pairs: Dict[str, str] = Field(
         default_factory=dict,
-        description="仅 mode 为 'replace' 时填写本步骤的 {旧词: 新词} 映射；其它模式必须为空字典。"
+        description="仅 action 为 'replace' 时填写本步骤的 {旧词: 新词} 映射；其它动作必须为空字典。"
+    )
+    #兼容旧 checkpoint / 旧调用方，新路径不读取
+    mode: Optional[Literal["replace", "patch", "global", "format"]] = Field(
+        default=None, description="兼容字段，请改用 action。"
+    )
+    target: Optional[str] = Field(default=None, description="兼容字段，请改用 scope。")
+    target_range: Optional[List[int]] = Field(
+        default=None, description="兼容字段，等价于 scope.face='elements'。"
     )
 
 
@@ -69,14 +74,15 @@ class DocumentTaskIntent(BaseModel):
     rewrite_steps: List[RewriteStep] = Field(
         default_factory=list,
         description=(
-            "改写指令的有序执行步骤清单——这是唯一决定执行哪些改写模式、以什么顺序执行的字段：\n"
-            "1. 先判断指令是否为「复合指令」：只有当指令同时包含不同性质的诉求（改内容 / 换词 / 只排版）时才算复合；\n"
+            "改写指令的有序执行步骤清单——这是唯一决定执行哪些动作、顺序与范围的字段：\n"
+            "1. 每一步先填 scope（改哪里），再填 action（做什么），两者独立判断；\n"
             "2. 非复合指令（单一诉求）：必须且只能给出恰好 1 个步骤，绝不能为了稳妥而多拆步骤；\n"
             "3. 复合指令：拆成 2~N 个步骤，order 从 1 递增，每步只描述自己那部分要求；\n"
             "   例如'把排版规范一下，并在工作交接部分再加一条电信诈骗提醒'是复合指令，拆为：\n"
-            "   [{order:1, mode:'patch', target:'工作交接部分', instruction:'新增一条电信诈骗提醒'},"
-            "{order:2, mode:'format', target:'全篇', instruction:'统一规范全文排版格式'}]；\n"
-            "4. 顺序硬约束：replace 必须排最前；局部增补 patch 先于整篇重写 global；"
+            "   [{order:1, action:'edit', scope:{face:'section', section_title:'工作交接部分', basis_span:'工作交接部分'},"
+            "instruction:'新增一条电信诈骗提醒'},"
+            "{order:2, action:'format', scope:{face:'whole', basis_span:'排版规范一下'}, instruction:'统一规范全文排版格式'}]；\n"
+            "4. 顺序硬约束：replace 必须排最前；edit 先于 rewrite；"
             "format 必须排最后（内容定稿后再统一排版，否则新增段落不会被规范化）；\n"
             "5. 严禁因为主诉求是格式规范就丢掉内容增补等次要诉求。"
         )
@@ -299,17 +305,24 @@ def validate_reference_paths(reference_paths: Optional[List[str]]) -> Tuple[List
     return valid, ""
 
 
-def build_full_intent_prompt(user_prompt: str, candidate_files: List[str]) -> str:
+def build_full_intent_prompt(user_prompt: str, candidate_files: List[str], outline_block: str = "") -> str:
     """构建用于全量意图与槽位分析的大模型提示词。"""
     if candidate_files:
         files_desc = "\n".join([f"- {Path(f).name} (完整路径: {f})" for f in candidate_files])
     else:
         files_desc = "(未提供任何候选文件)"
+    outline_desc = ""
+    if (outline_block or "").strip():
+        outline_desc = (
+            "\n【候选文档大纲】（仅当 task_type 为 rewrite 时参考：填写 scope.section_title "
+            "必须逐字取自对应文档；task_type 为 new 时忽略）\n"
+            f"{outline_block.strip()}\n"
+        )
 
     return (
         "你是一个专业的智能文档写作与改写意图分析助手。用户提供了一组候选文件列表，并提出了一段自然语言指令。\n"
         "请根据用户指令和候选文件，深度理解用户的真实意图并提取关键槽位参数：\n\n"
-        f"【候选文件列表】\n{files_desc}\n\n"
+        f"【候选文件列表】\n{files_desc}\n{outline_desc}\n"
         f"【用户指令内容】\n{user_prompt}\n\n"
         "【分析与槽位抽取规范】\n"
         "1. task_type 判断：\n"
@@ -320,25 +333,27 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str]) -> st
         "   - 注意：改写对象必须是 .docx 格式。非 .docx 文件（如 .pdf, .xlsx）只能作为参考资料，不能作为修改目标；\n"
         "   - 若候选列表有多个 docx，请仔细结合用户指令中的文件名、业务关键词进行匹配；\n"
         "   - 若 task_type 为 'new'，此处必须为 null。\n"
-        "3. rewrite_steps 步骤编排（仅当 task_type 为 rewrite 时；这是唯一决定执行哪些改写模式与顺序的字段）：\n"
-        "   -（a）先判断是否为「复合指令」：只有当指令同时包含不同性质的诉求（改内容 / 换词 / 只排版）时才算复合；\n"
-        "   -（b）非复合指令（单一诉求）：必须且只能给出恰好 1 个步骤，绝不能为了稳妥而多拆步骤。例如：\n"
-        "       * 只要求'格式规范/统一排版/统一字体字号/调整标题层级/统一行距段距/套用样式'且未要求改写、润色、重写、精简、扩写文字内容时，只给 1 步 mode='format'（严禁改成 'global'）；\n"
-        "       * 只要求整篇风格重塑、公文规范化深度润色、逐章深度重写时，只给 1 步 mode='global'；\n"
-        "       * 只要求修改/增删特定条款、段落微调、更新表格数据等局部操作时，只给 1 步 mode='patch'（最常用且保留原文档排版格式）；\n"
-        "       * 只要求全文专有名词/术语/单位/年份等批量替换时，只给 1 步 mode='replace'，并在该步的 replace_pairs 中给出 {旧词: 新词}；\n"
-        "   -（c）复合指令：拆成 2~N 个步骤，order 从 1 递增，每步的 mode/target/instruction 只描述本步要做的事；\n"
-        "     例如'把这个文件的排版格式规范一下，生成一个新文件，并且在工作交接部分再多加一个电信诈骗提醒'，必须拆为：\n"
-        "     [{order:1, mode:'patch', target:'工作交接部分', instruction:'在工作交接部分新增一条电信诈骗提醒'},"
-        " {order:2, mode:'format', target:'全篇', instruction:'统一规范全文排版格式'}]\n"
-        "   -（d）顺序硬约束：replace 排最前（纯词替换、不改变文档结构）；局部增补 patch 先于整篇重写 global；"
-        "format 必须排最后（内容定稿后再统一排版，否则新增段落不会被规范化）；\n"
-        "   -（e）若用户既要求改内容又要求规范格式，绝不能只给 format 而丢掉内容诉求。\n"
-        "   -（f）target 只写范围的自然语言名称（章节标题或'全篇'）；target_range 仅在用户明确给出序号范围时"
-        "填写 [起始下标, 结束下标]，无法确定时必须留空，交由改写节点按 target 在文档大纲中解析。\n"
-        "4. replace_pairs 提取（仅当步骤中出现 replace 模式时）：\n"
-        "   - 提取需要替换的词对字典，格式为 {原词: 替换后新词}，并与该 replace 步骤的 replace_pairs 保持一致；\n"
-        "   - 非 replace 模式必须为空字典。\n"
+        "3. rewrite_steps 步骤编排（仅当 task_type 为 rewrite 时；这是唯一决定执行哪些动作、顺序与范围的字段）：\n"
+        "   -（a）每一步先填 scope（改哪里）：\n"
+        "       * 整篇 → face='whole'；指定章节 → face='section'，section_title 必须逐字取自【目标文档大纲】，不要改写、不要补全；\n"
+        "         用户明确给出元素下标 → face='elements'，并填 element_range=[起,止]。\n"
+        "       * containers 按用户原话：说'正文'只填 ['body']；提到表格才加 'table'；没提容器就留空（整篇=全容器，章节/区间=仅正文）。\n"
+        "       * basis_span 必须从【用户指令内容】逐字摘录支撑该范围的片段，不得改写、不得跨句拼接。\n"
+        "       * 用户点名的章节不在大纲中：section_title 仍按用户原话填写，不要换成别的章节、不要改成 'whole'，系统会在执行期报错。\n"
+        "   -（b）再填 action（做什么）：只换词 → 'replace'（必须在 replace_pairs 给 {旧词: 新词}）；"
+        "增删改特定条款/段落/表格内容 → 'edit'；整段或整章重写、润色 → 'rewrite'；只统一排版且文字不许改 → 'format'。\n"
+        "       * '局部'不等于 edit：换词即使限定在某一章，也用 replace。\n"
+        "   -（c）非复合指令（单一诉求）：必须且只能给出恰好 1 个步骤，绝不能为了稳妥而多拆步骤。\n"
+        "   -（d）复合指令：拆成 2~N 个步骤，order 从 1 递增，每步只描述本步的范围、动作与要求；\n"
+        "     例如'把排版规范一下，并在工作交接部分再加一条电信诈骗提醒'，拆为：\n"
+        "     [{order:1, action:'edit', scope:{face:'section', section_title:'工作交接部分', basis_span:'工作交接部分'}, instruction:'新增一条电信诈骗提醒'},"
+        " {order:2, action:'format', scope:{face:'whole', basis_span:'把排版规范一下'}, instruction:'统一规范全文排版格式'}]\n"
+        "   -（e）顺序硬约束：replace 排最前；edit 先于 rewrite；format 必须排最后（内容定稿后再统一排版）。\n"
+        "   -（f）format 当前只支持整篇；用户要求只排版某章时，照实填 face='section'，系统会拒绝执行，不要改成整篇。\n"
+        "   -（g）若用户既要求改内容又要求规范格式，绝不能只给 format 而丢掉内容诉求。\n"
+        "4. replace_pairs 提取（仅当步骤 action 为 'replace' 时）：\n"
+        "   - 提取需要替换的词对字典，格式为 {原词: 替换后新词}，并与该步骤的 replace_pairs 保持一致；\n"
+        "   - 非 replace 动作必须为空字典。\n"
         "5. save_mode 判断：\n"
         "   - 'overwrite'：用户在指令中明确提出直接修改原文件、覆盖原文档（例如：'直接在原文件上改'、'覆盖原文件'）；\n"
         "   - 'new_file'：另存为新文件（默认安全推荐。若用户未明确说明或指定了另存为文件名，为保障原稿安全均按 new_file 处理）。\n"
@@ -353,59 +368,115 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str]) -> st
     )
 
 
-#步骤模式的展示名（与 rewrite_node 的调度打印保持一致）
-STEP_MODE_LABELS = {
+#动作的展示名（与 rewrite_node 的调度打印保持一致）
+ACTION_LABELS = {
     "replace": "模式二：全局查找替换",
-    "patch": "模式一：局部微调",
-    "global": "模式三：全局重构与润色",
+    "edit": "模式一：局部微调",
+    "rewrite": "模式三：全局重构与润色",
     "format": "模式四：格式规范化",
 }
+STEP_MODE_LABELS = ACTION_LABELS#兼容旧名
 
 
-def build_rewrite_steps(task_intent, fallback_mode: str, replace_pairs: Dict[str, str]) -> List[Dict[str, Any]]:
+def _scope_preview(scope: Optional[Dict[str, Any]], target: str = "") -> str:
+    #日志用的范围描述：优先读结构化 scope，退化才读旧 target
+    if scope:
+        face = scope.get("face")
+        if face == "section":
+            return f"（范围：{scope.get('section_title') or ''}）"
+        if face == "elements":
+            element_range = scope.get("element_range") or []
+            if len(element_range) == 2:
+                return f"（范围：元素{min(element_range)}~{max(element_range)}）"
+        return "（范围：整篇）"
+    return f"（范围：{target}）" if target else ""
+
+
+def build_rewrite_steps(task_intent, fallback_action: str, replace_pairs: Dict[str, str]) -> List[Dict[str, Any]]:
     """把大模型给出的步骤清单规整为可执行的有序步骤，并打印编排结果。
 
-    - 兼容缺省：模型未给 rewrite_steps 时退化为「单步骤 = fallback_mode」，行为与旧版一致；
+    - 兼容缺省：模型未给 rewrite_steps 时退化为「单步骤 = fallback_action」，行为与旧版一致；
+    - 兼容旧字段：只有 mode 没有 action 时按 MODE_TO_ACTION 映射（patch->edit、global->rewrite）；
     - 步骤内提取的 replace 词对会并入 state 的 replace_pairs；
     - 这里只做排序与合法性过滤，真正的依赖关系校正（replace 最前 / format 最后）由改写节点执行。
     """
     steps: List[Dict[str, Any]] = []
     for position, raw in enumerate(list(getattr(task_intent, "rewrite_steps", None) or [])):
-        mode = str(getattr(raw, "mode", "") or "").strip().lower()
-        if mode not in STEP_MODE_LABELS:
+        action = str(getattr(raw, "action", "") or "").strip().lower()
+        if action not in ACTION_LABELS:
+            action = MODE_TO_ACTION.get(str(getattr(raw, "mode", "") or "").strip().lower(), "")
+        if action not in ACTION_LABELS:
             continue
         try:
             order = int(getattr(raw, "order", 0) or position + 1)
         except (TypeError, ValueError):
             order = position + 1
+
+        scope_obj = getattr(raw, "scope", None)
+        if hasattr(scope_obj, "model_dump"):
+            scope = scope_obj.model_dump()
+        elif isinstance(scope_obj, dict):
+            scope = dict(scope_obj)
+        else:
+            scope = None
+
         step_pairs = dict(getattr(raw, "replace_pairs", None) or {})
-        if mode == "replace" and step_pairs:
+        if action == "replace" and step_pairs:
             replace_pairs.update(step_pairs)
         steps.append({
             "order": order,
-            "mode": mode,
+            "action": action,
+            "scope": scope,
+            "mode": action,#兼容旧调用方；新路径只读 action
             "target": str(getattr(raw, "target", "") or "").strip(),
             "target_range": getattr(raw, "target_range", None),
             "instruction": str(getattr(raw, "instruction", "") or "").strip(),
             "replace_pairs": step_pairs,
         })
     if not steps:
-        steps = [{"order": 1, "mode": fallback_mode, "target": "", "target_range": None,
-                  "instruction": "", "replace_pairs": {}}]
+        action = str(fallback_action or "edit").strip().lower()
+        action = MODE_TO_ACTION.get(action, action)
+        if action not in ACTION_LABELS:
+            action = "edit"
+        steps = [{"order": 1, "action": action, "scope": None, "mode": action, "target": "",
+                  "target_range": None, "instruction": "", "replace_pairs": {}}]
     steps.sort(key=lambda step: step["order"])
     for position, step in enumerate(steps, 1):
         step["order"] = position
 
     if len(steps) == 1:
         step = steps[0]
-        scope = f"（范围：{step['target']}）" if step["target"] else ""
-        print(f"【改写编排】单步骤：{STEP_MODE_LABELS[step['mode']]}{scope}")
+        print(f"【改写编排】单步骤：{ACTION_LABELS[step['action']]}"
+              f"{_scope_preview(step.get('scope'), step['target'])}")
     else:
         print(f"【改写编排】共 {len(steps)} 个步骤，将按序执行：")
         for step in steps:
-            scope = f"范围：{step['target']}｜" if step["target"] else ""
-            print(f"   步骤{step['order']}：{STEP_MODE_LABELS[step['mode']]}｜{scope}要求：{step['instruction'] or '（沿用整体要求）'}")
+            scope_text = _scope_preview(step.get("scope"), step["target"]).strip("（）")
+            scope_text = f"{scope_text}｜" if scope_text else ""
+            print(f"   步骤{step['order']}：{ACTION_LABELS[step['action']]}｜{scope_text}"
+                  f"要求：{step['instruction'] or '（沿用整体要求）'}")
     return steps
+
+
+def build_intent_outline_block(candidate_files: List[str]) -> str:
+    """把候选 docx 的标题与元素区间拼进意图提示词，帮助模型填写 scope。
+
+    只读取标题与区间，不调用模型；候选超过 3 份时不注入，由改写节点按旧字段兜底。
+    """
+    docx_files = [str(path) for path in (candidate_files or []) if str(path).lower().endswith(".docx")]
+    if not docx_files or len(docx_files) > 3:
+        return ""
+    from rewrite_node import outline_text_for_prompt#延迟导入，避免模块循环依赖
+    blocks = []
+    for path in docx_files:
+        try:
+            block = outline_text_for_prompt(path)
+        except Exception as exc:
+            print(f"【意图分析】读取文档大纲失败：{path}（{exc}）")
+            continue
+        if block:
+            blocks.append(block)
+    return "\n".join(blocks)
 
 
 def create_intent_node(llm=None):
@@ -436,7 +507,8 @@ def create_intent_node(llm=None):
         # 2. 大模型全量分析指令与候选文件池
         if llm is not None and user_prompt:
             print("【意图分析】正在分析用户指令与候选文件...")
-            intent_prompt = build_full_intent_prompt(user_prompt, valid_input_files)
+            outline_block = build_intent_outline_block(valid_input_files)
+            intent_prompt = build_full_intent_prompt(user_prompt, valid_input_files, outline_block)
             task_intent = llm_model_invoke(llm, intent_prompt, DocumentTaskIntent)
 
             if task_intent:
@@ -460,8 +532,8 @@ def create_intent_node(llm=None):
                     if task_intent.replace_pairs:
                         replace_pairs.update(task_intent.replace_pairs)
                     #步骤清单是改写模式的唯一依据：非复合=恰好 1 步、复合=按序多步，由改写节点依次落地
-                    rewrite_steps = build_rewrite_steps(task_intent, "patch", replace_pairs)
-                    rewrite_mode = rewrite_steps[0]["mode"]  #兼容派生字段：等于第一步的模式
+                    rewrite_steps = build_rewrite_steps(task_intent, "edit", replace_pairs)
+                    rewrite_mode = rewrite_steps[0]["action"]  #兼容派生字段：等于第一步的动作
                     save_mode = task_intent.save_mode or "new_file"
                     extracted_save_filename = task_intent.suggested_filename or task_intent.save_filename
                 else:

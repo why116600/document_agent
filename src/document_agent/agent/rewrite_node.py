@@ -1,4 +1,5 @@
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -33,8 +34,23 @@ from document_agent.write_tool.word_tool import (
 )
 from document_agent.write_tool.word_replace import (
     batch_replace_in_document,
+    batch_replace_in_paragraphs,
+    iter_table_paragraphs,
     replace_in_paragraph,
     replace_in_table,
+)
+from scope_contract import (
+    MODE_TO_ACTION,
+    Scope,
+    effective_containers,
+    lint_scope,
+    outline_index,
+    resolve_range as resolve_contract_range,
+    scope_key,
+    scope_label,
+    title_for_range,
+    upgrade_step,
+    validate_scope,
 )
 
 TOOL_DESCRIPTION = """你有以下工具可以使用：
@@ -613,6 +629,27 @@ def build_outline_tree(nodes, description, base_items) -> dict:
     summary["mode"] = "virtual_blocks"
     summary["block_size"] = VIRTUAL_BLOCK_SIZE
     return {"summary": summary, "outline": _build_virtual_blocks(description)}
+
+
+def outline_text_for_prompt(path) -> str:
+    """只读文档，生成意图提示词用的大纲文本（标题 + 元素区间 + 表格位置）。"""
+    doc = Document(str(path))
+    nodes, base_items, description = build_document_description(doc)
+    tree = build_outline_tree(nodes, description, base_items)
+    lines = [f"【{Path(path).name}】共 {len(nodes)} 个元素"]
+
+    def _walk(entries, indent=""):
+        for entry in entries or []:
+            index_range = entry.get("index_range") or [0, 0]
+            title = entry.get("title") or ""
+            lines.append(f"{indent}- {title}（元素 {index_range[0]}-{index_range[1]}）")
+            _walk(entry.get("children") or [], indent + "  ")
+
+    _walk(tree.get("outline") or [])
+    for index, node in enumerate(nodes):
+        if isinstance(node, Table):
+            lines.append(f"- 表格：元素 {index}（{len(node.rows)} 行 × {len(node.columns)} 列）")
+    return "\n".join(lines)
 
 
 def _format_outline_text(outline_tree: dict) -> str:
@@ -1268,8 +1305,12 @@ class ReplacementMapping(BaseModel):
 
 
 def run_patch_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nodes, base_items, description,
-                      target: str = "", target_range=None) -> Tuple[int, str]:
-    scope_range, scope_error = resolve_scope_range(target, target_range, nodes, description, base_items)
+                      target: str = "", target_range=None,
+                      scope_range=None, scope_resolved: bool = False) -> Tuple[int, str]:
+    if scope_resolved:
+        scope_error = ""
+    else:
+        scope_range, scope_error = resolve_scope_range(target, target_range, nodes, description, base_items)
     if scope_error:
         #作用域解析不出来就报错，而不是放宽到全文：否则"只改第三章"会动到别的章节
         return 0, scope_error
@@ -1321,13 +1362,15 @@ def run_patch_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, node
     return applied, ""
 
 
-def run_replace_rewrite(llm, dialog: str, doc: Document, replace_pairs: Optional[Dict[str, str]] = None) -> Tuple[int, str]:
+def run_replace_rewrite(llm, dialog: str, doc: Document, replace_pairs: Optional[Dict[str, str]] = None,
+                        paragraphs=None, outside_paragraphs=None,
+                        scope_label: str = "") -> Tuple[int, str]:
 
     pairs = dict(replace_pairs or {})
     if not pairs:
-        print("【全局替换】未传入替换对，尝试从需求中提取")
+        print("【查找替换】未传入替换对，尝试从需求中提取")
         prompt = (
-            "你是一个文档全局查找替换助手。用户希望在文档中进行全局查找替换。\n"
+            "你是一个文档查找替换助手。用户希望在指定范围内进行查找替换。\n"
             f"用户指令：{dialog}\n"
             "请准确提取用户要求替换的所有词条对，生成以原词为key、替换后新词为value的字典映射。\n"
             "例如指令为：'把全文的“甲方”换成“委托方”，把“2023年”改成“2026年”'，提取结果为：\n"
@@ -1337,20 +1380,35 @@ def run_replace_rewrite(llm, dialog: str, doc: Document, replace_pairs: Optional
         mapping = llm_model_invoke(llm, prompt, ReplacementMapping)
         if mapping and mapping.pairs:
             pairs = mapping.pairs
-            print(f"【全局替换】提取到替换对：{pairs}")
+            print(f"【查找替换】提取到替换对：{pairs}")
         else:
             return 0, "未能从用户需求中识别出需要替换的目标词和新词，请明确说明或使用 --find 与 --replace-with 参数"
 
     if not pairs:
         return 0, "查找替换对为空"
 
-    stats = batch_replace_in_document(doc, pairs)
+    if paragraphs is None:
+        stats = batch_replace_in_document(doc, pairs)
+        tag = "全局替换"
+    else:
+        #局部范围：只遍历范围内段落，并用范围外计数断言再守一次
+        targets = list(paragraphs)
+        before = _count_terms(outside_paragraphs or [], pairs)
+        stats = batch_replace_in_paragraphs(targets, pairs)
+        after = _count_terms(outside_paragraphs or [], pairs)
+        if before != after:
+            return 0, "E_SCOPE_LEAK: 检测到范围外文本被改动，已中止且不落盘"
+        tag = f"局部替换（{scope_label}）"
+
     total_replaced = sum(stats.values())
     summary_parts = [f"“{k}” -> “{v}” ({stats.get(k, 0)}处)" for k, v in pairs.items()]
-    print(f"【全局替换】共替换 {total_replaced} 处：" + "，".join(summary_parts))
+    print(f"【{tag}】共替换 {total_replaced} 处：" + "，".join(summary_parts))
     missing = [k for k, c in stats.items() if c == 0]
     if missing:
-        return 0, "未找到全局替换目标：" + "、".join(f"“{k}”" for k in missing)
+        if paragraphs is None:
+            return 0, "未找到全局替换目标：" + "、".join(f"“{k}”" for k in missing)
+        return 0, (f"范围内未找到替换目标（{scope_label or '局部范围'}）："
+                   + "、".join(f"“{k}”" for k in missing))
     return total_replaced, ""
 
 
@@ -1520,9 +1578,13 @@ def resolve_scope_range(target, target_range, nodes, description, base_items) ->
 
 
 def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nodes, base_items, description,
-                       target: str = "", target_range=None) -> Tuple[int, str]:
+                       target: str = "", target_range=None,
+                       scope_range=None, scope_resolved: bool = False) -> Tuple[int, str]:
 
-    scope_range, scope_error = resolve_scope_range(target, target_range, nodes, description, base_items)
+    if scope_resolved:
+        scope_error = ""
+    else:
+        scope_range, scope_error = resolve_scope_range(target, target_range, nodes, description, base_items)
     if scope_error:
         return 0, scope_error
 
@@ -2193,120 +2255,101 @@ def run_format_rewrite(llm, dialog: str, retrieved_info: str, doc: Document,
 
 # 步骤清单编排与执行
 
-STEP_MODE_LABELS = {
+ACTION_LABELS = {
     "replace": "模式二：全局查找替换",
-    "patch": "模式一：局部微调",
-    "global": "模式三：全局重构与润色",
+    "edit": "模式一：局部微调",
+    "rewrite": "模式三：全局重构与润色",
     "format": "模式四：格式规范化",
 }
+STEP_MODE_LABELS = ACTION_LABELS#兼容旧名
 
-#replace 只换词、不改变结构，排最前；局部增补（patch）先于整篇重写（global）；format 只写排版属性，必须最后
-STEP_MODE_RANK = {"replace": 0, "patch": 1, "global": 2, "format": 3}
+#replace 只换词、不改变结构，排最前；edit 先于 rewrite；format 只写排版属性，必须最后
+ACTION_RANK = {"replace": 0, "edit": 1, "rewrite": 2, "format": 3}
+STEP_MODE_RANK = ACTION_RANK#兼容旧名
 
 #指令含这些词说明用户想增删文字，而 format 模式不改文字，仅用于给出提示
 CONTENT_CHANGE_HINTS = ("增加", "添加", "新增", "补充", "加入", "增添", "删去", "删除")
 
 
-def normalize_rewrite_steps(raw_steps, fallback_mode: str) -> Tuple[List[dict], List[str]]:
+def _merge_same_action_by_scope(steps: List[dict], action: str, notes: List[str],
+                                merge_pairs: bool = False) -> List[dict]:
+    #只有"动作 + 范围"都相同的步骤才允许合并；不同范围的诉求分别保留
+    #范围字段非法的步骤不参与合并，避免被合法步骤"吸收"后越界执行
+    same_action = [step for step in steps
+                   if step["action"] == action and not step.get("scope_invalid")]
+    if len(same_action) < 2:
+        return steps
+    groups: Dict[tuple, list] = {}
+    for step in same_action:
+        groups.setdefault(scope_key(step.get("scope")), []).append(step)
+
+    merged_count = 0
+    for group in groups.values():
+        if len(group) < 2:
+            continue
+        if merge_pairs:
+            merged_pairs: Dict[str, str] = {}
+            for step in group:
+                merged_pairs.update(step["replace_pairs"])
+            group[0]["replace_pairs"] = merged_pairs
+        instructions = [step["instruction"] for step in group if step.get("instruction")]
+        if instructions:
+            group[0]["instruction"] = "；".join(dict.fromkeys(instructions))
+        dropped = {id(step) for step in group[1:]}
+        steps = [step for step in steps if id(step) not in dropped]
+        merged_count += len(group)
+
+    if merged_count:
+        notes.append(f"检测到 {merged_count} 个{ACTION_LABELS[action]}步骤，已按范围分组合并"
+                     "（同范围才合并，范围不同的分别保留）")
+    return steps
+
+
+def normalize_rewrite_steps(raw_steps, fallback_action: str = "edit") -> Tuple[List[dict], List[str]]:
     """把意图节点给出的步骤清单校正为可依次执行的顺序，返回 (步骤列表, 调整说明)。
 
     硬性依赖关系（大模型排错时由程序纠正，而不是直接失败）：
     1. replace 只换词、不改变元素数量，必须排在最前；
-    2. 局部增补 patch 先于整篇重写 global（先补内容，再由全局重塑统一行文）；
-    3. format 只写排版属性，必须在内容定稿之后执行，否则新增段落不会被规范化；
-    4. 多个 replace 或 format 步骤语义上等价，合并为一步；global 会整篇重写，重复的只保留第一个；
-    5. 只做排序与合并，不丢弃任何一类诉求（patch 与 global 同时出现时会依次执行）。
+    2. edit 先于 rewrite（先补内容，再由整章重写统一行文）；
+    3. format 只写排版属性，必须在内容定稿之后执行；
+    4. 多个同动作步骤只在“范围相同”时合并；范围不同分别保留（原来只留首个 target 会丢范围）；
+    5. 只做排序与合并，不丢弃任何一类诉求。
 
-    模型未给出步骤时退化为单步骤（沿用 state['rewrite_mode'] 的旧行为）。
+    兼容旧数据：没有 action 的步骤按 mode 映射（patch->edit、global->rewrite）。
     """
     steps: List[dict] = []
     notes: List[str] = []
     for position, raw in enumerate(list(raw_steps or [])):
         if not isinstance(raw, dict):
             continue
-        mode = str(raw.get("mode") or "").strip().lower()
-        if mode not in STEP_MODE_RANK:
+        step = upgrade_step(raw)
+        if step["action"] not in ACTION_RANK:
             continue
         try:
-            order = int(raw.get("order") or position + 1)
+            order = int(step.get("order") or position + 1)
         except (TypeError, ValueError):
             order = position + 1
-        steps.append({
-            "order": order,
-            "mode": mode,
-            "target": str(raw.get("target") or "").strip(),
-            "target_range": raw.get("target_range"),
-            "instruction": str(raw.get("instruction") or "").strip(),
-            "replace_pairs": dict(raw.get("replace_pairs") or {}),
-        })
+        step["order"] = order
+        steps.append(step)
+
     if not steps:
-        mode = (fallback_mode or "patch").strip().lower()
-        if mode not in STEP_MODE_RANK:
-            mode = "patch"
-        steps = [{"order": 1, "mode": mode, "target": "", "target_range": None, "instruction": "", "replace_pairs": {}}]
-        return steps, notes
+        action = str(fallback_action or "edit").strip().lower()
+        action = MODE_TO_ACTION.get(action, action)
+        if action not in ACTION_RANK:
+            action = "edit"
+        return [{"order": 1, "action": action, "scope": None, "mode": action, "target": "",
+                 "target_range": None, "instruction": "", "replace_pairs": {}}], notes
 
     steps.sort(key=lambda step: step["order"])
     if len(steps) > 1:
-        same_replace = [step for step in steps if step["mode"] == "replace"]
-        if len(same_replace) > 1:
-            merged_pairs: Dict[str, str] = {}
-            for step in same_replace:
-                merged_pairs.update(step["replace_pairs"])
-            same_replace[0]["replace_pairs"] = merged_pairs
-            # 汇总所有替换步骤的要求，避免丢失后续步骤的具体指令
-            instructions = [s["instruction"] for s in same_replace if s.get("instruction")]
-            if instructions:
-                same_replace[0]["instruction"] = "；".join(dict.fromkeys(instructions))
-            # 若有局部范围要求，保留局部 target / target_range 以便在调度时校验与阻断
-            targets = [s["target"] for s in same_replace if s.get("target") and s["target"] not in WHOLE_DOC_TARGETS]
-            if targets:
-                same_replace[0]["target"] = targets[0]
-            ranges = [s["target_range"] for s in same_replace if s.get("target_range")]
-            if ranges:
-                same_replace[0]["target_range"] = ranges[0]
-            dropped = {id(step) for step in same_replace[1:]}
-            steps = [step for step in steps if id(step) not in dropped]
-            notes.append(f"检测到 {len(same_replace)} 个全局查找替换步骤，已合并为一次全局查找替换（词对取并集，已汇总全部指令）")
+        steps = _merge_same_action_by_scope(steps, "replace", notes, merge_pairs=True)
+        steps = _merge_same_action_by_scope(steps, "format", notes)
+        steps = _merge_same_action_by_scope(steps, "rewrite", notes)
 
-        same_format = [step for step in steps if step["mode"] == "format"]
-        if len(same_format) > 1:
-            # 汇总所有格式化步骤的具体排版指令，避免丢失不同角色的格式要求
-            instructions = [s["instruction"] for s in same_format if s.get("instruction")]
-            if instructions:
-                same_format[0]["instruction"] = "；".join(dict.fromkeys(instructions))
-            # 若有局部范围要求，保留局部 target / target_range 以便在调度时校验与阻断
-            targets = [s["target"] for s in same_format if s.get("target") and s["target"] not in WHOLE_DOC_TARGETS]
-            if targets:
-                same_format[0]["target"] = targets[0]
-            ranges = [s["target_range"] for s in same_format if s.get("target_range")]
-            if ranges:
-                same_format[0]["target_range"] = ranges[0]
-            dropped = {id(step) for step in same_format[1:]}
-            steps = [step for step in steps if id(step) not in dropped]
-            notes.append(f"检测到 {len(same_format)} 个格式规范化步骤，已合并为一次格式规范化（已汇总全部排版要求）")
-
-        #global 只在作用域相同时合并：作用域不同的多个 global 是对不同章节的独立诉求，不能丢弃
-        same_global = [step for step in steps if step["mode"] == "global"]
-        if len(same_global) > 1:
-            groups: Dict[tuple, list] = {}
-            for step in same_global:
-                scope_key = (step["target"], tuple(step["target_range"]) if step.get("target_range") else None)
-                groups.setdefault(scope_key, []).append(step)
-            for scope_key, g_steps in groups.items():
-                if len(g_steps) > 1:
-                    instructions = [s["instruction"] for s in g_steps if s.get("instruction")]
-                    if instructions:
-                        g_steps[0]["instruction"] = "；".join(dict.fromkeys(instructions))
-                    dropped = {id(step) for step in g_steps[1:]}
-                    steps = [step for step in steps if id(step) not in dropped]
-                    notes.append(f"检测到同作用域的 {len(g_steps)} 个全局重塑步骤，已合并需求为一次全局重塑")
-            if len(groups) > 1:
-                notes.append(f"检测到 {len(same_global)} 个全局重塑步骤且作用域不同，已按作用域分别保留")
-
-        ordered = sorted(steps, key=lambda step: STEP_MODE_RANK[step["mode"]])
-        if [step["mode"] for step in ordered] != [step["mode"] for step in steps]:
-            notes.append("已按依赖关系重排执行顺序：" + " → ".join(STEP_MODE_LABELS[step["mode"]] for step in ordered))
+        ordered = sorted(steps, key=lambda step: ACTION_RANK[step["action"]])
+        if [step["action"] for step in ordered] != [step["action"] for step in steps]:
+            notes.append("已按依赖关系重排执行顺序："
+                         + " → ".join(ACTION_LABELS[step["action"]] for step in ordered))
         steps = ordered
 
     for position, step in enumerate(steps, 1):
@@ -2318,42 +2361,161 @@ def build_step_dialog(dialog: str, step: dict, total_steps: int) -> str:
     """多步骤执行时给该步的提示词附加作用域说明，避免各步互相越界。"""
     if total_steps <= 1:
         return dialog
-    scope = f"作用范围：{step['target']}；" if step.get("target") else ""
+    scope_text = scope_label(step.get("scope")) if step.get("scope") else (step.get("target") or "")
+    scope = f"作用范围：{scope_text}；" if scope_text else ""
     requirement = step.get("instruction") or "按用户整体要求完成本步骤"
+    label = ACTION_LABELS.get(step.get("action") or "", step.get("action") or "")
     return (
         f"{dialog}\n"
-        f"【本次只执行第 {step['order']} 步（共 {total_steps} 步）】执行模式：{STEP_MODE_LABELS[step['mode']]}；"
+        f"【本次只执行第 {step['order']} 步（共 {total_steps} 步）】执行模式：{label}；"
         f"{scope}本步要求：{requirement}\n"
         "其它诉求由系统在后续步骤中单独执行，本步不要越界处理不属于本步骤的内容。"
     )
 
 
-def dispatch_rewrite_mode(llm, mode: str, dialog: str, retrieved_info: str, doc: Document,
+def _scope_contract_legacy() -> bool:
+    #应急回退开关：legacy 时恢复"局部 replace/format 直接拒绝"的旧行为
+    return (os.getenv("SCOPE_CONTRACT_MODE") or "contract").strip().lower() == "legacy"
+
+
+def _fallback_scope(step: dict, nodes, description, base_items):
+    #旧 mode/target 兜底：解析出区间后构造 scope；解析失败直接报错，不放宽到整篇
+    target = str(step.get("target") or "").strip()
+    target_range = step.get("target_range")
+    scope_range, scope_error = resolve_scope_range(target, target_range, nodes, description, base_items)
+    if scope_error:
+        return None, scope_error
+
+    outline = outline_index(build_outline_tree(nodes, description, base_items).get("outline") or [])
+    if scope_range is None:
+        return Scope(face="whole", containers=None, basis_span=""), ""
+    if target_range is not None:
+        return Scope(face="elements", element_range=[scope_range[0], scope_range[1]],
+                     containers=None, basis_span=""), ""
+    title = title_for_range(outline, scope_range) or target
+    return Scope(face="section", section_title=title, containers=None, basis_span=""), ""
+
+
+def collect_replace_paragraphs(nodes, scope: Scope, outline) -> Tuple[list, list]:
+    """按 scope 收集正文层段落，返回 (范围内段落, 范围外段落)。
+
+    页眉页脚不在正文 nodes 中，局部范围不会触碰它们；解析不到区间时返回空集合，
+    由调用方报错，绝不回退成整篇。
+    """
+    scope_range = resolve_contract_range(scope, outline)
+    if scope.face != "whole" and scope_range is None:
+        return [], []
+    low, high = scope_range if scope_range is not None else (0, len(nodes) - 1)
+    containers = effective_containers(scope)
+
+    inside, outside = [], []
+    for index, node in enumerate(nodes):
+        if isinstance(node, Paragraph):
+            (inside if low <= index <= high and "body" in containers else outside).append(node)
+        elif isinstance(node, Table):
+            table_paragraphs = list(iter_table_paragraphs(node))
+            (inside if low <= index <= high and "table" in containers else outside).extend(table_paragraphs)
+    return inside, outside
+
+
+def _count_terms(paragraphs, replace_pairs: Dict[str, str]) -> Dict[str, int]:
+    texts = [paragraph.text or "" for paragraph in paragraphs]
+    return {old: sum(text.count(old) for text in texts) for old in replace_pairs}
+
+
+def dispatch_rewrite_step(llm, step: dict, dialog: str, retrieved_info: str, doc: Document,
+                          nodes, base_items, description, replace_pairs,
+                          step_no: int = 0, total_steps: int = 1) -> Tuple[int, str]:
+    """按 (action, scope) 统一分派：先校验范围，再把同一区间交给对应引擎。"""
+    action = str(step.get("action") or "").strip().lower()
+    if action not in ACTION_LABELS:
+        return 0, f"E_ACTION_INVALID: 不支持的改写动作：{action or '（空）'}"
+    prefix = f"步骤{step_no}/{total_steps}：" if total_steps > 1 else ""
+
+    #旧行为兼容：只在显式打开 legacy 开关时生效
+    if _scope_contract_legacy():
+        raw_target = str(step.get("target") or "").strip()
+        local_target = (raw_target and raw_target not in WHOLE_DOC_TARGETS) or step.get("target_range") is not None
+        if action == "replace" and local_target:
+            return 0, (f"全局查找替换暂不支持指定局部范围（本步范围：{raw_target}），"
+                       "如需局部替换请改用局部修补模式")
+        if action == "format" and local_target:
+            return 0, (f"格式规范化暂不支持指定局部范围（本步范围：{raw_target}），"
+                       "请以整篇文档为单位进行排版规范化")
+
+    outline = outline_index(build_outline_tree(nodes, description, base_items).get("outline") or [])
+    if step.get("scope_invalid"):
+        return 0, "E_SCOPE_INVALID: 范围字段格式不合法，已拒绝执行"
+    scope = step.get("scope")
+    if isinstance(scope, dict):
+        try:
+            scope = Scope.model_validate(scope)
+        except Exception:
+            return 0, "E_SCOPE_INVALID: 范围字段格式不合法，已拒绝执行"
+    scope_provided = scope is not None
+    if not scope_provided:
+        scope, scope_error = _fallback_scope(step, nodes, description, base_items)
+        if scope_error:
+            return 0, f"E_SCOPE_UNPARSED: {scope_error}"
+        print(f"【范围兜底】按旧字段解析：action={action} face={scope.face} "
+              f"containers={sorted(effective_containers(scope))}")
+
+    errors = validate_scope(action, scope, outline, dialog, len(nodes),
+                            require_grounding=scope_provided)
+    if errors:
+        return 0, "；".join(errors)
+    for warning in lint_scope(action, scope, dialog):
+        print(f"【范围提示】{warning}")
+
+    scope_range = resolve_contract_range(scope, outline)
+    print(f"【范围】action={action} label={scope_label(scope)} "
+          f"containers={sorted(effective_containers(scope))}")
+
+    if action == "replace":
+        if scope_range is None:
+            print(f"【改写调度】{prefix}{ACTION_LABELS['replace']}")
+            return run_replace_rewrite(llm, dialog, doc, replace_pairs)
+        inside, outside = collect_replace_paragraphs(nodes, scope, outline)
+        if not inside:
+            return 0, (f"E_SCOPE_NO_PARAGRAPH: 范围「{scope_label(scope)}」内没有可替换段落，未执行")
+        print(f"【局部替换】范围={scope_label(scope)} "
+              f"容器={sorted(effective_containers(scope))} 段落数={len(inside)}")
+        return run_replace_rewrite(llm, dialog, doc, replace_pairs,
+                                   paragraphs=inside, outside_paragraphs=outside,
+                                   scope_label=scope_label(scope))
+
+    if action == "edit":
+        print(f"【改写调度】{prefix}{ACTION_LABELS['edit']}")
+        return run_patch_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description,
+                                 scope_range=scope_range, scope_resolved=True)
+    if action == "rewrite":
+        print(f"【改写调度】{prefix}{ACTION_LABELS['rewrite']}")
+        return run_global_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description,
+                                  scope_range=scope_range, scope_resolved=True)
+
+    print(f"【改写调度】{prefix}{ACTION_LABELS['format']}")
+    return run_format_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description)
+
+
+def dispatch_rewrite_mode(llm, mode, dialog: str, retrieved_info: str, doc: Document,
                           nodes, base_items, description, replace_pairs,
                           step_no: int = 0, total_steps: int = 1,
                           target: str = "", target_range=None) -> Tuple[int, str]:
-    """按模式调用对应改写引擎；多步骤时在日志中标出步骤序号。"""
-    prefix = f"步骤{step_no}/{total_steps}：" if total_steps > 1 else ""
-    if mode == "replace":
-        scope = (target or "").strip()
-        if (scope and scope not in WHOLE_DOC_TARGETS) or target_range is not None:
-            return 0, (f"全局查找替换暂不支持指定局部范围（本步范围：{scope}），"
-                       "如需局部替换请改用局部修补模式")
-        print(f"【改写调度】{prefix}{STEP_MODE_LABELS['replace']}")
-        return run_replace_rewrite(llm, dialog, doc, replace_pairs)
-    if mode == "global":
-        print(f"【改写调度】{prefix}{STEP_MODE_LABELS['global']}")
-        return run_global_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description, target, target_range)
-    if mode == "format":
-        #格式规范化是整篇排版：作用域只写在提示词里无法约束实际循环，故拒绝局部范围，避免"只排版某章"变成排版全文
-        scope = (target or "").strip()
-        if (scope and scope not in WHOLE_DOC_TARGETS) or target_range is not None:
-            return 0, (f"格式规范化暂不支持指定局部范围（本步范围：{scope}），"
-                       "请以整篇文档为单位进行排版规范化")
-        print(f"【改写调度】{prefix}{STEP_MODE_LABELS['format']}")
-        return run_format_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description)
-    print(f"【改写调度】{prefix}{STEP_MODE_LABELS['patch']}")
-    return run_patch_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description, target, target_range)
+    """兼容入口：mode 可以是动作字符串，也可以是完整的步骤字典。
+
+    步骤字典形式供 create_rewrite_node 与测试替换（monkeypatch）使用；
+    字符串形式供旧调用方继续按 mode/target 调用。
+    """
+    if isinstance(mode, dict):
+        step = upgrade_step(mode)
+        if target:
+            step["target"] = target
+        if target_range is not None:
+            step["target_range"] = target_range
+    else:
+        step = upgrade_step({"mode": mode, "target": target, "target_range": target_range})
+    return dispatch_rewrite_step(llm, step, dialog, retrieved_info, doc, nodes, base_items,
+                                 description, replace_pairs, step_no=step_no, total_steps=total_steps)
 
 
 def create_rewrite_node(llm):
@@ -2379,18 +2541,20 @@ def create_rewrite_node(llm):
         print(f"【资料】来源={material_source} 条目={len(material_items)} 字数={len(retrieved_info)}")
 
         dialog = f"{state['messages']}"
-        mode = (state.get("rewrite_mode") or "patch").lower()
+        fallback_action = (state.get("rewrite_mode") or "edit").lower()
 
         # 有序步骤清单：复合指令（改内容 + 规范排版 + 查找替换…）由大模型拆步，这里按依赖顺序逐步落地
-        steps, notes = normalize_rewrite_steps(state.get("rewrite_steps"), mode)
+        steps, notes = normalize_rewrite_steps(state.get("rewrite_steps"), fallback_action)
         for note in notes:
             print(f"【步骤编排】{note}")
         if len(steps) > 1:
             print(f"【改写编排】共 {len(steps)} 个步骤，将按序执行：")
             for step in steps:
-                scope = f"范围：{step['target']}｜" if step["target"] else ""
-                print(f"   步骤{step['order']}：{STEP_MODE_LABELS[step['mode']]}｜{scope}要求：{step['instruction'] or '（沿用整体要求）'}")
-        elif steps[0]["mode"] == "format":
+                scope_text = scope_label(step["scope"]) if step.get("scope") else (step.get("target") or "")
+                scope = f"范围：{scope_text}｜" if scope_text else ""
+                print(f"   步骤{step['order']}：{ACTION_LABELS[step['action']]}｜{scope}"
+                      f"要求：{step['instruction'] or '（沿用整体要求）'}")
+        elif steps[0]["action"] == "format":
             hints = [word for word in CONTENT_CHANGE_HINTS if word in dialog]
             if hints:
                 print(
@@ -2407,21 +2571,21 @@ def create_rewrite_node(llm):
                 #上一步可能已增删或替换元素，必须重新解析文档结构与格式快照，否则后续步骤下标错位、新段落不会被排版
                 nodes, base_items, description = build_document_description(doc)
                 print(f"【步骤编排】已重新解析文档结构：共 {len(nodes)} 个元素")
-            step_pairs = dict(step["replace_pairs"] or replace_pairs) if step["mode"] == "replace" else replace_pairs
+            step_pairs = dict(step["replace_pairs"] or replace_pairs) if step["action"] == "replace" else replace_pairs
             try:
+                #走兼容入口：既支持步骤字典，也保留旧 mode/target 调用方式（便于替换与回退）
                 step_applied, error = dispatch_rewrite_mode(
-                    llm, step["mode"], build_step_dialog(dialog, step, len(steps)), retrieved_info,
+                    llm, step, build_step_dialog(dialog, step, len(steps)), retrieved_info,
                     doc, nodes, base_items, description, step_pairs,
-                    step_no=position, total_steps=len(steps), target=step["target"],
-                    target_range=step.get("target_range"),
+                    step_no=position, total_steps=len(steps),
                 )
             except Exception as e:
-                error = f"执行第{position}步（{STEP_MODE_LABELS.get(step['mode'], step['mode'])}）时发生异常：{e}"
+                error = f"执行第{position}步（{ACTION_LABELS.get(step['action'], step['action'])}）时发生异常：{e}"
                 step_applied = 0
             applied += step_applied or 0
             if error:
                 failed_step = position
-                print(f"【步骤编排】第{position}步（{STEP_MODE_LABELS[step['mode']]}）失败：{error}")
+                print(f"【步骤编排】第{position}步（{ACTION_LABELS[step['action']]}）失败：{error}")
                 break
 
         if error:

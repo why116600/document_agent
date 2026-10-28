@@ -23,8 +23,8 @@ class AgentState(TypedDict):
     gdb_label: str#要查询的图数据库的节点标签
     user_intent: Optional[str]#用户写作意图，new表示全新写作，rewrite表示改写
     rewrite_file: Optional[str]#待改写的文档路径
-    rewrite_mode: Optional[str]#改写模式：patch（局部修补）、replace（查找替换）、global（全局重塑/逐章润色）、format（仅格式规范化，文字一字不改）；有步骤清单时等于第一步的模式
-    rewrite_steps: List[Dict[str, Any]]#有序改写步骤清单：复合指令由大模型拆成多步，每步含 mode/target/instruction/replace_pairs，改写节点逐步重建快照后依次执行
+    rewrite_mode: Optional[str]#改写动作：replace（确定性换词）、edit（局部增删改）、rewrite（整段/整章重写）、format（仅格式规范化）；有步骤清单时等于第一步的 action
+    rewrite_steps: List[Dict[str, Any]]#有序改写步骤清单：复合指令由大模型拆成多步，每步含 action/scope/instruction/replace_pairs（兼容旧 mode/target），改写节点逐步重建快照后依次执行
     replace_pairs: Optional[Dict[str, str]]#replace 模式下旧词到新词的映射
     save_path: str#输出文档的保存路径，为空时自动生成
     file_roles: Optional[Dict[str, str]]#文件角色标签映射（如待修改目标文档、辅助参考/风格模板）
