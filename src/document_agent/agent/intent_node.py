@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from agent_core import AgentState, get_last_user_text
 from llm_client import llm_model_invoke
-from scope_contract import MODE_TO_ACTION, Scope
+from scope_contract import MODE_TO_ACTION, Scope, capability_text
 
 #参考文件支持的后缀，与 extract_document 的解析能力保持一致
 SUPPORTED_REFERENCE_SUFFIXES = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".txt", ".json", ".csv", ".md"}
@@ -318,11 +318,17 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str], outli
             "必须逐字取自对应文档；task_type 为 new 时忽略）\n"
             f"{outline_block.strip()}\n"
         )
+    #能力清单由 CAPABILITY 生成，保证提示词与执行层校验同源
+    capability_desc = (
+        "\n" + capability_text() + "\n"
+        "以上清单是系统真实边界：用户要求超出清单时，照实填写你看到的范围与容器，"
+        "系统会明确拒绝并说明原因；不要改成看起来能执行的范围。\n"
+    )
 
     return (
         "你是一个专业的智能文档写作与改写意图分析助手。用户提供了一组候选文件列表，并提出了一段自然语言指令。\n"
         "请根据用户指令和候选文件，深度理解用户的真实意图并提取关键槽位参数：\n\n"
-        f"【候选文件列表】\n{files_desc}\n{outline_desc}\n"
+        f"【候选文件列表】\n{files_desc}\n{outline_desc}{capability_desc}\n"
         f"【用户指令内容】\n{user_prompt}\n\n"
         "【分析与槽位抽取规范】\n"
         "1. task_type 判断：\n"
@@ -338,6 +344,10 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str], outli
         "       * 整篇 → face='whole'；指定章节 → face='section'，section_title 必须逐字取自【目标文档大纲】，不要改写、不要补全；\n"
         "         用户明确给出元素下标 → face='elements'，并填 element_range=[起,止]。\n"
         "       * containers 按用户原话：说'正文'只填 ['body']；提到表格才加 'table'；没提容器就留空（整篇=全容器，章节/区间=仅正文）。\n"
+        "       * 用户并列列举多个容器（如'范围包括正文、表格和页眉'）时，containers 必须逐项全部收录"
+        "（['body','table','header']），不能只填第一个，也不要因为出现'正文'就只填 ['body']。\n"
+        "       * face='whole' 且用户列举了容器时，containers 不得留空（留空=全容器，会把用户没提的页脚一起改）。\n"
+        "       * 整篇替换一次完成，不要为了容器差异把一步拆成多步。\n"
         "       * basis_span 必须从【用户指令内容】逐字摘录支撑该范围的片段，不得改写、不得跨句拼接。\n"
         "       * 用户点名的章节不在大纲中：section_title 仍按用户原话填写，不要换成别的章节、不要改成 'whole'，系统会在执行期报错。\n"
         "   -（b）再填 action（做什么）：只换词 → 'replace'（必须在 replace_pairs 给 {旧词: 新词}）；"

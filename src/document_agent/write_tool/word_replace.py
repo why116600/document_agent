@@ -192,20 +192,36 @@ def iter_table_paragraphs(table: Table):
     yield from _iter_table_paragraphs(table)
 
 
-def _iter_replace_paragraphs(doc: Document):
-    """枚举替换范围：正文段落、表格单元格、页眉页脚（含其中表格）。"""
-    for p in doc.paragraphs:
-        yield p
-    for table in doc.tables:
-        yield from _iter_table_paragraphs(table)
+def iter_container_paragraphs(doc: Document, containers):
+    """按容器枚举可替换段落；顺序固定为 正文段落 → 正文表格 → 各节页眉 → 各节页脚。
+
+    页眉页脚只枚举"本节自有定义"的部件：未定义或链接到上一节的直接跳过。
+    这样既不重复枚举继承来的同一部件（否则多节文档会重复计数），
+    也不会因为读取而凭空创建空页脚/页眉部件。
+    """
+    containers = set(containers)
+    if "body" in containers:
+        for p in doc.paragraphs:
+            yield p
+    if "table" in containers:
+        for table in doc.tables:
+            yield from _iter_table_paragraphs(table)
     for section in doc.sections:
-        for container in (section.header, section.footer):
-            if container is None:
+        for kind in ("header", "footer"):
+            if kind not in containers:
                 continue
-            for p in container.paragraphs:
+            box = section.header if kind == "header" else section.footer
+            if box.is_linked_to_previous:
+                continue
+            for p in box.paragraphs:
                 yield p
-            for t in container.tables:
+            for t in box.tables:
                 yield from _iter_table_paragraphs(t)
+
+
+def _iter_replace_paragraphs(doc: Document):
+    """枚举整篇替换范围：正文段落、表格单元格、页眉页脚（含其中表格）。"""
+    yield from iter_container_paragraphs(doc, {"body", "table", "header", "footer"})
 
 
 def replace_in_document(doc: Document, old_text: str, new_text: str) -> int:
@@ -274,3 +290,9 @@ def batch_replace_in_paragraphs(paragraphs, replace_pairs: Dict[str, str]) -> Di
 def batch_replace_in_document(doc: Document, replace_pairs: Dict[str, str]) -> Dict[str, int]:
     """批量替换整篇文档（正文 + 表格 + 页眉页脚）中的多组键值对。"""
     return batch_replace_in_paragraphs(_iter_replace_paragraphs(doc), replace_pairs)
+
+
+def batch_replace_in_containers(doc: Document, replace_pairs: Dict[str, str],
+                                containers) -> Dict[str, int]:
+    """在整篇文档中按容器收窄的批量替换；不访问未列出的容器。"""
+    return batch_replace_in_paragraphs(iter_container_paragraphs(doc, containers), replace_pairs)

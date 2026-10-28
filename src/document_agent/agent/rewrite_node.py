@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -33,13 +34,17 @@ from document_agent.write_tool.word_tool import (
     save_document,
 )
 from document_agent.write_tool.word_replace import (
+    batch_replace_in_containers,
     batch_replace_in_document,
     batch_replace_in_paragraphs,
+    iter_container_paragraphs,
     iter_table_paragraphs,
     replace_in_paragraph,
     replace_in_table,
 )
 from scope_contract import (
+    ALL_CONTAINERS,
+    CONTAINER_WORDS,
     MODE_TO_ACTION,
     Scope,
     effective_containers,
@@ -1364,7 +1369,7 @@ def run_patch_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, node
 
 def run_replace_rewrite(llm, dialog: str, doc: Document, replace_pairs: Optional[Dict[str, str]] = None,
                         paragraphs=None, outside_paragraphs=None,
-                        scope_label: str = "") -> Tuple[int, str]:
+                        containers=None, scope_label: str = "") -> Tuple[int, str]:
 
     pairs = dict(replace_pairs or {})
     if not pairs:
@@ -1387,9 +1392,12 @@ def run_replace_rewrite(llm, dialog: str, doc: Document, replace_pairs: Optional
     if not pairs:
         return 0, "查找替换对为空"
 
-    if paragraphs is None:
+    if paragraphs is None and containers is None:
         stats = batch_replace_in_document(doc, pairs)
         tag = "全局替换"
+    elif paragraphs is None:
+        stats = batch_replace_in_containers(doc, pairs, containers)
+        tag = "整篇替换（容器=" + "+".join(sorted(containers)) + "）"
     else:
         #局部范围：只遍历范围内段落，并用范围外计数断言再守一次
         targets = list(paragraphs)
@@ -1405,10 +1413,12 @@ def run_replace_rewrite(llm, dialog: str, doc: Document, replace_pairs: Optional
     print(f"【{tag}】共替换 {total_replaced} 处：" + "，".join(summary_parts))
     missing = [k for k, c in stats.items() if c == 0]
     if missing:
+        names = "、".join(f"“{k}”" for k in missing)
+        if paragraphs is None and containers is None:
+            return 0, "未找到全局替换目标：" + names
         if paragraphs is None:
-            return 0, "未找到全局替换目标：" + "、".join(f"“{k}”" for k in missing)
-        return 0, (f"范围内未找到替换目标（{scope_label or '局部范围'}）："
-                   + "、".join(f"“{k}”" for k in missing))
+            return 0, f"未找到全局替换目标（容器={'+'.join(sorted(containers))}）：" + names
+        return 0, (f"范围内未找到替换目标（{scope_label or '局部范围'}）：" + names)
     return total_replaced, ""
 
 
@@ -2378,10 +2388,60 @@ def _scope_contract_legacy() -> bool:
     return (os.getenv("SCOPE_CONTRACT_MODE") or "contract").strip().lower() == "legacy"
 
 
+def _whole_container_legacy() -> bool:
+    #应急回退开关：legacy 时恢复"整篇容器收窄直接拒绝"的旧行为
+    return (os.getenv("WHOLE_CONTAINER_MODE") or "contract").strip().lower() == "legacy"
+
+
+_WHOLE_SCOPE_WORDS = ("全文", "全篇", "整篇", "整个文档", "整份文档", "全部")
+_WHOLE_SCOPE_TAILS = ("", "替换", "查找替换", "范围", "查找替换范围")
+_SCOPE_NEGATIONS = ("不含", "不包括", "除外", "除了", "不要改", "别改")
+#只有出现列举引导词时，括号里的容器词才算"范围"；"例如/依据/根据/参见"一律不算
+_CONTAINER_ENUM_MARKERS = ("包括", "包含", "涵盖", "含")
+
+
+def whole_scope_from_text(text: Any) -> Optional[str]:
+    """只做确定性识别：整篇词 + 可选括号说明；出现否定词一律不猜。"""
+    raw = str(text or "")
+    if any(word in raw for word in _SCOPE_NEGATIONS):
+        return None
+    value = re.sub(r"[（(][^）)]*[）)]", "", unicodedata.normalize("NFKC", raw))
+    value = re.sub(r"\s+", "", value)
+    for word in _WHOLE_SCOPE_WORDS:
+        if value.startswith(word) and value[len(word):] in _WHOLE_SCOPE_TAILS:
+            return word
+    return None
+
+
+def containers_from_scope_text(text: Any) -> Optional[List[str]]:
+    """括号里带"包括/含/涵盖"等列举引导词时才收窄，否则返回 None（=不限定容器）。
+
+    "全篇（含正文、表格和页眉）" -> ['body','table','header']；
+    "全篇（例如表格里的7天）"   -> None（举例不是范围）；
+    "全文（依据《借用办法》第2条）" -> None（引用不是范围）。
+    """
+    raw = str(text or "")
+    if any(word in raw for word in _SCOPE_NEGATIONS):
+        return None
+    for inner in re.findall(r"[（(]([^）)]*)[）)]", unicodedata.normalize("NFKC", raw)):
+        if not any(marker in inner for marker in _CONTAINER_ENUM_MARKERS):
+            continue
+        found = [key for word, key in CONTAINER_WORDS if word in inner]
+        if found:
+            return found
+    return None
+
+
 def _fallback_scope(step: dict, nodes, description, base_items):
-    #旧 mode/target 兜底：解析出区间后构造 scope；解析失败直接报错，不放宽到整篇
+    #旧 mode/target 兜底：先认整篇（含括号说明），再按章节/区间解析；解析失败直接报错
     target = str(step.get("target") or "").strip()
     target_range = step.get("target_range")
+    whole_word = whole_scope_from_text(target) if target_range is None else None
+    if whole_word:
+        containers = containers_from_scope_text(target)
+        print(f"【范围兜底】整篇：target={target} 容器={containers or '未限定（全容器）'}")
+        return Scope(face="whole", containers=containers, basis_span=""), ""
+
     scope_range, scope_error = resolve_scope_range(target, target_range, nodes, description, base_items)
     if scope_error:
         return None, scope_error
@@ -2423,6 +2483,15 @@ def _count_terms(paragraphs, replace_pairs: Dict[str, str]) -> Dict[str, int]:
     return {old: sum(text.count(old) for text in texts) for old in replace_pairs}
 
 
+def _container_hits(doc: Document, replace_pairs: Dict[str, str], containers) -> Dict[str, int]:
+    """替换前按容器统计命中分布；仅用于日志与逐位置核对。"""
+    hits: Dict[str, int] = {}
+    for name in sorted(containers):
+        texts = [paragraph.text or "" for paragraph in iter_container_paragraphs(doc, {name})]
+        hits[name] = sum(text.count(old) for text in texts for old in replace_pairs)
+    return hits
+
+
 def dispatch_rewrite_step(llm, step: dict, dialog: str, retrieved_info: str, doc: Document,
                           nodes, base_items, description, replace_pairs,
                           step_no: int = 0, total_steps: int = 1) -> Tuple[int, str]:
@@ -2460,6 +2529,12 @@ def dispatch_rewrite_step(llm, step: dict, dialog: str, retrieved_info: str, doc
         print(f"【范围兜底】按旧字段解析：action={action} face={scope.face} "
               f"containers={sorted(effective_containers(scope))}")
 
+    #应急回退：legacy 时整篇容器收窄恢复"直接拒绝"
+    if (_whole_container_legacy() and action == "replace" and scope.face == "whole"
+            and scope.containers and set(scope.containers) != set(ALL_CONTAINERS)):
+        return 0, ("E_CAPABILITY: 本版本整篇 replace 暂不支持容器收窄"
+                   "（WHOLE_CONTAINER_MODE=legacy）")
+
     errors = validate_scope(action, scope, outline, dialog, len(nodes),
                             require_grounding=scope_provided)
     if errors:
@@ -2473,8 +2548,13 @@ def dispatch_rewrite_step(llm, step: dict, dialog: str, retrieved_info: str, doc
 
     if action == "replace":
         if scope_range is None:
-            print(f"【改写调度】{prefix}{ACTION_LABELS['replace']}")
-            return run_replace_rewrite(llm, dialog, doc, replace_pairs)
+            containers = effective_containers(scope)
+            if containers == set(ALL_CONTAINERS):
+                print(f"【改写调度】{prefix}{ACTION_LABELS['replace']}")
+                return run_replace_rewrite(llm, dialog, doc, replace_pairs)
+            print(f"【整篇替换】容器={sorted(containers)} "
+                  f"命中分布={_container_hits(doc, replace_pairs or {}, containers)}")
+            return run_replace_rewrite(llm, dialog, doc, replace_pairs, containers=containers)
         inside, outside = collect_replace_paragraphs(nodes, scope, outline)
         if not inside:
             return 0, (f"E_SCOPE_NO_PARAGRAPH: 范围「{scope_label(scope)}」内没有可替换段落，未执行")
