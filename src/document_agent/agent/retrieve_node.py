@@ -14,7 +14,26 @@ class RetrieveFuncCallable(BaseModel):
     arguments: Dict[str, Any] = Field(description="调用工具所需的参数")
 
 #检索模块总调度
-def create_retrieve_node(llm):
+def create_retrieve_node(llm, enable_remote_kg: bool = False):
+    """创建检索总调度节点。
+
+    :param enable_remote_kg: 是否把「远程知识图谱」作为可选工具暴露给模型。
+        没配置远程客户端时必须传 False——否则模型会选到一条必然失败的路。
+    """
+    # 工具清单只拼一次，思考与决策两段提示词共用，避免"只改一处"造成错位
+    tools_block = (
+        "你有以下工具可以使用：\n"
+        "file为检索用户提供的文件内容的工具，参数path为文件路径，参数query为检索的关键内容。\n"
+        "knowledge为检索系统本地知识库的工具，融合规章制度流程规范与实体关系事实，参数query为要检索的关键内容。\n"
+    )
+    if enable_remote_kg:
+        tools_block += (
+            "knowledge_remote为检索远程知识图谱的工具，可查实体关系、事实证据与原文出处；"
+            "规章条款、流程规范优先用knowledge，人物/组织/产品/事件之间的关系优先用knowledge_remote，"
+            "参数query为要检索的关键内容。\n"
+        )
+    tools_block += "end为结束检索的工具，如果你认为目前已知的内容已经满足用户要求，可以调用end工具结束检索。\n"
+
     def retrive_node(state : AgentState) -> AgentState:
         s = state["retrieve_target"]
         msg=state["messages"]
@@ -43,10 +62,7 @@ def create_retrieve_node(llm):
                 f"{file_prompt_line}\n"
                 f"用户对话内容：{msg}\n"
                 # f"要检索的内容：{s}\n"
-                "你有以下工具可以使用：\n"
-                "file为检索用户提供的文件内容的工具，参数path为文件路径，参数query为检索的关键内容。\n"
-                "knowledge为检索系统知识库的工具，融合规章制度流程规范与实体关系事实，参数query为要检索的关键内容。\n"
-                "end为结束检索的工具，如果你认为目前已知的内容已经满足用户要求，可以调用end工具结束检索。\n"
+                f"{tools_block}"
                 f"{tool_response}\n"
                 "请分析后续使用工具的思路"
             )
@@ -59,10 +75,7 @@ def create_retrieve_node(llm):
                 f"{file_prompt_line}\n"
                 f"用户对话内容：{msg}\n"
                 # f"要检索的内容：{s}\n"
-                "你有以下工具可以使用：\n"
-                "file为检索用户提供的文件内容的工具，参数path为文件路径，参数query为检索的关键内容。\n"
-                "knowledge为检索系统知识库的工具，融合规章制度流程规范与实体关系事实，参数query为要检索的关键内容。\n"
-                "end为结束检索的工具，如果你认为目前已知的内容已经满足用户要求，可以调用end工具结束检索。\n"
+                f"{tools_block}"
                 f"{tool_response}\n"
                 f"请严格按照以下分析选择使用的工具：\n{analysis}"
             )

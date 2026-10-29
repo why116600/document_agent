@@ -46,12 +46,17 @@ def route_intent(state: AgentState) -> str:#检索完成后根据用户意图选
         return "rewrite"
     return "new"
 
+# 路由表认识的检索工具名；不在表里的工具名一律按「检索结束」处理，但要留痕
+KNOWN_RETRIEVE_TOOLS = frozenset({"file", "knowledge", "knowledge_remote", "end"})
+
 def route_retrieve(state: AgentState) -> str:
     tool = str(state.get("retrieve_tool", "end")).strip().lower()
-    if tool == "file":
-        return "file"
-    elif tool == "knowledge":
-        return "knowledge"
+    if tool not in KNOWN_RETRIEVE_TOOLS:
+        # 工具名拼错、或提示词与路由表只改了一半时，不能静默当成「检索结束」去写作
+        print(f"【检索路由】未知的检索工具名 {tool!r}，按检索结束处理（请检查工具名拼写与路由表）")
+        tool = "end"
+    if tool in ("file", "knowledge", "knowledge_remote"):
+        return tool
     # 当检索完成或没有有效工具调用时，按用户意图流转至改写或新建节点
     if tool == "end" and not (state.get("retrieved_content") or []) and (state.get("file_summaries") or {}):
         # 有摘要却没有任何检索要点：写作节点将走摘要兜底
@@ -65,7 +70,7 @@ class AgentCore:
         self.agent_invoke=None
         self.checkpointer=InMemorySaver()#使用检查点记录会话内容
         
-    def build_graph(self, gdb, kg=None): #构建agent图
+    def build_graph(self, gdb, kg=None, remote_kg=None): #构建agent图
         from intent_node import create_intent_node, route_after_intent
         from summary_node import create_summary_node
         from retrieve_node import create_retrieve_node
@@ -73,13 +78,16 @@ class AgentCore:
         from rewrite_node import create_rewrite_node
         from file_retrieve_node import create_file_retrieve_node
         from gdb_retrieve_node import create_gdb_retrieve_node
+        from kg_retrieve_node import create_kg_retrieve_node
 
         self.graph = StateGraph(AgentState)
         self.graph.add_node("intent", create_intent_node(self.llm))
         self.graph.add_node("summary", create_summary_node(self.llm))
-        self.graph.add_node("retrieve", create_retrieve_node(self.llm))
+        # 远程知识图谱没启用时提示词里不出现该工具，模型不会选到它
+        self.graph.add_node("retrieve", create_retrieve_node(self.llm, enable_remote_kg=remote_kg is not None))
         self.graph.add_node("retrieve_file", create_file_retrieve_node(self.llm))
         self.graph.add_node("retrieve_gdb", create_gdb_retrieve_node(self.llm, gdb, kg))
+        self.graph.add_node("retrieve_kg", create_kg_retrieve_node(self.llm, remote_kg))
         self.graph.add_node("new_docx", create_new_docx_node(self.llm))
         self.graph.add_node("rewrite_docx", create_rewrite_node(self.llm))
         self.graph.set_entry_point("intent")
@@ -92,11 +100,13 @@ class AgentCore:
         self.graph.add_edge("summary","retrieve")
         self.graph.add_edge("retrieve_file","retrieve")
         self.graph.add_edge("retrieve_gdb","retrieve")
+        self.graph.add_edge("retrieve_kg","retrieve")
         #按检索工具与用户意图决定流转（继续检索 / 改写 / 新建 / 结束）
         self.graph.add_conditional_edges(
             "retrieve",
             route_retrieve,
-            {"rewrite":"rewrite_docx","new":"new_docx","file":"retrieve_file","knowledge":"retrieve_gdb","end":END},
+            {"rewrite":"rewrite_docx","new":"new_docx","file":"retrieve_file",
+             "knowledge":"retrieve_gdb","knowledge_remote":"retrieve_kg","end":END},
         )
         self.graph.add_edge("new_docx",END)
         self.graph.add_edge("rewrite_docx",END)

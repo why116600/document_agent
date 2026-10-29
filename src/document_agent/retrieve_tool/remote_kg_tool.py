@@ -528,6 +528,56 @@ class RemoteKGTool:
             f"timeout={self._timeout!r}, max_retries={self._max_retries})"
         )
 
+    @classmethod
+    def from_settings(
+        cls,
+        settings: Optional[Mapping[str, Any]],
+        *,
+        env: Optional[Mapping[str, str]] = None,
+        section: str = "remote_kg",
+    ) -> Optional["RemoteKGTool"]:
+        """按「环境变量 > 配置文件 > 代码默认值」构造客户端；未启用时返回 ``None``。
+
+        优先级必须在这里显式实现：构造函数只在参数为 ``None`` 时才读环境变量
+        （见 :meth:`__init__`），若把配置值直接当参数传进去，环境变量就会被静默跳过。
+
+        :param settings: 已解析的配置字典（如 ``setting.json`` 的内容）
+        :param env: 环境变量映射，默认读 ``os.environ``（测试时可注入）
+        :param section: 配置段名，默认 ``remote_kg``
+        :return: 配置了 ``enabled: true`` 时返回客户端，否则返回 ``None``
+
+        配置段示例::
+
+            "remote_kg": {
+                "enabled": true,
+                "base_url": "http://127.0.0.1:8000",
+                "auth_token": "",
+                "auth_scheme": "x-api-token",
+                "timeout": 20,
+                "max_retries": 1
+            }
+        """
+        cfg = dict((settings or {}).get(section) or {})
+        if not cfg.get("enabled"):
+            return None
+
+        source: Mapping[str, str] = os.environ if env is None else env
+        # 空串/纯空白一律视为"没设"，否则会把配置文件里的值与默认值一起顶掉
+        env_base = str(source.get("REMOTE_KG_BASE_URL") or "").strip()
+        cfg_base = str(cfg.get("base_url") or "").strip()
+        base_url = env_base or cfg_base or DEFAULT_BASE_URL
+
+        env_token = str(source.get("REMOTE_KG_API_TOKEN") or "").strip()
+        cfg_token = str(cfg.get("auth_token") or "").strip()
+        auth_token = env_token or cfg_token
+        return cls(
+            base_url,
+            auth_token=auth_token,
+            auth_scheme=str(cfg.get("auth_scheme") or "x-api-token"),
+            timeout=cfg.get("timeout", DEFAULT_TIMEOUT),
+            max_retries=cfg.get("max_retries", 2),
+        )
+
     # -- 底层请求 ---------------------------------------------------------
 
     async def _request(
