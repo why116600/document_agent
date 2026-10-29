@@ -46,15 +46,8 @@ def route_intent(state: AgentState) -> str:#检索完成后根据用户意图选
         return "rewrite"
     return "new"
 
-# 路由表认识的检索工具名；不在表里的工具名一律按「检索结束」处理，但要留痕
-KNOWN_RETRIEVE_TOOLS = frozenset({"file", "knowledge", "knowledge_remote", "end"})
-
 def route_retrieve(state: AgentState) -> str:
     tool = str(state.get("retrieve_tool", "end")).strip().lower()
-    if tool not in KNOWN_RETRIEVE_TOOLS:
-        # 工具名拼错、或提示词与路由表只改了一半时，不能静默当成「检索结束」去写作
-        print(f"【检索路由】未知的检索工具名 {tool!r}，按检索结束处理（请检查工具名拼写与路由表）")
-        tool = "end"
     if tool in ("file", "knowledge", "knowledge_remote"):
         return tool
     # 当检索完成或没有有效工具调用时，按用户意图流转至改写或新建节点
@@ -63,6 +56,12 @@ def route_retrieve(state: AgentState) -> str:
         print("【资料检查】检索结束时无要点，写作阶段使用参考资料摘要兜底")
     return route_intent(state)
 
+def route_after_kg(state: AgentState) -> str:
+    """远程图谱节点之后的岔路：按配置停写时直接结束，不进写作节点。"""
+    if str(state.get("state") or "").strip().lower() == "aborted":
+        return "abort"
+    return "continue"
+
 class AgentCore:
     def __init__(self):
         self.llm=get_deepseek_llm()
@@ -70,7 +69,8 @@ class AgentCore:
         self.agent_invoke=None
         self.checkpointer=InMemorySaver()#使用检查点记录会话内容
         
-    def build_graph(self, gdb, kg=None, remote_kg=None): #构建agent图
+    def build_graph(self, gdb, kg=None, remote_kg=None, remote_kg_on_failure="degrade",
+                    remote_kg_step_timeout=None, remote_kg_node_timeout=None): #构建agent图
         from intent_node import create_intent_node, route_after_intent
         from summary_node import create_summary_node
         from retrieve_node import create_retrieve_node
@@ -87,7 +87,16 @@ class AgentCore:
         self.graph.add_node("retrieve", create_retrieve_node(self.llm, enable_remote_kg=remote_kg is not None))
         self.graph.add_node("retrieve_file", create_file_retrieve_node(self.llm))
         self.graph.add_node("retrieve_gdb", create_gdb_retrieve_node(self.llm, gdb, kg))
-        self.graph.add_node("retrieve_kg", create_kg_retrieve_node(self.llm, remote_kg))
+        # 超时未配置时用节点内默认值；配置了就按配置走
+        kg_options = {"on_failure": remote_kg_on_failure}
+        if remote_kg_step_timeout is not None:
+            kg_options["step_timeout"] = remote_kg_step_timeout
+        if remote_kg_node_timeout is not None:
+            kg_options["node_timeout"] = remote_kg_node_timeout
+        self.graph.add_node(
+            "retrieve_kg",
+            create_kg_retrieve_node(self.llm, remote_kg, **kg_options),
+        )
         self.graph.add_node("new_docx", create_new_docx_node(self.llm))
         self.graph.add_node("rewrite_docx", create_rewrite_node(self.llm))
         self.graph.set_entry_point("intent")
@@ -100,7 +109,12 @@ class AgentCore:
         self.graph.add_edge("summary","retrieve")
         self.graph.add_edge("retrieve_file","retrieve")
         self.graph.add_edge("retrieve_gdb","retrieve")
-        self.graph.add_edge("retrieve_kg","retrieve")
+        # 远程图谱故障且配置为 stop 时直接结束，不进入写作
+        self.graph.add_conditional_edges(
+            "retrieve_kg",
+            route_after_kg,
+            {"continue": "retrieve", "abort": END},
+        )
         #按检索工具与用户意图决定流转（继续检索 / 改写 / 新建 / 结束）
         self.graph.add_conditional_edges(
             "retrieve",

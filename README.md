@@ -153,3 +153,46 @@ C:\Users\wangh\anaconda3\envs\llm\python.exe -m pip install "neo4j==6.3.0" sente
 默认句向量模型 `all-MiniLM-L6-v2`（384 维）已下载到 `.models/all-MiniLM-L6-v2`（已加入 `.gitignore`），
 代码会优先加载该本地目录，因此**离线也能直接使用**；若换用别的模型名，会在首次使用时联网下载。
 
+## 远程知识图谱（HTTP 只读）
+
+与上一节的本地知识图谱不是一回事：本地那份是**进程内直连 Neo4j**；远程这份是**独立部署的 GraphRAG 服务**，
+通过一组只读 HTTP 接口提供“实体关系、事实证据、原文出处”。服务端协议见 `src/document_agent/retrieve_tool/retrieve_protocol.md`。
+
+分工：**规章条款、流程规范**走 `knowledge`（本地摘要树 + 本地图谱）；**人物/组织/产品/事件之间的关系**走
+`knowledge_remote`（远程图谱）。两者结果都写进 `retrieved_content`，由写作节点统一取用。
+
+### 配置（`src/setting.json`）
+
+| 键 | 说明 |
+| --- | --- |
+| `enabled` | 总开关。`false` 时提示词里不出现该工具、路由也不导流，等价于“没接” |
+| `base_url` | 服务地址，默认 `http://127.0.0.1:8000` |
+| `auth_token` | 鉴权 token；留空表示不鉴权（服务端配了 `api.auth_token` 时必须填） |
+| `auth_scheme` | `x-api-token`（默认）/ `bearer` / `both` |
+| `timeout` | 单次请求超时秒数，默认 15 |
+| `max_retries` | 只读请求重试次数，默认 1 |
+| `on_failure` | 故障后怎么处理：`degrade`（默认，继续写作并在素材里注明不可用）/ `stop`（终止本次写作、不生成文档）。只对**故障类**失败生效（连不上、超时、401/503、没配客户端）；"查了但图里没有"一律继续写作 |
+| `step_timeout` | 单步（遍历/路径/读原文）超时秒数，默认 35（须 ≥ `timeout × (max_retries+1)`，否则客户端重试跑不完）；超了跳过该步 |
+| `node_timeout` | 整轮超时秒数，默认 300（含一次检索计划模型调用）；超了按 `on_failure` 收场 |
+
+优先级：**环境变量 `REMOTE_KG_BASE_URL` / `REMOTE_KG_API_TOKEN` / `REMOTE_KG_ON_FAILURE` > `setting.json` > 代码默认值**。
+
+要"服务不可用就不写文档"，不建议改共享配置，用环境变量：`$env:REMOTE_KG_ON_FAILURE="stop"`。
+
+### 行为
+
+- 调用链：`retrieve`（模型选工具）→ `retrieve_kg` → 自检 `status` → `schema` → 规划检索计划 → 关键词/语义并发召回 →
+  实体消歧 → 子图展开 → 路径 → 批量读原文，结果带 `【实体】/【关系】/【分块】/【原文】/【路径】/【文档】` 前缀。
+- 失败时在 `retrieved_content` 里留一行 `【知识图谱不可用】…`（写作节点读的是这个字段），然后按 `on_failure` 决定：
+  `degrade` 继续写作；`stop` 把 `state` 置 `aborted`，条件边直接结束、不生成文档。
+- 耗时上限：单步默认 35 秒、整轮默认 300 秒，均可配置；单步超时只跳过该步，整轮超时不保留已拿到的结果。
+
+### 手工自测
+
+```bash
+cd src
+python -m document_agent.retrieve_tool.remote_kg_tool    # 按协议 §11 的最小闭环跑一遍
+```
+
+服务没起时会打印“无法访问检索服务”，不会崩。
+

@@ -54,6 +54,7 @@ from llm_client import llm_model_invoke
 from document_agent.retrieve_tool.remote_kg_tool import (
     RemoteKGError,
     RemoteKGNotFoundError,
+    RemoteKGTimeoutError,
     RemoteKGTool,
 )
 
@@ -76,13 +77,19 @@ BODY_CHARS_RANGE = (200, 3000)
 CONVERSATION_TURNS = 6  # 规划时回看最近几条消息
 CONVERSATION_CHARS = 2000
 RESOLVE_TEXT_MAX = 19000  # 协议 §10 的 text 上限是 20000，留一点余量
+STEP_TIMEOUT = 35  # 单步超时：需 ≥ 客户端 timeout×(max_retries+1)，否则重试永远跑不完
+NODE_TIMEOUT = 300  # 整轮上限：5 个受单步约束的步骤 + 2 路 HTTP 召回 + 一次计划模型调用
 
 # 关系类型的中文标签，用于把路径/边渲染成人能读的样子
 _EDGE_LABELS = {
     "HAS_CHUNK": "包含分块",
     "NEXT": "下一段",
     "MENTIONS": "提及",
+    "RELATES": "相关",
 }
+
+# 这些"类型"只是图里的关系标签，不代表具体语义（真正的语义在 properties.type 里）
+_GENERIC_RELATION_TYPES = frozenset({"", "相关", "关联", "RELATES"})
 
 # 实体消歧的 match 字段（协议 §10）到中文的映射
 _MATCH_LABELS = {
@@ -414,6 +421,27 @@ def _add_relation(bucket: Dict[str, Dict[str, Any]], rel: Dict[str, Any]) -> Non
             current[field] = rel[field]
 
 
+def _drop_generic_relations(bucket: Dict[str, Dict[str, Any]]) -> None:
+    """同一对实体既有"相关"（语义召回）又有具体关系（遍历给出）时，只留具体的。
+
+    语义检索的 relations 只带关系标签（RELATES）与描述，给不出"创立/任职于"这种
+    具体类型；遍历的 properties.type 才有。两条都留着会让结果重复、白占预算。
+    """
+    specific_pairs = {
+        (str(item.get("source") or ""), str(item.get("target") or ""))
+        for item in bucket.values()
+        if str(item.get("type") or "") not in _GENERIC_RELATION_TYPES
+    }
+    drop = [
+        key
+        for key, item in bucket.items()
+        if str(item.get("type") or "") in _GENERIC_RELATION_TYPES
+        and (str(item.get("source") or ""), str(item.get("target") or "")) in specific_pairs
+    ]
+    for key in drop:
+        bucket.pop(key, None)
+
+
 def _collect_keyword_results(
     payload: Dict[str, Any],
     entities: Dict[str, Dict[str, Any]],
@@ -438,12 +466,15 @@ def _collect_semantic_results(
     for item in payload.get("relations") or []:
         if not isinstance(item, dict):
             continue
+        raw_type = str(item.get("type") or "").strip()
         _add_relation(
             relations,
             {
                 "source": item.get("source_id"),
                 "target": item.get("target_id"),
-                "type": item.get("type"),
+                # 语义检索返回的是关系标签（RELATES），展示时换成中文"相关"；
+                # 真正的中文关系名要等 traverse 的 properties.type 补上
+                "type": _EDGE_LABELS.get(raw_type, raw_type),
                 "source_name": item.get("source_name"),
                 "target_name": item.get("target_name"),
                 "description": item.get("description"),
@@ -686,6 +717,7 @@ async def _run_kg_search(
     conversation: str,
     user_text: str,
     user_intent: str,
+    step_timeout: float = STEP_TIMEOUT,
 ) -> List[str]:
     """执行一次完整检索，返回待写入 retrieved_content 的文本行。
 
@@ -697,9 +729,6 @@ async def _run_kg_search(
         status = await kg.get_status(probe_llm=False)
         if not status.get("ok"):
             raise KGRetrievalError(f"知识图谱服务未就绪，{_components_error(status)}")
-        graph = (status.get("components") or {}).get("graph") or {}
-        graph_empty = bool(graph.get("empty"))
-
         # 2. 图谱概况 → 交给大模型产出检索计划
         schema = await kg.get_schema()
         plan = plan_search(
@@ -771,17 +800,24 @@ async def _run_kg_search(
                     starts.append(entity_id)
             for start in starts[:MAX_TRAVERSE_STARTS]:
                 try:
-                    subgraph = await kg.traverse(
-                        start,
-                        start_kind="auto",
-                        depth=plan.traverse_depth,
-                        direction="both",
-                        node_limit=TRAVERSE_NODE_LIMIT,
-                        edge_limit=TRAVERSE_EDGE_LIMIT,
+                    subgraph = await asyncio.wait_for(
+                        kg.traverse(
+                            start,
+                            start_kind="auto",
+                            depth=plan.traverse_depth,
+                            direction="both",
+                            node_limit=TRAVERSE_NODE_LIMIT,
+                            edge_limit=TRAVERSE_EDGE_LIMIT,
+                        ),
+                        timeout=step_timeout,
                     )
                 except RemoteKGNotFoundError:
                     # 名字不在图谱里是正常情况（模型可能猜了名字），不算检索失败
                     print(f"【知识图谱检索】跳过图谱中不存在的起点：{start}")
+                    continue
+                except (asyncio.TimeoutError, RemoteKGTimeoutError) as exc:
+                    # 单步超时不值得让整轮检索失败：跳过，已拿到的结果继续用
+                    print(f"【知识图谱检索】起点 {start} 展开超时，已跳过：{exc}")
                     continue
                 _collect_subgraph(subgraph, entities, chunks, documents, relations, name_map)
 
@@ -789,8 +825,11 @@ async def _run_kg_search(
         entity_ids = [str(item.get("id")) for item in entities.values() if item.get("id")]
         if len(entity_ids) >= 2:
             try:
-                found_paths = await kg.find_paths(
-                    entity_ids[0], entity_ids[1], max_depth=PATH_MAX_DEPTH, limit=PATH_LIMIT
+                found_paths = await asyncio.wait_for(
+                    kg.find_paths(
+                        entity_ids[0], entity_ids[1], max_depth=PATH_MAX_DEPTH, limit=PATH_LIMIT
+                    ),
+                    timeout=step_timeout,
                 )
                 for path in found_paths.get("paths") or []:
                     if not isinstance(path, dict):
@@ -807,18 +846,30 @@ async def _run_kg_search(
                         lines.append(path_line)
             except RemoteKGNotFoundError:
                 print("【知识图谱检索】两个实体之间无可用端点，跳过路径查找")
+            except (asyncio.TimeoutError, RemoteKGTimeoutError) as exc:
+                print(f"【知识图谱检索】路径查找超时，已跳过：{exc}")
 
         # 7. 批量读回分块原文作为证据
         chunk_ids = [str(item.get("id")) for item in chunks.values() if item.get("id")]
         if plan.max_chunks > 0 and chunk_ids:
-            bodies = await kg.get_nodes_bodies(
-                chunk_ids[: plan.max_chunks], max_chars=plan.body_chars
-            )
+            try:
+                bodies = await asyncio.wait_for(
+                    kg.get_nodes_bodies(
+                        chunk_ids[: plan.max_chunks], max_chars=plan.body_chars
+                    ),
+                    timeout=step_timeout,
+                )
+            except (asyncio.TimeoutError, RemoteKGTimeoutError) as exc:
+                print(f"【知识图谱检索】读回原文超时，已跳过：{exc}")
+                bodies = {}
             for payload in bodies.get("nodes") or []:
                 if isinstance(payload, dict):
                     body_line = _fmt_body(payload, name_map)
                     if body_line:
                         lines.append(body_line)
+
+        # 语义召回只有"相关"这类泛化类型，遍历才给出具体关系：去重后再渲染
+        _drop_generic_relations(relations)
 
         # 8. 渲染实体/关系/分块/文档（原文之前，便于写作模型先看结论再看证据）
         document_lines = [_fmt_document(item) for item in list(documents.values())[:MAX_DOCUMENTS]]
@@ -837,7 +888,6 @@ async def _run_kg_search(
             f"【知识图谱检索】目标：{target}｜焦点：{plan.focus}｜"
             f"实体 {len(entities)} 个、关系 {len(relations)} 条、分块 {len(chunks)} 个、"
             f"文档 {len(documents)} 个｜语义模式 {semantic_mode}"
-            f"{'｜图谱当前为空' if graph_empty else ''}"
         )
         lines.insert(0, header)
 
@@ -891,15 +941,56 @@ def _merge_content(existing: Sequence[str], incoming: Sequence[str]) -> List[str
     return merged
 
 
-def create_kg_retrieve_node(llm: Any, kg_tool: Optional[RemoteKGTool]):
+def _fail(state: AgentState, error: str, *, fatal: bool = False) -> AgentState:
+    """远程图谱失败时的统一出口。
+
+    三件事缺一不可：
+
+    * ``retrieve_tool`` 置 ``end``：保持状态自洽，但**它并不阻止下一轮重新规划**——
+      ``retrieve`` 节点只看 ``retrieve_count_limit`` 就无条件让模型重新决策，所以
+      "不再白跑"真正靠的是：写进素材的不可用说明（模型能看到）+ 次数上限；
+    * 原因写进 ``retrieved_content``：写作节点读的是这个字段，``error`` 会被后面的
+      写作节点覆盖成 ``succeeded``，指望不上；
+    * ``state`` 标记失败：``fatal=False`` 时是 ``error``（这一步失败、流程继续写）；
+      ``fatal=True`` 时是 ``aborted``（按配置停写，路由直接结束、不生成文档）。
+
+    注意：``fatal`` 只用于**故障类**失败（连不上、超时、401/503、没配客户端）；
+    "查了但图里没有"不走 ``_fail``，那条路径继续降级写作——没查到不等于出错。
+    """
+    print(f"[知识图谱检索错误] {error}")
+    merged = _merge_content(
+        state.get("retrieved_content") or [],
+        [f"【知识图谱不可用】{error}"],
+    )
+    return {
+        **state,
+        "state": "aborted" if fatal else "error",
+        "error": error,
+        "retrieve_tool": "end",
+        "retrieved_content": merged,
+    }
+
+
+def create_kg_retrieve_node(
+    llm: Any,
+    kg_tool: Optional[RemoteKGTool],
+    on_failure: str = "degrade",
+    step_timeout: float = STEP_TIMEOUT,
+    node_timeout: float = NODE_TIMEOUT,
+):
     """创建知识图谱检索节点。
 
     :param llm: 用于规划检索过程的对话模型；传 ``None`` 时走确定性兜底计划
         （直接拿 ``retrieve_target`` 做关键词 + 语义检索并展开一跳）
     :param kg_tool: 远程知识图谱客户端实例（:class:`RemoteKGTool`），
         协议见 ``retrieve_protocol.md``；``None`` 时节点直接报错
+    :param on_failure: 故障类失败后的策略。``degrade``（默认）继续写作并在素材里注明；
+        ``stop`` 直接终止本次写作（用户明确要求"必须依据图谱"时应选它）
+    :param step_timeout: 单步（遍历/路径/读原文）超时秒数，超了跳过并标注"部分来源超时"
+    :param node_timeout: 整轮超时秒数（含一次检索计划模型调用）
     :return: 节点函数 ``kg_retrive(state) -> state``
     """
+    fatal = str(on_failure or "").strip().lower() == "stop"
 
     def kg_retrive(state: AgentState) -> AgentState:
         messages = list(state.get("messages") or [])
@@ -914,34 +1005,35 @@ def create_kg_retrieve_node(llm: Any, kg_tool: Optional[RemoteKGTool]):
             target = user_text
         if not target:
             error = "知识图谱检索失败：缺少检索目标（retrieve_target、retrieve_params 与用户输入均为空）"
-            print(f"[知识图谱检索错误] {error}")
-            return {**state, "state": "error", "error": error}
+            return _fail(state, error, fatal=fatal)
         if kg_tool is None:
             error = "知识图谱检索失败：未配置远程知识图谱客户端（create_kg_retrieve_node 的第二个参数为空）"
-            print(f"[知识图谱检索错误] {error}")
-            return {**state, "state": "error", "error": error}
+            return _fail(state, error, fatal=fatal)
 
         print("=" * 20, "开始知识图谱检索，目标：", target, "=" * 20)
         conversation = _conversation_text(messages)
         try:
             lines = _run_sync(
-                _run_kg_search(
-                    kg_tool,
-                    llm,
-                    target=target,
-                    conversation=conversation,
-                    user_text=user_text,
-                    user_intent=str(state.get("user_intent") or "new"),
+                # 整轮总预算：远端卡住时最多等 NODE_TIMEOUT 秒，不会一直挂着
+                asyncio.wait_for(
+                    _run_kg_search(
+                        kg_tool,
+                        llm,
+                        target=target,
+                        conversation=conversation,
+                        user_text=user_text,
+                        user_intent=str(state.get("user_intent") or "new"),
+                        step_timeout=step_timeout,
+                    ),
+                    timeout=node_timeout,
                 )
             )
+        except asyncio.TimeoutError:
+            return _fail(state, f"知识图谱检索失败：超过 {node_timeout} 秒未完成，已放弃本轮远程检索", fatal=fatal)
         except (RemoteKGError, KGRetrievalError) as exc:
-            error = f"知识图谱检索失败：{exc}"
-            print(f"[知识图谱检索错误] {error}")
-            return {**state, "state": "error", "error": error}
+            return _fail(state, f"知识图谱检索失败：{exc}", fatal=fatal)
         except Exception as exc:  # 编码问题、事件循环问题等非协议错误同样直接返回
-            error = f"知识图谱检索失败：{type(exc).__name__}: {exc}"
-            print(f"[知识图谱检索错误] {error}")
-            return {**state, "state": "error", "error": error}
+            return _fail(state, f"知识图谱检索失败：{type(exc).__name__}: {exc}", fatal=fatal)
 
         if not lines:
             lines = [f"【知识图谱】未在知识图谱中检索到与“{target}”相关的内容。"]
