@@ -1,0 +1,1079 @@
+{
+  "version": "1.0.24",
+  "reviewed_at": "2026-10-31T00:03:25.341543+08:00",
+  "candidate_commit": "a83c6dffa1584ab87423b523fdf2e89cdcb40f55",
+  "previous_pushed_test_commit": "d07ae3ea37bd8b61444bac9558eacac919c84be5",
+  "counts": {
+    "new_natural_executions": 2,
+    "controlled_historical_decision_replays": 1,
+    "offline_handoff_checks": 7,
+    "cumulative_natural_CP002_executions": 3
+  },
+  "def003": {
+    "closed": false,
+    "status_zh": "原交接分支定向验证通过；自然生成仍有限定遗漏，暂不关闭",
+    "summary_zh": "历史end参数已能传到实际Word；自然A003遗漏发现起算限定，故不宣布事实保真全部通过。001／002第二轮扩样待执行。",
+    "original_path_verdict_zh": "原摘要直接end的工具决策分支已完成受控真实写作回放：15天、发现起4小时内报演示协调员、75天正确进入提示和最终Word；旧实现负对照确实丢字段。",
+    "whole_case_verdict_zh": "新增两次自然执行和一次受控回放均有未满足项：A002为516字/2表/缺标题/部分字体；A003为87字/无表但缺标题及发现起算限定；受控回放为179字/1表/缺标题/部分字体。全文约束继续关联DEF-004，语义限定风险在DEF-003保留。",
+    "limitations_zh": "自然执行累计3次为旧A001加本次A002/A003，实际均file→end；受控历史工具决策回放另计1次，不冒充自然选择end或完整历史AgentState。001/002扩样、36条正式整体验收及远程图谱新功能尚未完成。"
+  },
+  "attempts": [
+    {
+      "case": "CP-002",
+      "attempt": "002",
+      "candidate_commit": "a83c6dffa1584ab87423b523fdf2e89cdcb40f55",
+      "evidence_date": "2026-10-30",
+      "execution_receipt_sha256": "5b2909aad65f6810e1820519c9fd318160ecc52d6c763612e9374b997295e09c",
+      "runner_sha256": "8aaf1b38dccd4724aafc16584ad2f33220b5638914b9ae4ca4d11d1be1f84740",
+      "adapter_sha256": "c48981177807e47aadc0666fd708d451f3130de123873e7f0466f20ac16128c3",
+      "model_requested": "hy3",
+      "response_model_identity": "not independently retained",
+      "original_attempt": "CP-002",
+      "request": {
+        "text": "只依据《云芦园区长指南_v1.0.15.txt》写《监测箱E2检查要点 v1.0.15》，只回答三个字段：E2例行检查频率、E2异常报告时限及接收角色、E2校验记录保留期。明确对象和单位，不使用T1、L8、工具便条或通行资料的规则。正文最多160个非空白字符，不含文档标题，包含字段名称；不用表格，不检索知识库，不补充资料没有的信息，全部文字黑色、中文宋体，另存为CP-002_结果_v1.0.15.docx。\n",
+        "sha256": "341790d8bfdec0c97639b3c33e3ea7e5c796635d4a7a3b39c40615d5586a03cb"
+      },
+      "pre_run_expected": {
+        "text": "# CP-002 预期检查清单 v1.0.15\n\n版本：v1.0.15。制定阶段：运行前。业务状态：未执行。用例：[查看操作](../cases/case_CP-002_v1.0.15.md)。\n\n## 逐项核对\n\n- [ ] E2例行检查频率为每15天一次，来源第四章，不采用T1每10天或L8每月。\n- [ ] E2演示异常发现后4小时内向演示协调员报告，来源第十章；不可写成2小时或1小时。\n- [ ] E2校验记录保留75天，来源第十七章；不串入90天、30天、20天或便条7天。\n- [ ] 三个字段都明确指向E2，接收角色不能误写成资料复核员或温度演示员。\n- [ ] 只回答三个字段，不把其他设备或数量当本例必需内容；不编造来源。\n- [ ] 正文≤160个非空白字符，不含文档标题、含字段名称；无表格、宋体黑色，输出版本v1.0.15。\n\n## 判定边界\n\n- 长TXT只证明本例读取/检索与写作场景，不等同于摘要DAG或图谱问答已执行。\n\n输入基准与哈希见[准备清单](../manifest_v1.0.15.json)及[Word结构基准](baselines_v1.0.15.json)。结构快照只描述输入，不是预期输出，更不是实际输出。\n\n未检查项保持未检查；生成式内容可用等义表达，但数字、对应关系和否定条件必须逐项对照。仅结构核对不能代替Word页面实看；字体和颜色也要检查实际继承。发现失败先保留完整材料，再确认是否为原产品缺陷、接入适配、环境问题或待确认需求。\n",
+        "sha256": "1744d6830c2fbe380e3d41c67b1ff7a0cfc6b05032dcdbc3db00e90a541fa77f"
+      },
+      "inputs": [
+        {
+          "name": "云芦园区长指南_v1.0.15.txt",
+          "frozen_sha256": "d0a41b1cbfb6276ebe3d16497e0847fe3fad5f1a8db72127a6b3a4a0c31c0b6b",
+          "work_sha256": "d0a41b1cbfb6276ebe3d16497e0847fe3fad5f1a8db72127a6b3a4a0c31c0b6b"
+        }
+      ],
+      "started": "2026-10-30T23:12:23.598614+08:00",
+      "finished": "2026-10-30T23:19:40.970528+08:00",
+      "elapsed_seconds": 437.38,
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "business_error": null,
+      "business_result_record_present": true,
+      "candidate_unchanged": true,
+      "inputs_preserved": true,
+      "candidate_file_sha256_before": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "candidate_file_sha256_after": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "harness": {
+        "limit_seconds": 900,
+        "timed_out": false,
+        "controller_error": null,
+        "blocked_file_write_count": 0,
+        "blocked_file_write_operations": [],
+        "clear_for_business_review": true,
+        "scope_modes": {
+          "SCOPE_CONTRACT_MODE": "contract",
+          "WHOLE_CONTAINER_MODE": "contract"
+        }
+      },
+      "outputs": [
+        {
+          "original_saved_name": "CP-002_结果_v1.0.15.docx",
+          "attempt_relative_path": "work/data/CP-002_结果_v1.0.15.docx",
+          "shared_name": "a83c6df_A002_CP-002_结果_v1.0.15.docx",
+          "bytes": 38039,
+          "sha256": "a68c40f442bc5a48e8030070d41c0a8af0b24a13228269464c3ca4159fc1ee94",
+          "package_review": {
+            "xml_parts_scanned": 16,
+            "sensitive_pattern_matches": 0,
+            "external_relationships": [],
+            "core_properties": [
+              {
+                "property": "title",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "subject",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "creator",
+                "value_present": true,
+                "value_sha256": "0d8eb615908c7b351e4eae8f1880868455fa2a36d39beba92fd5a9b20b4589e8"
+              },
+              {
+                "property": "keywords",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "description",
+                "value_present": true,
+                "value_sha256": "55cc5c37fb969e2783532824dd7796a67c6b5c149d478f992723c6780cc606b6"
+              },
+              {
+                "property": "lastModifiedBy",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "revision",
+                "value_present": true,
+                "value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+              },
+              {
+                "property": "created",
+                "value_present": true,
+                "value_sha256": "7543a7f7a975d83d559234257a271d3906f7776b4094474ce90c4b33e8522dee"
+              },
+              {
+                "property": "modified",
+                "value_present": true,
+                "value_sha256": "7543a7f7a975d83d559234257a271d3906f7776b4094474ce90c4b33e8522dee"
+              },
+              {
+                "property": "category",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              }
+            ],
+            "review_boundary": "Finite text-pattern and package inspection; binary/media privacy and semantic content require human review."
+          }
+        }
+      ],
+      "offline_audit": {
+        "audit_present": true,
+        "auditor_version": "1.0.23",
+        "auditor_sha256": "d0710d6fabd928d7c8f65b0d2f749dc68b38436c7e2637ae9e97a732498b1c9f",
+        "manual_review": "not decided by exporter",
+        "checks": [
+          {
+            "name": "candidate_unchanged_during_execution",
+            "status": "pass"
+          },
+          {
+            "name": "frozen_hash:云芦园区长指南_v1.0.15.txt",
+            "status": "pass"
+          },
+          {
+            "name": "work_input_hash:云芦园区长指南_v1.0.15.txt",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_exists:work/data/CP-002_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_hash:work/data/CP-002_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "requested_output_filename:work/data/CP-002_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_outputs_match_actual_word_files",
+            "status": "pass",
+            "detail": {
+              "unrecorded": [],
+              "recorded_not_discovered": []
+            }
+          },
+          {
+            "name": "exactly_one_recorded_word",
+            "status": "pass",
+            "detail": {
+              "count": 1
+            }
+          }
+        ],
+        "output_checks": [
+          {
+            "path": "work/data/CP-002_结果_v1.0.15.docx",
+            "sha256": "a68c40f442bc5a48e8030070d41c0a8af0b24a13228269464c3ca4159fc1ee94",
+            "checks": [
+              {
+                "name": "requested_document_title_present",
+                "status": "fail"
+              },
+              {
+                "name": "requested_document_title_at_start",
+                "status": "fail"
+              },
+              {
+                "name": "body_within_frozen_request_limit",
+                "status": "fail",
+                "detail": {
+                  "actual": 516,
+                  "limit": 160
+                }
+              },
+              {
+                "name": "no_tables",
+                "status": "fail"
+              },
+              {
+                "name": "resolved_chinese_font_and_color",
+                "status": "fail",
+                "detail": {
+                  "mismatches": [
+                    {
+                      "location": "p[0]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "黑体"
+                    },
+                    {
+                      "location": "p[4]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "微软雅黑"
+                    },
+                    {
+                      "location": "p[5]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "微软雅黑"
+                    },
+                    {
+                      "location": "p[7]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "微软雅黑"
+                    },
+                    {
+                      "location": "p[9]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "微软雅黑"
+                    }
+                  ],
+                  "unresolved": [],
+                  "note": "Theme/automatic/missing values are unknown; inspect effective theme/Word rendering, not automatic failure."
+                }
+              }
+            ],
+            "body_non_whitespace_characters": 516,
+            "all_non_whitespace_characters": 516,
+            "limit": 160,
+            "table_count": 2,
+            "document_title_found": false,
+            "document_title_at_start": false,
+            "title_paragraph_indices_zero_based": []
+          }
+        ]
+      },
+      "manual_review": {
+        "reviewer": "root",
+        "reviewed_at": "2026-10-31T00:03:25.341543+08:00",
+        "independent_review": "Completed by def003_acceptance_review; final Word bytes and semantic conditions checked",
+        "summary_zh": "15天、发现起4小时内报演示协调员、75天及E2对应关系正确；T1仅作不用的对照。516字、2表、缺指定总标题、部分非宋体，整例失败。",
+        "whole_case_verdict_zh": "失败，原预期保持不变",
+        "visual_page_reviewed": true,
+        "not_inferred_from_marker_checks": true
+      },
+      "acceptance": "manual semantic and visual review required; exporter does not close defects",
+      "limitations": [
+        "Request model identity only; response model identity not independently retained.",
+        "One isolated database per batch, not per case; cases serialized.",
+        "Archived WorkBuddy protocol adapter reused in memory; old local docx-prompt and console-exit patches were not copied into candidate.",
+        "900 seconds is a harness bound, not a product performance SLA."
+      ],
+      "evidence_kind": "natural_e2e",
+      "reused_runner_sha256": "8aaf1b38dccd4724aafc16584ad2f33220b5638914b9ae4ca4d11d1be1f84740",
+      "rendered_page": {
+        "name": "a83c6df_A002_CP-002_page-1_v1.0.24.png",
+        "sha256": "c9f91e49ec67e480d2f03fec760e2ad4dd20d5c067c9b84aaa5bfcb009323cd0",
+        "source_word_sha256": "a68c40f442bc5a48e8030070d41c0a8af0b24a13228269464c3ca4159fc1ee94",
+        "method": "WPS read-only copy and Poppler; root viewed raw page"
+      },
+      "natural_end_to_end": true
+    },
+    {
+      "case": "CP-002",
+      "attempt": "003",
+      "candidate_commit": "a83c6dffa1584ab87423b523fdf2e89cdcb40f55",
+      "evidence_date": "2026-10-30",
+      "execution_receipt_sha256": "056861844a325d3e308db245cfef5ae556103c285c10c16395365591a2620f97",
+      "runner_sha256": "8aaf1b38dccd4724aafc16584ad2f33220b5638914b9ae4ca4d11d1be1f84740",
+      "adapter_sha256": "c48981177807e47aadc0666fd708d451f3130de123873e7f0466f20ac16128c3",
+      "model_requested": "hy3",
+      "response_model_identity": "not independently retained",
+      "original_attempt": "CP-002",
+      "request": {
+        "text": "只依据《云芦园区长指南_v1.0.15.txt》写《监测箱E2检查要点 v1.0.15》，只回答三个字段：E2例行检查频率、E2异常报告时限及接收角色、E2校验记录保留期。明确对象和单位，不使用T1、L8、工具便条或通行资料的规则。正文最多160个非空白字符，不含文档标题，包含字段名称；不用表格，不检索知识库，不补充资料没有的信息，全部文字黑色、中文宋体，另存为CP-002_结果_v1.0.15.docx。\n",
+        "sha256": "341790d8bfdec0c97639b3c33e3ea7e5c796635d4a7a3b39c40615d5586a03cb"
+      },
+      "pre_run_expected": {
+        "text": "# CP-002 预期检查清单 v1.0.15\n\n版本：v1.0.15。制定阶段：运行前。业务状态：未执行。用例：[查看操作](../cases/case_CP-002_v1.0.15.md)。\n\n## 逐项核对\n\n- [ ] E2例行检查频率为每15天一次，来源第四章，不采用T1每10天或L8每月。\n- [ ] E2演示异常发现后4小时内向演示协调员报告，来源第十章；不可写成2小时或1小时。\n- [ ] E2校验记录保留75天，来源第十七章；不串入90天、30天、20天或便条7天。\n- [ ] 三个字段都明确指向E2，接收角色不能误写成资料复核员或温度演示员。\n- [ ] 只回答三个字段，不把其他设备或数量当本例必需内容；不编造来源。\n- [ ] 正文≤160个非空白字符，不含文档标题、含字段名称；无表格、宋体黑色，输出版本v1.0.15。\n\n## 判定边界\n\n- 长TXT只证明本例读取/检索与写作场景，不等同于摘要DAG或图谱问答已执行。\n\n输入基准与哈希见[准备清单](../manifest_v1.0.15.json)及[Word结构基准](baselines_v1.0.15.json)。结构快照只描述输入，不是预期输出，更不是实际输出。\n\n未检查项保持未检查；生成式内容可用等义表达，但数字、对应关系和否定条件必须逐项对照。仅结构核对不能代替Word页面实看；字体和颜色也要检查实际继承。发现失败先保留完整材料，再确认是否为原产品缺陷、接入适配、环境问题或待确认需求。\n",
+        "sha256": "1744d6830c2fbe380e3d41c67b1ff7a0cfc6b05032dcdbc3db00e90a541fa77f"
+      },
+      "inputs": [
+        {
+          "name": "云芦园区长指南_v1.0.15.txt",
+          "frozen_sha256": "d0a41b1cbfb6276ebe3d16497e0847fe3fad5f1a8db72127a6b3a4a0c31c0b6b",
+          "work_sha256": "d0a41b1cbfb6276ebe3d16497e0847fe3fad5f1a8db72127a6b3a4a0c31c0b6b"
+        }
+      ],
+      "started": "2026-10-30T23:21:25.413675+08:00",
+      "finished": "2026-10-30T23:26:35.667952+08:00",
+      "elapsed_seconds": 310.27,
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "business_error": null,
+      "business_result_record_present": true,
+      "candidate_unchanged": true,
+      "inputs_preserved": true,
+      "candidate_file_sha256_before": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "candidate_file_sha256_after": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "harness": {
+        "limit_seconds": 900,
+        "timed_out": false,
+        "controller_error": null,
+        "blocked_file_write_count": 0,
+        "blocked_file_write_operations": [],
+        "clear_for_business_review": true,
+        "scope_modes": {
+          "SCOPE_CONTRACT_MODE": "contract",
+          "WHOLE_CONTAINER_MODE": "contract"
+        }
+      },
+      "outputs": [
+        {
+          "original_saved_name": "CP-002_结果_v1.0.15.docx",
+          "attempt_relative_path": "work/data/CP-002_结果_v1.0.15.docx",
+          "shared_name": "a83c6df_A003_CP-002_结果_v1.0.15.docx",
+          "bytes": 36989,
+          "sha256": "d4f69afed5440fdf9688d50f90a1d6fb1d4b32fe27e75d286e5fff60de79c227",
+          "package_review": {
+            "xml_parts_scanned": 16,
+            "sensitive_pattern_matches": 0,
+            "external_relationships": [],
+            "core_properties": [
+              {
+                "property": "title",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "subject",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "creator",
+                "value_present": true,
+                "value_sha256": "0d8eb615908c7b351e4eae8f1880868455fa2a36d39beba92fd5a9b20b4589e8"
+              },
+              {
+                "property": "keywords",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "description",
+                "value_present": true,
+                "value_sha256": "55cc5c37fb969e2783532824dd7796a67c6b5c149d478f992723c6780cc606b6"
+              },
+              {
+                "property": "lastModifiedBy",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "revision",
+                "value_present": true,
+                "value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+              },
+              {
+                "property": "created",
+                "value_present": true,
+                "value_sha256": "7543a7f7a975d83d559234257a271d3906f7776b4094474ce90c4b33e8522dee"
+              },
+              {
+                "property": "modified",
+                "value_present": true,
+                "value_sha256": "7543a7f7a975d83d559234257a271d3906f7776b4094474ce90c4b33e8522dee"
+              },
+              {
+                "property": "category",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              }
+            ],
+            "review_boundary": "Finite text-pattern and package inspection; binary/media privacy and semantic content require human review."
+          }
+        }
+      ],
+      "offline_audit": {
+        "audit_present": true,
+        "auditor_version": "1.0.23",
+        "auditor_sha256": "d0710d6fabd928d7c8f65b0d2f749dc68b38436c7e2637ae9e97a732498b1c9f",
+        "manual_review": "not decided by exporter",
+        "checks": [
+          {
+            "name": "candidate_unchanged_during_execution",
+            "status": "pass"
+          },
+          {
+            "name": "frozen_hash:云芦园区长指南_v1.0.15.txt",
+            "status": "pass"
+          },
+          {
+            "name": "work_input_hash:云芦园区长指南_v1.0.15.txt",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_exists:work/data/CP-002_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_hash:work/data/CP-002_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "requested_output_filename:work/data/CP-002_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_outputs_match_actual_word_files",
+            "status": "pass",
+            "detail": {
+              "unrecorded": [],
+              "recorded_not_discovered": []
+            }
+          },
+          {
+            "name": "exactly_one_recorded_word",
+            "status": "pass",
+            "detail": {
+              "count": 1
+            }
+          }
+        ],
+        "output_checks": [
+          {
+            "path": "work/data/CP-002_结果_v1.0.15.docx",
+            "sha256": "d4f69afed5440fdf9688d50f90a1d6fb1d4b32fe27e75d286e5fff60de79c227",
+            "checks": [
+              {
+                "name": "requested_document_title_present",
+                "status": "fail"
+              },
+              {
+                "name": "requested_document_title_at_start",
+                "status": "fail"
+              },
+              {
+                "name": "body_within_frozen_request_limit",
+                "status": "pass",
+                "detail": {
+                  "actual": 87,
+                  "limit": 160
+                }
+              },
+              {
+                "name": "no_tables",
+                "status": "pass"
+              },
+              {
+                "name": "resolved_chinese_font_and_color",
+                "status": "pass",
+                "detail": {
+                  "mismatches": [],
+                  "unresolved": [],
+                  "note": "Theme/automatic/missing values are unknown; inspect effective theme/Word rendering, not automatic failure."
+                }
+              }
+            ],
+            "body_non_whitespace_characters": 87,
+            "all_non_whitespace_characters": 87,
+            "limit": 160,
+            "table_count": 0,
+            "document_title_found": false,
+            "document_title_at_start": false,
+            "title_paragraph_indices_zero_based": []
+          }
+        ]
+      },
+      "manual_review": {
+        "reviewer": "root",
+        "reviewed_at": "2026-10-31T00:03:25.341543+08:00",
+        "independent_review": "Completed by def003_acceptance_review; final Word bytes and semantic conditions checked",
+        "summary_zh": "15天、4小时、演示协调员和75天数值与角色正确；沿用原文第32行第一句却遗漏下一句发现起算限定。87字、无表、宋体黑色符合，缺指定总标题。人工语义核对仍不通过。",
+        "whole_case_verdict_zh": "失败，原预期保持不变",
+        "visual_page_reviewed": true,
+        "not_inferred_from_marker_checks": true
+      },
+      "acceptance": "manual semantic and visual review required; exporter does not close defects",
+      "limitations": [
+        "Request model identity only; response model identity not independently retained.",
+        "One isolated database per batch, not per case; cases serialized.",
+        "Archived WorkBuddy protocol adapter reused in memory; old local docx-prompt and console-exit patches were not copied into candidate.",
+        "900 seconds is a harness bound, not a product performance SLA."
+      ],
+      "evidence_kind": "natural_e2e",
+      "reused_runner_sha256": "8aaf1b38dccd4724aafc16584ad2f33220b5638914b9ae4ca4d11d1be1f84740",
+      "rendered_page": {
+        "name": "a83c6df_A003_CP-002_page-1_v1.0.24.png",
+        "sha256": "5ab8261b422e55c6ac870481572e9648bfc0c6899bc71d14f7dcfb46e1d26d64",
+        "source_word_sha256": "d4f69afed5440fdf9688d50f90a1d6fb1d4b32fe27e75d286e5fff60de79c227",
+        "method": "WPS read-only copy and Poppler; root viewed raw page"
+      },
+      "natural_end_to_end": true
+    },
+    {
+      "case": "CP-002",
+      "attempt": "end_replay_20261030",
+      "candidate_commit": "a83c6dffa1584ab87423b523fdf2e89cdcb40f55",
+      "evidence_date": "2026-10-30",
+      "execution_receipt_sha256": "1e03ae5ba8654f6115e4fe43da71b4fbf9f8ea036391aa0ee336f453dbac778d",
+      "runner_sha256": "90bf61abcdbdbad41aa8d5e1f17495a379ee74ab6589ae50c318e5c36e554416",
+      "adapter_sha256": "c48981177807e47aadc0666fd708d451f3130de123873e7f0466f20ac16128c3",
+      "model_requested": "hy3",
+      "response_model_identity": "not independently retained",
+      "original_attempt": "CP-002",
+      "request": {
+        "text": "只依据《云芦园区长指南_v1.0.15.txt》写《监测箱E2检查要点 v1.0.15》，只回答三个字段：E2例行检查频率、E2异常报告时限及接收角色、E2校验记录保留期。明确对象和单位，不使用T1、L8、工具便条或通行资料的规则。正文最多160个非空白字符，不含文档标题，包含字段名称；不用表格，不检索知识库，不补充资料没有的信息，全部文字黑色、中文宋体，另存为CP-002_结果_v1.0.15.docx。\n",
+        "sha256": "341790d8bfdec0c97639b3c33e3ea7e5c796635d4a7a3b39c40615d5586a03cb"
+      },
+      "pre_run_expected": {
+        "text": "# CP-002 预期检查清单 v1.0.15\n\n版本：v1.0.15。制定阶段：运行前。业务状态：未执行。用例：[查看操作](../cases/case_CP-002_v1.0.15.md)。\n\n## 逐项核对\n\n- [ ] E2例行检查频率为每15天一次，来源第四章，不采用T1每10天或L8每月。\n- [ ] E2演示异常发现后4小时内向演示协调员报告，来源第十章；不可写成2小时或1小时。\n- [ ] E2校验记录保留75天，来源第十七章；不串入90天、30天、20天或便条7天。\n- [ ] 三个字段都明确指向E2，接收角色不能误写成资料复核员或温度演示员。\n- [ ] 只回答三个字段，不把其他设备或数量当本例必需内容；不编造来源。\n- [ ] 正文≤160个非空白字符，不含文档标题、含字段名称；无表格、宋体黑色，输出版本v1.0.15。\n\n## 判定边界\n\n- 长TXT只证明本例读取/检索与写作场景，不等同于摘要DAG或图谱问答已执行。\n\n输入基准与哈希见[准备清单](../manifest_v1.0.15.json)及[Word结构基准](baselines_v1.0.15.json)。结构快照只描述输入，不是预期输出，更不是实际输出。\n\n未检查项保持未检查；生成式内容可用等义表达，但数字、对应关系和否定条件必须逐项对照。仅结构核对不能代替Word页面实看；字体和颜色也要检查实际继承。发现失败先保留完整材料，再确认是否为原产品缺陷、接入适配、环境问题或待确认需求。\n",
+        "sha256": "1744d6830c2fbe380e3d41c67b1ff7a0cfc6b05032dcdbc3db00e90a541fa77f"
+      },
+      "inputs": [
+        {
+          "name": "云芦园区长指南_v1.0.15.txt",
+          "frozen_sha256": "d0a41b1cbfb6276ebe3d16497e0847fe3fad5f1a8db72127a6b3a4a0c31c0b6b",
+          "work_sha256": "d0a41b1cbfb6276ebe3d16497e0847fe3fad5f1a8db72127a6b3a4a0c31c0b6b"
+        }
+      ],
+      "started": "2026-10-30T23:38:01.347380+08:00",
+      "finished": "2026-10-30T23:41:53.661020+08:00",
+      "elapsed_seconds": 232.33,
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "business_error": null,
+      "business_result_record_present": true,
+      "candidate_unchanged": true,
+      "inputs_preserved": true,
+      "candidate_file_sha256_before": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "candidate_file_sha256_after": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "harness": {
+        "limit_seconds": 900,
+        "timed_out": false,
+        "controller_error": null,
+        "blocked_file_write_count": 0,
+        "blocked_file_write_operations": [],
+        "clear_for_business_review": true,
+        "scope_modes": {
+          "SCOPE_CONTRACT_MODE": "contract",
+          "WHOLE_CONTAINER_MODE": "contract"
+        }
+      },
+      "outputs": [
+        {
+          "original_saved_name": "CP-002_结果_v1.0.15.docx",
+          "attempt_relative_path": "work/data/CP-002_结果_v1.0.15.docx",
+          "shared_name": "a83c6df_ENDREPLAY_CP-002_结果_v1.0.15.docx",
+          "bytes": 37295,
+          "sha256": "228040e96f51a4e416c314a510574134337ba76aefa96deb27633ed4afdc3f97",
+          "package_review": {
+            "xml_parts_scanned": 16,
+            "sensitive_pattern_matches": 0,
+            "external_relationships": [],
+            "core_properties": [
+              {
+                "property": "title",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "subject",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "creator",
+                "value_present": true,
+                "value_sha256": "0d8eb615908c7b351e4eae8f1880868455fa2a36d39beba92fd5a9b20b4589e8"
+              },
+              {
+                "property": "keywords",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "description",
+                "value_present": true,
+                "value_sha256": "55cc5c37fb969e2783532824dd7796a67c6b5c149d478f992723c6780cc606b6"
+              },
+              {
+                "property": "lastModifiedBy",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "revision",
+                "value_present": true,
+                "value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+              },
+              {
+                "property": "created",
+                "value_present": true,
+                "value_sha256": "7543a7f7a975d83d559234257a271d3906f7776b4094474ce90c4b33e8522dee"
+              },
+              {
+                "property": "modified",
+                "value_present": true,
+                "value_sha256": "7543a7f7a975d83d559234257a271d3906f7776b4094474ce90c4b33e8522dee"
+              },
+              {
+                "property": "category",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              }
+            ],
+            "review_boundary": "Finite text-pattern and package inspection; binary/media privacy and semantic content require human review."
+          }
+        }
+      ],
+      "offline_audit": {
+        "audit_present": true,
+        "auditor_version": "1.0.23",
+        "auditor_sha256": "d0710d6fabd928d7c8f65b0d2f749dc68b38436c7e2637ae9e97a732498b1c9f",
+        "manual_review": "not decided by exporter",
+        "checks": [
+          {
+            "name": "candidate_unchanged_during_execution",
+            "status": "pass"
+          },
+          {
+            "name": "frozen_hash:云芦园区长指南_v1.0.15.txt",
+            "status": "pass"
+          },
+          {
+            "name": "work_input_hash:云芦园区长指南_v1.0.15.txt",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_exists:work/data/CP-002_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_hash:work/data/CP-002_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "requested_output_filename:work/data/CP-002_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_outputs_match_actual_word_files",
+            "status": "pass",
+            "detail": {
+              "unrecorded": [],
+              "recorded_not_discovered": []
+            }
+          },
+          {
+            "name": "exactly_one_recorded_word",
+            "status": "pass",
+            "detail": {
+              "count": 1
+            }
+          }
+        ],
+        "output_checks": [
+          {
+            "path": "work/data/CP-002_结果_v1.0.15.docx",
+            "sha256": "228040e96f51a4e416c314a510574134337ba76aefa96deb27633ed4afdc3f97",
+            "checks": [
+              {
+                "name": "requested_document_title_present",
+                "status": "fail"
+              },
+              {
+                "name": "requested_document_title_at_start",
+                "status": "fail"
+              },
+              {
+                "name": "body_within_frozen_request_limit",
+                "status": "fail",
+                "detail": {
+                  "actual": 179,
+                  "limit": 160
+                }
+              },
+              {
+                "name": "no_tables",
+                "status": "fail"
+              },
+              {
+                "name": "resolved_chinese_font_and_color",
+                "status": "fail",
+                "detail": {
+                  "mismatches": [
+                    {
+                      "location": "p[0]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "微软雅黑"
+                    }
+                  ],
+                  "unresolved": [],
+                  "note": "Theme/automatic/missing values are unknown; inspect effective theme/Word rendering, not automatic failure."
+                }
+              }
+            ],
+            "body_non_whitespace_characters": 179,
+            "all_non_whitespace_characters": 179,
+            "limit": 160,
+            "table_count": 1,
+            "document_title_found": false,
+            "document_title_at_start": false,
+            "title_paragraph_indices_zero_based": []
+          }
+        ]
+      },
+      "manual_review": {
+        "reviewer": "root",
+        "reviewed_at": "2026-10-31T00:03:25.341543+08:00",
+        "independent_review": "Completed by def003_acceptance_review; final Word bytes and semantic conditions checked",
+        "summary_zh": "原end三字段进入真实候选检索结束处理和两处写作提示，实际Word正确保留E2每15天、发现起4小时报演示协调员、校验记录75天。179字、1表、总标题缺少、首段非宋体，整例失败。",
+        "whole_case_verdict_zh": "失败，原预期保持不变",
+        "visual_page_reviewed": true,
+        "not_inferred_from_marker_checks": true
+      },
+      "acceptance": "manual semantic and visual review required; exporter does not close defects",
+      "limitations": [
+        "Request model identity only; response model identity not independently retained.",
+        "One isolated database per batch, not per case; cases serialized.",
+        "Archived WorkBuddy protocol adapter reused in memory; old local docx-prompt and console-exit patches were not copied into candidate.",
+        "900 seconds is a harness bound, not a product performance SLA."
+      ],
+      "evidence_kind": "controlled_replay",
+      "reused_runner_sha256": "8aaf1b38dccd4724aafc16584ad2f33220b5638914b9ae4ca4d11d1be1f84740",
+      "rendered_page": {
+        "name": "a83c6df_ENDREPLAY_CP-002_page-1_v1.0.24.png",
+        "sha256": "c841bd467b5d79144d94fa49a950347f35fdb9f0a11d63bbbe6cbb8cd1307584",
+        "source_word_sha256": "228040e96f51a4e416c314a510574134337ba76aefa96deb27633ed4afdc3f97",
+        "method": "WPS read-only copy and Poppler; root viewed raw page"
+      },
+      "controlled_provenance": [
+        {
+          "event": "controlled_execution_declaration",
+          "at": "2026-10-30T23:38:09.179717+08:00",
+          "kind": "historical_tool_decision_replay",
+          "natural_end_to_end": false,
+          "full_historical_agent_state_replayed": false,
+          "historical_source_log_sha256": "28e67c0edda02d82ccc40b23458cedce2cbbf5e92f27d5c5d722ae9313eb4bfe",
+          "historical_line": 38,
+          "request_text_modified": false,
+          "current_summary_and_writer_are_real": true
+        },
+        {
+          "event": "replayed_retrieval_tool_choice",
+          "at": "2026-10-30T23:39:56.405898+08:00",
+          "tool_name": "end",
+          "arguments": {
+            "retrieved_fields": {
+              "E2例行检查频率": "监测箱E2（14套），每15天检查一次",
+              "E2异常报告时限及接收角色": "发现起4小时内报演示协调员",
+              "E2校验记录保留期": "E2校验记录保留75天"
+            }
+          },
+          "prompt_sha256": "79bda79318843161f4c29380d5d62958c0c983150a2bbd4b6d3cccec89fa7cf7"
+        },
+        {
+          "event": "actual_writer_prompt_provenance",
+          "at": "2026-10-30T23:39:56.407899+08:00",
+          "stage": "planning",
+          "prompt_sha256": "4a6822ca5997426aeac340b33c255ad602cc4cada3f4e26f3ddf89bf5318f6ee",
+          "prompt_changed": false,
+          "historical_end_block_present": true,
+          "fact_markers": {
+            "15天": true,
+            "4小时": true,
+            "演示协调员": true,
+            "75天": true
+          }
+        },
+        {
+          "event": "actual_writer_prompt_provenance",
+          "at": "2026-10-30T23:40:37.395259+08:00",
+          "stage": "writing",
+          "prompt_sha256": "3197d2d98f8f7ab39e93a935044aa83bcc60c5c8c0c7029b8f7e75077331b6a5",
+          "prompt_changed": false,
+          "historical_end_block_present": true,
+          "fact_markers": {
+            "15天": true,
+            "4小时": true,
+            "演示协调员": true,
+            "75天": true
+          }
+        },
+        {
+          "event": "controlled_replay_finished",
+          "at": "2026-10-30T23:41:43.537737+08:00",
+          "replayed_tool_choices": 1
+        }
+      ],
+      "natural_end_to_end": false,
+      "full_historical_agent_state_replayed": false
+    }
+  ],
+  "semantic_counterexample": {
+    "input_line": 32,
+    "source": "监测箱E2发生演示异常后，应在4小时内向演示协调员报告。这里的4小时从发现异常时开始计算，不是从例行检查开始计算。",
+    "A003_actual": "E2异常报告时限及接收角色：监测箱E2发生演示异常后，应在4小时内向演示协调员报告。",
+    "judgement": "沿用第一句但漏掉发现起算限定；不能称编造了原文没有的新句。"
+  },
+  "offline_handoff": {
+    "kind": "offline_controlled_handoff_probe_not_business_acceptance",
+    "checked_at": "2026-10-30T23:32:17.679232+08:00",
+    "original_trace": {
+      "case": "CP-002",
+      "line": 38,
+      "log_sha256": "28e67c0edda02d82ccc40b23458cedce2cbbf5e92f27d5c5d722ae9313eb4bfe",
+      "arguments_sha256": "7f09729e537d31f8a402c7dace47a01c5c0423ed0ff00bb5ba31782535e2db16"
+    },
+    "checks": [
+      {
+        "name": "recorded_end_values_in_retrieved_content",
+        "passed": true,
+        "detail": "Actual retrieve_node end branch executed"
+      },
+      {
+        "name": "recorded_end_values_in_both_real_docx_prompts",
+        "passed": true,
+        "detail": "Planning and per-chapter prompt captured before mocked model stop"
+      },
+      {
+        "name": "legacy_negative_control_loses_end_values",
+        "passed": true,
+        "detail": "Same recorded tool decision, old actual nodes"
+      },
+      {
+        "name": "empty_end_uses_identified_summary_fixture",
+        "passed": true,
+        "detail": "v23 A001 summary fixture; not exact historical pre-state"
+      },
+      {
+        "name": "legacy_empty_end_omits_summary",
+        "passed": true,
+        "detail": "Old writing nodes ignore file_summaries"
+      },
+      {
+        "name": "legacy_positive_control_reads_existing_material",
+        "passed": true,
+        "detail": "Old prompts can carry fields when retrieved_content is explicitly populated"
+      },
+      {
+        "name": "candidate_unchanged_and_no_blocked_io",
+        "passed": true,
+        "detail": "32 pinned candidate files; network forbidden; source imports read-only"
+      }
+    ],
+    "passed": true,
+    "model_api_called": false,
+    "key_read": false,
+    "database_started": false,
+    "word_generated": false,
+    "product_source_modified": false,
+    "boundary": "Injected model decisions and deliberate model stop. This verifies source-to-prompt transport only; genuine model writing, saved Word facts, typography and end-to-end acceptance still require root execution."
+  },
+  "privacy_boundary": "Selected relative-path metadata, synthetic request/expected and Word evidence only; no raw model conversations, headers, credentials, settings or private absolute paths.",
+  "formal_defects_closed": []
+}
