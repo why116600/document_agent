@@ -8,6 +8,7 @@ An intelligent agent capable of writing documents based on the content of an org
 ```bash
 D:\Conda\envs\docx_agent\python.exe -m pip install -e .
 ```
+`requirements.txt` 已包含 Web 版需要的 `fastapi`、`uvicorn`、`python-multipart`。
 
 解析 PDF 参考文件时，若文件中含表格，会调用 `camelot` 提取表格（已随上面的依赖一起安装）。
 `camelot` 的 `lattice` 模式还需要系统安装 Ghostscript；如果环境中没有 `camelot`，解析 PDF 时会自动降级为只提取文本，不会直接报错。
@@ -83,6 +84,83 @@ python -m document_agent.console_app D:/docs/粗糙草稿.docx
 - **保存行为**：默认一律**另存为新文件**（未指定文件名时智能拟定，兜底为 `<原文件名>_修改版.docx` 或 `data/新生成文档.docx`），不会动原稿；只有需求中明确说"直接在原文件上改 / 覆盖原文件"才会原地覆盖；
 - **图数据库（必需依赖）**：启动时读取 `src/setting.json`（键为 `gdb_uri`、`embedding_model`）并按其中的连接串连接 Memgraph；**文件不存在会打印"没找到配置文件"后退出，连接失败也会直接报错终止（没有降级）**。知识库检索（`knowledge` 工具）依赖该服务以及其中已录入的节点数据；
 - 所有保存均采用"先写唯一临时文件再原子替换"，保障写盘安全，不会留下半截文档。
+
+## Web 版（浏览器操作）
+
+除控制台外，项目内置了一套 Web 界面（FastAPI 后端 + 原生 HTML/CSS/JS 前端，无需构建），
+支持新建/切换会话、上传参考文件、实时查看生成过程、下载生成文档。
+
+### 启动与停止（Windows PowerShell）
+
+在项目根目录执行：
+
+```powershell
+# 先设置大模型密钥（只对当前窗口生效，新开窗口需重设）
+$env:MODEL_API_KEY = "你的密钥"
+
+.\start.cmd start          # 也可以直接双击 start.cmd
+.\start.cmd status
+.\start.cmd restart
+.\start.cmd stop
+```
+
+`start.cmd` 只是 `start.ps1` 的包装器（用 Bypass 策略调用，避免 Windows 默认执行策略拦截）。
+如果要在 PowerShell 里直接运行 `start.ps1`，需要用：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start.ps1 start
+```
+
+> 注意：`start.ps1` 含中文提示，必须保存为 **UTF-8 with BOM**，否则 Windows PowerShell 5.1
+> 会按 ANSI 解析导致乱码/语法错误（VS Code 保存时注意编码选择）。
+
+`start.ps1` 参数：`-Port 9000`、`-BindHost 0.0.0.0`、`-NoBrowser`、
+`-Python D:\Conda\envs\docx_agent\python.exe`。
+
+### 启动与停止（Linux / macOS）
+
+```bash
+cd document_agent
+export MODEL_API_KEY="你的密钥"
+
+./start.sh start           # 首次若提示无执行权限：chmod +x start.sh，或使用 bash start.sh start
+./start.sh status
+./start.sh restart
+./start.sh stop
+```
+
+`start.sh` 参数：`--port 9000`、`--host 0.0.0.0`、`--no-browser`。
+
+两个脚本的行为一致：
+
+- 后台启动服务，等待健康检查通过后再提示成功；
+- 检测到桌面环境时，自动用默认浏览器打开 `http://127.0.0.1:8000/`
+  （Windows 判断 `UserInteractive`，Linux/macOS 判断 `DISPLAY`/`WAYLAND_DISPLAY`，macOS 用 `open`）；
+- 运行状态写入项目根目录的 `.run/`（`server.pid`、`server.log`、`server.err.log`）；
+- `status` 退出码：0=运行中、1=未运行，便于脚本化判断。
+
+`MODEL_API_KEY` 未设置时服务仍可启动，页面会给出提示，生成任务会直接失败并说明原因。
+
+### 界面功能
+
+- **新建会话**：后端自动创建 `src/workspace/sessions/<会话ID>/` 文件夹；
+- **切换会话**：左侧列表选择历史会话，文件与消息记录从磁盘恢复，可继续之前的工作；
+- **上传文件**：拖拽或点击上传，支持 `.docx/.pdf/.xlsx/.doc/.xls/.txt/.md/.csv/.json`，
+  既可作为生成参考，也可以作为改写目标（改写目标必须是 `.docx`）；
+- **生成文档**：输入自然语言需求（全新撰写或改写），右侧实时显示智能体运行日志；
+- **下载文档**：生成结果自动保存到会话文件夹，文件列表与消息卡片都能下载，也可直接在文件夹中取用。
+
+### 工作区、接口与注意事项
+
+- 会话目录：`src/workspace/sessions/<会话ID>/`，文件直接放在会话目录下，
+  `.meta/` 子目录保存标题、消息与每次任务的运行日志；可通过 `DOC_AGENT_WORKSPACE` 改工作区位置。
+- 默认只监听 `127.0.0.1`；需要局域网访问时用 `-BindHost 0.0.0.0` / `--host 0.0.0.0`。
+- 服务启动后访问 `http://127.0.0.1:8000/docs` 可查看完整的 OpenAPI 接口文档。
+- 主要接口：`/api/sessions`（会话）、`/api/sessions/{id}/files`（文件）、
+  `/api/sessions/{id}/messages`（提交需求）、`/api/jobs/{id}/events`（SSE 实时进度）。
+- 每个会话独立上下文；同一会话同一时间只允许一个生成任务（并发提交会返回 409）。
+- 多轮对话记忆保存在服务进程内；服务重启后界面仍会显示历史消息，可继续基于会话文件夹中的文件发起新需求。
+- 也可直接启动：`cd src && python -m document_agent.backend --host 127.0.0.1 --port 8000`。
 
 ## 工作流
 `intent`（参数校验与初始化）→ `summary`（参考文件摘要）→ `retrieve`（检索相关素材）→ 按意图分流：

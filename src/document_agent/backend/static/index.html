@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>文档智能体 · 写作与改写</title>
+  <meta name="description" content="在浏览器中新建会话、上传参考资料、生成或改写 Word 文档" />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-logo">文</div>
+        <div class="brand-text">
+          <h1>文档智能体</h1>
+          <p>会话写作 · 参考改写 · 一键下载</p>
+        </div>
+        <button class="icon-btn sidebar-close" id="close-sidebar" aria-label="收起会话列表">×</button>
+      </div>
+
+      <button class="new-session" id="new-session">
+        <span class="plus" aria-hidden="true">＋</span>
+        新建会话
+      </button>
+
+      <div class="session-list-head">
+        <span>历史会话</span>
+        <span class="count" id="session-count">0</span>
+      </div>
+      <div class="session-list" id="session-list" role="list"></div>
+
+      <div class="sidebar-footer">
+        <div class="status-line" id="server-status">
+          <span class="dot"></span>
+          <span class="text">正在连接服务…</span>
+        </div>
+        <div class="status-sub" id="knowledge-status"></div>
+      </div>
+    </aside>
+    <div class="sidebar-mask" id="sidebar-mask"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn menu-btn" id="open-sidebar" aria-label="打开会话列表">☰</button>
+        <div class="title-wrap">
+          <input id="session-title" class="title-input" type="text" value="" placeholder="未选择会话"
+                 aria-label="会话标题" disabled />
+          <div class="session-path" id="session-path"></div>
+        </div>
+        <div class="topbar-actions">
+          <button class="ghost-btn danger" id="delete-session" disabled>删除会话</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="empty-state" id="empty-state">
+          <div class="empty-icon" aria-hidden="true">✎</div>
+          <h2>新建会话，开始写作</h2>
+          <p>每个会话都会自动创建一个独立文件夹：上传参考文档、生成 Word 文档、随时回来继续之前的会话。</p>
+          <button class="primary-btn large" id="empty-new-session">＋ 新建会话</button>
+          <ul class="empty-tips">
+            <li>上传 .docx / .pdf / .xlsx / .txt / .md 作为参考资料</li>
+            <li>用自然语言描述需求，例如“参考资料写一份月度总结”</li>
+            <li>也可以让智能体改写文件夹里的某个 .docx 文档</li>
+          </ul>
+        </section>
+
+        <section class="session-body" id="session-body" hidden>
+          <section class="panel files-panel">
+            <header class="panel-head">
+              <div class="panel-title">
+                会话文件夹
+                <span class="pill" id="file-count">0</span>
+              </div>
+              <div class="panel-actions">
+                <button class="ghost-btn small" id="refresh-btn">刷新</button>
+                <label class="primary-btn small upload-label" for="file-input">上传文件</label>
+                <input type="file" id="file-input" multiple hidden />
+              </div>
+            </header>
+            <div class="dropzone" id="dropzone">
+              <span class="drop-hint">拖拽文件到这里上传</span>
+              <span class="drop-sub">上传后即可作为生成文档的参考资料，也可以作为改写目标</span>
+            </div>
+            <ul class="file-list" id="file-list"></ul>
+          </section>
+
+          <section class="chat">
+            <div class="chat-empty" id="chat-empty">
+              <p>还没有生成记录。在下方描述你的需求，开始第一次写作。</p>
+            </div>
+            <div class="messages" id="messages"></div>
+          </section>
+
+          <footer class="composer">
+            <div class="composer-box">
+              <textarea id="prompt" rows="1"
+                placeholder="例如：参考上传的资料，写一份 2026 年度工作计划；或者：把《XX.docx》的排版规范化，另存为新文件"></textarea>
+              <button class="primary-btn send-btn" id="send">发送</button>
+            </div>
+            <div class="composer-hint">
+              <span>Ctrl + Enter 发送</span>
+              <span>生成结果自动保存到会话文件夹，可直接下载</span>
+            </div>
+          </footer>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

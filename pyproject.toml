@@ -26,7 +26,16 @@ dependencies = [
     "neo4j>=6.3.0",
     "sentence-transformers>=2.2.0",
     "numpy>=1.24.0",
+    # Web 版后端（document_agent.backend）
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+    "python-multipart>=0.0.6",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+# 前端页面随 Web 后端一起安装（源码运行时直接读取 static 目录）
+"document_agent.backend" = ["static/*"]
+

@@ -219,6 +219,10 @@ __marimo__/
 
 src/data/
 
+# Web 版运行时数据：会话文件夹、进程状态与日志
+src/workspace/
+.run/
+
 # 项目专用：本地句向量模型缓存与 pip 临时目录
 .models/
 .piptmp/

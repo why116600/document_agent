@@ -6,9 +6,7 @@ from pydantic import BaseModel, Field
 
 from agent_core import AgentState, get_last_user_text
 from llm_client import llm_model_invoke
-
-#参考文件支持的后缀，与 extract_document 的解析能力保持一致
-SUPPORTED_REFERENCE_SUFFIXES = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".txt", ".json", ".csv", ".md"}
+from document_agent.file_types import SUPPORTED_REFERENCE_SUFFIXES
 
 
 
@@ -211,6 +209,7 @@ def resolve_save_target(
     suggested_filename: Optional[str],
     rewrite_file: Optional[str],
     user_intent: str = "new",
+    output_dir: Optional[str] = None,
 ) -> str:
     """计算最终输出路径。
     
@@ -221,7 +220,7 @@ def resolve_save_target(
        - 优先采用模型提取或智能推导的文件名 suggested_filename（严格过滤 null/none 等空值）；
        - 若未能推导出有效文件名：
          - 改写模式下，自动根据原文件名生成 '<原主文件名>_修改版.docx'，保存在与原文档同级目录下；
-         - 新建模式下，自动生成 '新生成文档.docx'，保存在 data 目录下。
+         - 新建模式下，自动生成 '新生成文档.docx'，保存在 output_dir（缺省为 data 目录）下。
     """
     # 1. 显式 save_path 优先
     if explicit_save_path and explicit_save_path.strip():
@@ -257,6 +256,9 @@ def resolve_save_target(
     # 5. 组装最终绝对路径
     if rewrite_file:
         target_dir = Path(rewrite_file).resolve().parent
+    elif output_dir:
+        target_dir = Path(output_dir).resolve()
+        target_dir.mkdir(parents=True, exist_ok=True)
     else:
         data_dir = Path("data").resolve()
         data_dir.mkdir(parents=True, exist_ok=True)
@@ -500,6 +502,7 @@ def create_intent_node(llm=None):
             extracted_save_filename,
             rewrite_file,
             user_intent,
+            output_dir=state.get("output_dir"),
         )
         if final_save_path:
             if save_mode == "overwrite":

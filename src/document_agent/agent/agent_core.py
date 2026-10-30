@@ -27,6 +27,7 @@ class AgentState(TypedDict):
     rewrite_steps: List[Dict[str, Any]]#有序改写步骤清单：复合指令由大模型拆成多步，每步含 mode/target/instruction/replace_pairs，改写节点逐步重建快照后依次执行
     replace_pairs: Optional[Dict[str, str]]#replace 模式下旧词到新词的映射
     save_path: str#输出文档的保存路径，为空时自动生成
+    output_dir: Optional[str]#输出目录：为空时新建文档保存到 data 目录，Web 版传入会话文件夹
     file_roles: Optional[Dict[str, str]]#文件角色标签映射（如待修改目标文档、辅助参考/风格模板）
     error: Optional[str]#错误结果
 
@@ -100,7 +101,15 @@ class AgentCore:
         self.agent_invoke=self.graph.compile(checkpointer=self.checkpointer)
         
     def invoke(self, user_input: str, input_file_path: Optional[List[str]] = None,
-               session_id: str = "default_session") -> AgentState:
+               session_id: str = "default_session",
+               save_path: str = "",
+               output_dir: Optional[str] = None) -> AgentState:
+        """执行一次写作/改写任务。
+
+        :param save_path: 显式指定的输出文件路径，为空时由意图节点自动推导；
+        :param output_dir: 新建文档的默认输出目录，为空时沿用旧的 data 目录，
+                           控制台保持原行为，Web 版传入会话文件夹。
+        """
         if self.agent_invoke is None:
             raise ValueError("未初始化agent的图")
         config = {"configurable": {"thread_id": session_id}}
@@ -122,7 +131,8 @@ class AgentCore:
                 "rewrite_mode": None,
                 "rewrite_steps": [],
                 "replace_pairs": {},
-                "save_path": "",
+                "save_path": save_path or "",
+                "output_dir": output_dir or "",
                 "file_roles": {},
                 "error": None,
             },
