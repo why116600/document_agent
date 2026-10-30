@@ -1,0 +1,3798 @@
+{
+  "version": "1.0.23",
+  "scope": "explicit completed repair-regression attempts only",
+  "candidate_commit": "a83c6dffa1584ab87423b523fdf2e89cdcb40f55",
+  "evidence_dates": [
+    "2026-10-29"
+  ],
+  "evidence_date": "2026-10-29",
+  "exporter_sha256": "a98bf280ecb8c1ecf626c1c3335d8f6b02e91d7b4a73e7bd327c9e52689ee898",
+  "attempt_count": 7,
+  "attempts": [
+    {
+      "case": "CP-007",
+      "attempt": "003",
+      "candidate_commit": "a83c6dffa1584ab87423b523fdf2e89cdcb40f55",
+      "evidence_date": "2026-10-29",
+      "execution_receipt_sha256": "3ba99f374b0d283ea12f78ebb1fd958d687d24a576aa37ca23a2b90765ffe440",
+      "runner_sha256": "8aaf1b38dccd4724aafc16584ad2f33220b5638914b9ae4ca4d11d1be1f84740",
+      "adapter_sha256": "c48981177807e47aadc0666fd708d451f3130de123873e7f0466f20ac16128c3",
+      "model_requested": "hy3",
+      "response_model_identity": "not independently retained",
+      "original_attempt": "CP-007",
+      "request": {
+        "text": "请对《借用替换样例_v1.0.15.docx》执行全文查找替换，将全部“7天”改为“3天”，将“1个工作日”改为“2个工作日”。范围包括正文、表格和页眉；不要把库存数量“7台”改掉，也不要修改“5天”。只做这些替换，其他文字、段落、表格结构和格式保持，中文仍宋体、全部文字黑色，不检索知识库，不覆盖原稿，另存为CP-007_结果_v1.0.15.docx。\n",
+        "sha256": "aef0483bf92b36d70cb1bf3e6aceb3fe3460589689bfda9cce98d5071d9dd941"
+      },
+      "pre_run_expected": {
+        "text": "# CP-007 预期检查清单 v1.0.15\n\n版本：v1.0.15。制定阶段：运行前。业务状态：未执行。用例：[查看操作](../cases/case_CP-007_v1.0.15.md)。\n\n## 逐项核对\n\n- [ ] 原“7天”共4处：普通正文1、相邻Run组成的词组1、设备表丙行1、页眉1；全部变为“3天”，无残留或重复字。\n- [ ] “1个工作日”恰好1处，变为“2个工作日”。\n- [ ] 库存数量12台和7台、丁设备期限5天保持原值。\n- [ ] 标题、章节、其他文字与源稿逐元素一致；表格为3行3列，不改变行列或单元格对应关系。\n- [ ] 除授权替词所必需的run变化外，原字体、颜色、字号等属性与页面设置核对；页眉必须独立打开核对。\n- [ ] 输入原件运行前后SHA-256一致；实际结果另存且可打开；日志命中数与固定位置清单对照，不能仅信日志。\n\n## 判定边界\n\n- 只覆盖跨Run、普通表格和单页眉这几个子例，不代表TC-12/13全部对象已覆盖。\n\n输入基准与哈希见[准备清单](../manifest_v1.0.15.json)及[Word结构基准](baselines_v1.0.15.json)。结构快照只描述输入，不是预期输出，更不是实际输出。\n\n未检查项保持未检查；生成式内容可用等义表达，但数字、对应关系和否定条件必须逐项对照。仅结构核对不能代替Word页面实看；字体和颜色也要检查实际继承。发现失败先保留完整材料，再确认是否为原产品缺陷、接入适配、环境问题或待确认需求。\n",
+        "sha256": "e593cda2672d276ecd69bced78361a18297b38a1462bd6f0b3647847a94877b8"
+      },
+      "inputs": [
+        {
+          "name": "借用替换样例_v1.0.15.docx",
+          "frozen_sha256": "5c4f1110b31e5952edec9d3dea65d2470a2ff845173b5319166ca031ad94e6d1",
+          "work_sha256": "5c4f1110b31e5952edec9d3dea65d2470a2ff845173b5319166ca031ad94e6d1"
+        }
+      ],
+      "started": "2026-10-29T21:15:18.320038+08:00",
+      "finished": "2026-10-29T21:18:45.426148+08:00",
+      "elapsed_seconds": 207.11,
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "business_error": "file工具反馈：文件路径不存在：借用替换样例_v1.0.15.docx",
+      "business_result_record_present": true,
+      "candidate_unchanged": true,
+      "inputs_preserved": true,
+      "candidate_file_sha256_before": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "candidate_file_sha256_after": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "harness": {
+        "limit_seconds": 900,
+        "timed_out": false,
+        "controller_error": null,
+        "blocked_file_write_count": 0,
+        "blocked_file_write_operations": [],
+        "clear_for_business_review": true,
+        "scope_modes": {
+          "SCOPE_CONTRACT_MODE": "contract",
+          "WHOLE_CONTAINER_MODE": "contract"
+        }
+      },
+      "outputs": [
+        {
+          "original_saved_name": "CP-007_结果_v1.0.15.docx",
+          "attempt_relative_path": "work/inputs/CP-007_结果_v1.0.15.docx",
+          "shared_name": "a83c6df_A003_CP-007_结果_v1.0.15.docx",
+          "bytes": 38093,
+          "sha256": "b8a285ca3bbc4dc94eeb1bd7a4bb841e0af122c53d2e9792d1939f3d21c83465",
+          "package_review": {
+            "xml_parts_scanned": 17,
+            "sensitive_pattern_matches": 0,
+            "external_relationships": [],
+            "core_properties": [
+              {
+                "property": "title",
+                "value_present": true,
+                "value_sha256": "a0107743be71cd1d0820a18f5fadc398fe9e6eacc54befe39ab24a3dd8a91905"
+              },
+              {
+                "property": "subject",
+                "value_present": true,
+                "value_sha256": "4fa9d7cfd43395c4607149e8bf746b285aaa799c9cbb91647f3a790907e6f15b"
+              },
+              {
+                "property": "creator",
+                "value_present": true,
+                "value_sha256": "062ad77cab0674735396475672ad2d875e27d4c33053ac99811bc0b002133758"
+              },
+              {
+                "property": "keywords",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "description",
+                "value_present": true,
+                "value_sha256": "cc7e05aa07b67a46ce39e86c9678472f8381454566d0a41a4469b088f200bd25"
+              },
+              {
+                "property": "lastModifiedBy",
+                "value_present": true,
+                "value_sha256": "062ad77cab0674735396475672ad2d875e27d4c33053ac99811bc0b002133758"
+              },
+              {
+                "property": "revision",
+                "value_present": true,
+                "value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+              },
+              {
+                "property": "created",
+                "value_present": true,
+                "value_sha256": "275a3eefb6bad7c0d5dac63be87e2c5aa2ad24cd026604cbe99a67e2a4ee9697"
+              },
+              {
+                "property": "modified",
+                "value_present": true,
+                "value_sha256": "275a3eefb6bad7c0d5dac63be87e2c5aa2ad24cd026604cbe99a67e2a4ee9697"
+              },
+              {
+                "property": "category",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "version",
+                "value_present": true,
+                "value_sha256": "74cb62fa67c5f58118b68398107eab3dc1238c440888e8863ae631b3878c7856"
+              }
+            ],
+            "review_boundary": "Finite text-pattern and package inspection; binary/media privacy and semantic content require human review."
+          }
+        }
+      ],
+      "offline_audit": {
+        "audit_present": true,
+        "auditor_version": "1.0.23",
+        "auditor_sha256": "d0710d6fabd928d7c8f65b0d2f749dc68b38436c7e2637ae9e97a732498b1c9f",
+        "manual_review": "not decided by exporter",
+        "checks": [
+          {
+            "name": "candidate_unchanged_during_execution",
+            "status": "pass"
+          },
+          {
+            "name": "frozen_hash:借用替换样例_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "work_input_hash:借用替换样例_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_exists:work/inputs/CP-007_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_hash:work/inputs/CP-007_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "requested_output_filename:work/inputs/CP-007_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_outputs_match_actual_word_files",
+            "status": "pass",
+            "detail": {
+              "unrecorded": [],
+              "recorded_not_discovered": []
+            }
+          },
+          {
+            "name": "exactly_one_recorded_word",
+            "status": "pass",
+            "detail": {
+              "count": 1
+            }
+          }
+        ],
+        "output_checks": [
+          {
+            "path": "work/inputs/CP-007_结果_v1.0.15.docx",
+            "sha256": "b8a285ca3bbc4dc94eeb1bd7a4bb841e0af122c53d2e9792d1939f3d21c83465",
+            "checks": [
+              {
+                "name": "exact_authorized_text_changes_only",
+                "status": "pass",
+                "detail": {
+                  "count": 0,
+                  "examples": []
+                }
+              },
+              {
+                "name": "ordered_body_element_types",
+                "status": "pass",
+                "detail": {
+                  "source": [
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "tbl",
+                    "sectPr"
+                  ],
+                  "output": [
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "tbl",
+                    "sectPr"
+                  ]
+                }
+              },
+              {
+                "name": "page_section_properties_excluding_header_footer_references",
+                "status": "pass"
+              },
+              {
+                "name": "table_count",
+                "status": "pass"
+              },
+              {
+                "name": "table[0]_nontext_structure_and_format",
+                "status": "pass",
+                "detail": {
+                  "source_cell_widths_twips": [
+                    [
+                      "3061",
+                      "3061",
+                      "3061"
+                    ],
+                    [
+                      "3061",
+                      "3061",
+                      "3061"
+                    ],
+                    [
+                      "3061",
+                      "3061",
+                      "3061"
+                    ]
+                  ],
+                  "output_cell_widths_twips": [
+                    [
+                      "3061",
+                      "3061",
+                      "3061"
+                    ],
+                    [
+                      "3061",
+                      "3061",
+                      "3061"
+                    ],
+                    [
+                      "3061",
+                      "3061",
+                      "3061"
+                    ]
+                  ],
+                  "note": "XML structure includes row/cell/paragraph/run properties; run repartition may require causal review."
+                }
+              },
+              {
+                "name": "protected_paragraph_and_effective_character_formats",
+                "status": "fail",
+                "detail": {
+                  "mismatches": [
+                    {
+                      "location": "p[5]",
+                      "property": "effective_character_properties",
+                      "positions": [
+                        14
+                      ]
+                    }
+                  ],
+                  "unmapped_locations": []
+                }
+              },
+              {
+                "name": "word/header1.xml_authorized_text",
+                "status": "pass",
+                "detail": {
+                  "expected": "海岚内部展示设备借用期限3天",
+                  "actual": "海岚内部展示设备借用期限3天"
+                }
+              },
+              {
+                "name": "word/header1.xml_nontext_structure_format",
+                "status": "pass"
+              },
+              {
+                "name": "frozen_fixture_has_four_7days_and_one_1workday",
+                "status": "pass"
+              },
+              {
+                "name": "all_four_day_replacements_and_single_workday",
+                "status": "pass"
+              },
+              {
+                "name": "resolved_chinese_font_and_color",
+                "status": "pass",
+                "detail": {
+                  "mismatches": [],
+                  "unresolved": [],
+                  "note": "Theme/automatic/missing values are unknown; inspect effective theme/Word rendering, not automatic failure."
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "manual_review": {
+        "available": true,
+        "ready_for_write": true,
+        "manual_receipt_sha256": "127dc09534c7b7b8acef0b10920c5730ef6e767c35edaf850146812bca241817",
+        "reviewer": "Codex; independent read-only agent checks included",
+        "renderer": "WPS readonly export plus Poppler; not Microsoft Word",
+        "reviewed_pages": [
+          {
+            "name": "page-1.png",
+            "sha256": "291f93344f148010c8bab31be9b1099199eb20f931307ab85c9afea4e8d83c74"
+          },
+          {
+            "name": "page-1.png",
+            "sha256": "19b3dd15d1f1f066635dcfcfa21d9b0591e5777dea0927ea12992b923f2c033a"
+          }
+        ],
+        "selected_observations": {
+          "summary_zh": "四处7天和一处1个工作日均改对，保护数字与原稿保持；跨Run的天从非加粗变加粗，不能宣称所有格式保持。",
+          "case_verdict_zh": "原范围拒绝未复现；整例未通过",
+          "core_original_defect": "range rejection not reproduced; all 4+1 replacements correct",
+          "overall_case": "not wholly passed",
+          "visual_observation": "One page before/after, header and body/table replacements visible, 12台/7台/5天 remain; in the cross-Run word, 天 becomes bold as confirmed by effective per-character properties.",
+          "independent_package_check": "All internal ZIP member bytes equal between partial attempt002 and completed attempt003, despite differing container hashes.",
+          "remaining_observation": "Replacement-internal style inheritance requires explicit contract decision; not merged into DEF-005 and no new defect number assigned."
+        },
+        "verdict_source": "Explicit manual Chinese verdict only; exporter does not infer acceptance from English text or checks."
+      },
+      "acceptance": "manual semantic and visual review required; exporter does not close defects",
+      "limitations": [
+        "Request model identity only; response model identity not independently retained.",
+        "One isolated database per batch, not per case; cases serialized.",
+        "Archived WorkBuddy protocol adapter reused in memory; old local docx-prompt and console-exit patches were not copied into candidate.",
+        "900 seconds is a harness bound, not a product performance SLA."
+      ]
+    },
+    {
+      "case": "CP-008",
+      "attempt": "001",
+      "candidate_commit": "a83c6dffa1584ab87423b523fdf2e89cdcb40f55",
+      "evidence_date": "2026-10-29",
+      "execution_receipt_sha256": "73fba584e90e9e9e72a84bab3362e7d113137f762b285778560a892a470a6676",
+      "runner_sha256": "8aaf1b38dccd4724aafc16584ad2f33220b5638914b9ae4ca4d11d1be1f84740",
+      "adapter_sha256": "c48981177807e47aadc0666fd708d451f3130de123873e7f0466f20ac16128c3",
+      "model_requested": "hy3",
+      "response_model_identity": "not independently retained",
+      "original_attempt": "CP-008",
+      "request": {
+        "text": "以《检查办法_v1.0.15.docx》为目标，只将“二、专项检查”章节正文中的“每季度检查一次”改为“每月检查一次”。不要修改该章表格，也不要修改第一章、第三章、标题或其他文字和格式。中文保持宋体、全部文字黑色，不检索知识库，不覆盖原稿，另存为CP-008_结果_v1.0.15.docx。\n",
+        "sha256": "1b1437cc5f0376efbdceb6276f1ff334e4a8becc38e5c4898046c14be4c1dad9"
+      },
+      "pre_run_expected": {
+        "text": "# CP-008 预期检查清单 v1.0.15\n\n版本：v1.0.15。制定阶段：运行前。业务状态：未执行。用例：[查看操作](../cases/case_CP-008_v1.0.15.md)。\n\n## 逐项核对\n\n- [ ] 第二章正文“振动传感器每季度检查一次”变为“振动传感器每月检查一次”。\n- [ ] 第一章“环境记录仪每季度检查一次”逐字保留。\n- [ ] 第二章表格备用温度计的“每季度检查一次”和4支逐字保留。\n- [ ] 第三章30天、否定条件“未完成复核不得归档”与标题保持原文。\n- [ ] 其他段落/表格文字、样式、行列、页设置逐项对照，不能以全文替换达成。\n- [ ] 原稿哈希不变，结果另存且可打开；记录程序实际定位到的范围。\n\n## 判定边界\n\n- 没有额外验收口径；尚未执行。\n\n输入基准与哈希见[准备清单](../manifest_v1.0.15.json)及[Word结构基准](baselines_v1.0.15.json)。结构快照只描述输入，不是预期输出，更不是实际输出。\n\n未检查项保持未检查；生成式内容可用等义表达，但数字、对应关系和否定条件必须逐项对照。仅结构核对不能代替Word页面实看；字体和颜色也要检查实际继承。发现失败先保留完整材料，再确认是否为原产品缺陷、接入适配、环境问题或待确认需求。\n",
+        "sha256": "35a70eee7667e316934c6985bb417378ebfc616da8cb97016a5456091db3b930"
+      },
+      "inputs": [
+        {
+          "name": "检查办法_v1.0.15.docx",
+          "frozen_sha256": "f33df397cd43628442a5518592ef0a2255d3a0816d7ce0ba3f9fa538d85a2f73",
+          "work_sha256": "f33df397cd43628442a5518592ef0a2255d3a0816d7ce0ba3f9fa538d85a2f73"
+        }
+      ],
+      "started": "2026-10-29T21:19:45.669997+08:00",
+      "finished": "2026-10-29T21:22:37.912568+08:00",
+      "elapsed_seconds": 172.25,
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "business_error": "file工具反馈：文件路径不存在：检查办法_v1.0.15.docx",
+      "business_result_record_present": true,
+      "candidate_unchanged": true,
+      "inputs_preserved": true,
+      "candidate_file_sha256_before": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "candidate_file_sha256_after": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "harness": {
+        "limit_seconds": 900,
+        "timed_out": false,
+        "controller_error": null,
+        "blocked_file_write_count": 0,
+        "blocked_file_write_operations": [],
+        "clear_for_business_review": true,
+        "scope_modes": {
+          "SCOPE_CONTRACT_MODE": "contract",
+          "WHOLE_CONTAINER_MODE": "contract"
+        }
+      },
+      "outputs": [
+        {
+          "original_saved_name": "CP-008_结果_v1.0.15.docx",
+          "attempt_relative_path": "work/inputs/CP-008_结果_v1.0.15.docx",
+          "shared_name": "a83c6df_A001_CP-008_结果_v1.0.15.docx",
+          "bytes": 37383,
+          "sha256": "4496c41e914b8695decb611943ddbf4e60b45b27efeb85f702b8f5a3e8984621",
+          "package_review": {
+            "xml_parts_scanned": 16,
+            "sensitive_pattern_matches": 0,
+            "external_relationships": [],
+            "core_properties": [
+              {
+                "property": "title",
+                "value_present": true,
+                "value_sha256": "7f21e1a5e4ccde38f21b271c3a5e7e885c3f92e6a67475249211343041dfe450"
+              },
+              {
+                "property": "subject",
+                "value_present": true,
+                "value_sha256": "4fa9d7cfd43395c4607149e8bf746b285aaa799c9cbb91647f3a790907e6f15b"
+              },
+              {
+                "property": "creator",
+                "value_present": true,
+                "value_sha256": "062ad77cab0674735396475672ad2d875e27d4c33053ac99811bc0b002133758"
+              },
+              {
+                "property": "keywords",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "description",
+                "value_present": true,
+                "value_sha256": "cc7e05aa07b67a46ce39e86c9678472f8381454566d0a41a4469b088f200bd25"
+              },
+              {
+                "property": "lastModifiedBy",
+                "value_present": true,
+                "value_sha256": "062ad77cab0674735396475672ad2d875e27d4c33053ac99811bc0b002133758"
+              },
+              {
+                "property": "revision",
+                "value_present": true,
+                "value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+              },
+              {
+                "property": "created",
+                "value_present": true,
+                "value_sha256": "275a3eefb6bad7c0d5dac63be87e2c5aa2ad24cd026604cbe99a67e2a4ee9697"
+              },
+              {
+                "property": "modified",
+                "value_present": true,
+                "value_sha256": "275a3eefb6bad7c0d5dac63be87e2c5aa2ad24cd026604cbe99a67e2a4ee9697"
+              },
+              {
+                "property": "category",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "version",
+                "value_present": true,
+                "value_sha256": "74cb62fa67c5f58118b68398107eab3dc1238c440888e8863ae631b3878c7856"
+              }
+            ],
+            "review_boundary": "Finite text-pattern and package inspection; binary/media privacy and semantic content require human review."
+          }
+        }
+      ],
+      "offline_audit": {
+        "audit_present": true,
+        "auditor_version": "1.0.23",
+        "auditor_sha256": "d0710d6fabd928d7c8f65b0d2f749dc68b38436c7e2637ae9e97a732498b1c9f",
+        "manual_review": "not decided by exporter",
+        "checks": [
+          {
+            "name": "candidate_unchanged_during_execution",
+            "status": "pass"
+          },
+          {
+            "name": "frozen_hash:检查办法_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "work_input_hash:检查办法_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_exists:work/inputs/CP-008_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_hash:work/inputs/CP-008_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "requested_output_filename:work/inputs/CP-008_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_outputs_match_actual_word_files",
+            "status": "pass",
+            "detail": {
+              "unrecorded": [],
+              "recorded_not_discovered": []
+            }
+          },
+          {
+            "name": "exactly_one_recorded_word",
+            "status": "pass",
+            "detail": {
+              "count": 1
+            }
+          }
+        ],
+        "output_checks": [
+          {
+            "path": "work/inputs/CP-008_结果_v1.0.15.docx",
+            "sha256": "4496c41e914b8695decb611943ddbf4e60b45b27efeb85f702b8f5a3e8984621",
+            "checks": [
+              {
+                "name": "exact_authorized_text_changes_only",
+                "status": "pass",
+                "detail": {
+                  "count": 0,
+                  "examples": []
+                }
+              },
+              {
+                "name": "ordered_body_element_types",
+                "status": "pass",
+                "detail": {
+                  "source": [
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "tbl",
+                    "p",
+                    "p",
+                    "sectPr"
+                  ],
+                  "output": [
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "tbl",
+                    "p",
+                    "p",
+                    "sectPr"
+                  ]
+                }
+              },
+              {
+                "name": "page_section_properties_excluding_header_footer_references",
+                "status": "pass"
+              },
+              {
+                "name": "table_count",
+                "status": "pass"
+              },
+              {
+                "name": "table[0]_nontext_structure_and_format",
+                "status": "pass",
+                "detail": {
+                  "source_cell_widths_twips": [
+                    [
+                      "3061",
+                      "3061",
+                      "3061"
+                    ],
+                    [
+                      "3061",
+                      "3061",
+                      "3061"
+                    ]
+                  ],
+                  "output_cell_widths_twips": [
+                    [
+                      "3061",
+                      "3061",
+                      "3061"
+                    ],
+                    [
+                      "3061",
+                      "3061",
+                      "3061"
+                    ]
+                  ],
+                  "note": "XML structure includes row/cell/paragraph/run properties; run repartition may require causal review."
+                }
+              },
+              {
+                "name": "protected_paragraph_and_effective_character_formats",
+                "status": "pass",
+                "detail": {
+                  "mismatches": [],
+                  "unmapped_locations": []
+                }
+              },
+              {
+                "name": "resolved_chinese_font_and_color",
+                "status": "pass",
+                "detail": {
+                  "mismatches": [],
+                  "unresolved": [],
+                  "note": "Theme/automatic/missing values are unknown; inspect effective theme/Word rendering, not automatic failure."
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "manual_review": {
+        "available": true,
+        "ready_for_write": true,
+        "manual_receipt_sha256": "127dc09534c7b7b8acef0b10920c5730ef6e767c35edaf850146812bca241817",
+        "reviewer": "Codex; independent read-only agent checks included",
+        "renderer": "WPS readonly export plus Poppler; not Microsoft Word",
+        "reviewed_pages": [
+          {
+            "name": "page-1.png",
+            "sha256": "213f000d64f155da2ce444afc7b3ce9da74846c741b32741a4927382e2f5d2e2"
+          }
+        ],
+        "selected_observations": {
+          "summary_zh": "仅第二章正文每季度改为每月；第一章、同章表格、第三章及其他文字格式保持，原稿不变。",
+          "case_verdict_zh": "原受控样例通过",
+          "core_original_defect": "not reproduced in this case",
+          "overall_case": "pass for original controlled sample",
+          "visual_observation": "Second chapter body monthly, first chapter and same-chapter table quarterly, third chapter 30 days and negative clause retained; no layout clipping.",
+          "independent_package_check": "Only one target w:t changed; other package member bytes unchanged."
+        },
+        "verdict_source": "Explicit manual Chinese verdict only; exporter does not infer acceptance from English text or checks."
+      },
+      "acceptance": "manual semantic and visual review required; exporter does not close defects",
+      "limitations": [
+        "Request model identity only; response model identity not independently retained.",
+        "One isolated database per batch, not per case; cases serialized.",
+        "Archived WorkBuddy protocol adapter reused in memory; old local docx-prompt and console-exit patches were not copied into candidate.",
+        "900 seconds is a harness bound, not a product performance SLA."
+      ]
+    },
+    {
+      "case": "CP-012",
+      "attempt": "001",
+      "candidate_commit": "a83c6dffa1584ab87423b523fdf2e89cdcb40f55",
+      "evidence_date": "2026-10-29",
+      "execution_receipt_sha256": "ede5a24d6de559fcdb3e3f6e50864ec8b70fb0ba2a1c32f4249bfe4c301b9e02",
+      "runner_sha256": "8aaf1b38dccd4724aafc16584ad2f33220b5638914b9ae4ca4d11d1be1f84740",
+      "adapter_sha256": "c48981177807e47aadc0666fd708d451f3130de123873e7f0466f20ac16128c3",
+      "model_requested": "hy3",
+      "response_model_identity": "not independently retained",
+      "original_attempt": "CP-012",
+      "request": {
+        "text": "只修改《培训室规则_v1.0.15.docx》的“五、费用管理”章节，将“免费”改为“按次计费”。如果不存在这个章节或找不到原词，请明确说明无法定位，不要修改其他章节，不要生成替代制度，也不要检索知识库。保留原稿；只有能够完成指定修改时才另存为CP-012_结果_v1.0.15.docx，中文宋体、全部文字黑色。\n",
+        "sha256": "a9879a45bfec282ed52cadeb076abcb387b6b6229494829dd390e66962a5d0b8"
+      },
+      "pre_run_expected": {
+        "text": "# CP-012 预期检查清单 v1.0.15\n\n版本：v1.0.15。制定阶段：运行前。业务状态：未执行。用例：[查看操作](../cases/case_CP-012_v1.0.15.md)。\n\n## 逐项核对\n\n- [ ] 输入只有一、预约，二、使用，三、归还，不存在五、费用管理；正文也不存在原词免费。\n- [ ] 明确说明找不到目标章节/原词，不误称已替换成功。\n- [ ] 不得把相似章节或全文当替代目标，不新编费用规则。\n- [ ] 原输入哈希不变，已有三个章节、2小时、1个工作日、8人和门禁限制保持。\n- [ ] 按本次请求不应产生伪成功的替代Word；若存在失败状态与文件保留的实现差异，先保留实际结果并复核口径。\n- [ ] 记录实际退出状态、耗时和是否需人工中断；不捏造固定秒数SLA，不以人工截止直接宣布超时缺陷。\n\n## 判定边界\n\n- 只覆盖明确不存在章节和原词，不覆盖同名章节歧义或元素下标边界。\n\n输入基准与哈希见[准备清单](../manifest_v1.0.15.json)及[Word结构基准](baselines_v1.0.15.json)。结构快照只描述输入，不是预期输出，更不是实际输出。\n\n未检查项保持未检查；生成式内容可用等义表达，但数字、对应关系和否定条件必须逐项对照。仅结构核对不能代替Word页面实看；字体和颜色也要检查实际继承。发现失败先保留完整材料，再确认是否为原产品缺陷、接入适配、环境问题或待确认需求。\n",
+        "sha256": "0dc46d0d9d21a840be1f5c63983e61c6e46cb15b0cc25c417e2060c8acf5e38c"
+      },
+      "inputs": [
+        {
+          "name": "培训室规则_v1.0.15.docx",
+          "frozen_sha256": "30aa520e8324f549f13a371d98d190e424237ba340da17aace8a385c9d6cadbf",
+          "work_sha256": "30aa520e8324f549f13a371d98d190e424237ba340da17aace8a385c9d6cadbf"
+        }
+      ],
+      "started": "2026-10-29T21:31:02.470508+08:00",
+      "finished": "2026-10-29T21:33:34.993299+08:00",
+      "elapsed_seconds": 152.51,
+      "process_exit_code": 0,
+      "business_state": "error",
+      "business_error": "E_SCOPE_SECTION_NOT_FOUND: 大纲中没有章节「“五、费用管理”」，现有：镜叶培训室规则 v1.0.15、一、预约、二、使用、三、归还",
+      "business_result_record_present": true,
+      "candidate_unchanged": true,
+      "inputs_preserved": true,
+      "candidate_file_sha256_before": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "candidate_file_sha256_after": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "harness": {
+        "limit_seconds": 900,
+        "timed_out": false,
+        "controller_error": null,
+        "blocked_file_write_count": 0,
+        "blocked_file_write_operations": [],
+        "clear_for_business_review": true,
+        "scope_modes": {
+          "SCOPE_CONTRACT_MODE": "contract",
+          "WHOLE_CONTAINER_MODE": "contract"
+        }
+      },
+      "outputs": [],
+      "offline_audit": {
+        "audit_present": true,
+        "auditor_version": "1.0.23",
+        "auditor_sha256": "d0710d6fabd928d7c8f65b0d2f749dc68b38436c7e2637ae9e97a732498b1c9f",
+        "manual_review": "not decided by exporter",
+        "checks": [
+          {
+            "name": "candidate_unchanged_during_execution",
+            "status": "pass"
+          },
+          {
+            "name": "frozen_hash:培训室规则_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "work_input_hash:培训室规则_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_outputs_match_actual_word_files",
+            "status": "pass",
+            "detail": {
+              "unrecorded": [],
+              "recorded_not_discovered": []
+            }
+          },
+          {
+            "name": "frozen_fixture_missing_requested_chapter_and_old_word",
+            "status": "pass"
+          }
+        ],
+        "output_checks": []
+      },
+      "manual_review": {
+        "available": true,
+        "ready_for_write": true,
+        "manual_receipt_sha256": "127dc09534c7b7b8acef0b10920c5730ef6e767c35edaf850146812bca241817",
+        "reviewer": "Codex; independent read-only agent checks included",
+        "renderer": "WPS readonly export plus Poppler; not Microsoft Word",
+        "reviewed_pages": [],
+        "selected_observations": {
+          "summary_zh": "真正定位后报E_SCOPE_SECTION_NOT_FOUND，列出实际章节；无另存成果，原稿保持。进程0与业务error分别记录。",
+          "case_verdict_zh": "预期拒绝通过",
+          "core_original_defect": "premature mode guard no longer prevents locator",
+          "overall_case": "pass for expected missing-section refusal",
+          "visual_observation": "No output expected and none produced. Log explicitly reports E_SCOPE_SECTION_NOT_FOUND with actual headings. Original input preserved.",
+          "process_boundary": "Real process returned 0 while business state error; expected refusal acceptance depends on explicit error and protected inputs, not exit code alone."
+        },
+        "verdict_source": "Explicit manual Chinese verdict only; exporter does not infer acceptance from English text or checks."
+      },
+      "acceptance": "manual semantic and visual review required; exporter does not close defects",
+      "limitations": [
+        "Request model identity only; response model identity not independently retained.",
+        "One isolated database per batch, not per case; cases serialized.",
+        "Archived WorkBuddy protocol adapter reused in memory; old local docx-prompt and console-exit patches were not copied into candidate.",
+        "900 seconds is a harness bound, not a product performance SLA."
+      ]
+    },
+    {
+      "case": "CP-002",
+      "attempt": "001",
+      "candidate_commit": "a83c6dffa1584ab87423b523fdf2e89cdcb40f55",
+      "evidence_date": "2026-10-29",
+      "execution_receipt_sha256": "2be0377fb040dafe561b8346d69dbbdee697aacb9c65fbee92a6614904ce05af",
+      "runner_sha256": "8aaf1b38dccd4724aafc16584ad2f33220b5638914b9ae4ca4d11d1be1f84740",
+      "adapter_sha256": "c48981177807e47aadc0666fd708d451f3130de123873e7f0466f20ac16128c3",
+      "model_requested": "hy3",
+      "response_model_identity": "not independently retained",
+      "original_attempt": "CP-002",
+      "request": {
+        "text": "只依据《云芦园区长指南_v1.0.15.txt》写《监测箱E2检查要点 v1.0.15》，只回答三个字段：E2例行检查频率、E2异常报告时限及接收角色、E2校验记录保留期。明确对象和单位，不使用T1、L8、工具便条或通行资料的规则。正文最多160个非空白字符，不含文档标题，包含字段名称；不用表格，不检索知识库，不补充资料没有的信息，全部文字黑色、中文宋体，另存为CP-002_结果_v1.0.15.docx。\n",
+        "sha256": "341790d8bfdec0c97639b3c33e3ea7e5c796635d4a7a3b39c40615d5586a03cb"
+      },
+      "pre_run_expected": {
+        "text": "# CP-002 预期检查清单 v1.0.15\n\n版本：v1.0.15。制定阶段：运行前。业务状态：未执行。用例：[查看操作](../cases/case_CP-002_v1.0.15.md)。\n\n## 逐项核对\n\n- [ ] E2例行检查频率为每15天一次，来源第四章，不采用T1每10天或L8每月。\n- [ ] E2演示异常发现后4小时内向演示协调员报告，来源第十章；不可写成2小时或1小时。\n- [ ] E2校验记录保留75天，来源第十七章；不串入90天、30天、20天或便条7天。\n- [ ] 三个字段都明确指向E2，接收角色不能误写成资料复核员或温度演示员。\n- [ ] 只回答三个字段，不把其他设备或数量当本例必需内容；不编造来源。\n- [ ] 正文≤160个非空白字符，不含文档标题、含字段名称；无表格、宋体黑色，输出版本v1.0.15。\n\n## 判定边界\n\n- 长TXT只证明本例读取/检索与写作场景，不等同于摘要DAG或图谱问答已执行。\n\n输入基准与哈希见[准备清单](../manifest_v1.0.15.json)及[Word结构基准](baselines_v1.0.15.json)。结构快照只描述输入，不是预期输出，更不是实际输出。\n\n未检查项保持未检查；生成式内容可用等义表达，但数字、对应关系和否定条件必须逐项对照。仅结构核对不能代替Word页面实看；字体和颜色也要检查实际继承。发现失败先保留完整材料，再确认是否为原产品缺陷、接入适配、环境问题或待确认需求。\n",
+        "sha256": "1744d6830c2fbe380e3d41c67b1ff7a0cfc6b05032dcdbc3db00e90a541fa77f"
+      },
+      "inputs": [
+        {
+          "name": "云芦园区长指南_v1.0.15.txt",
+          "frozen_sha256": "d0a41b1cbfb6276ebe3d16497e0847fe3fad5f1a8db72127a6b3a4a0c31c0b6b",
+          "work_sha256": "d0a41b1cbfb6276ebe3d16497e0847fe3fad5f1a8db72127a6b3a4a0c31c0b6b"
+        }
+      ],
+      "started": "2026-10-29T21:34:24.250620+08:00",
+      "finished": "2026-10-29T21:42:13.032216+08:00",
+      "elapsed_seconds": 468.78,
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "business_error": null,
+      "business_result_record_present": true,
+      "candidate_unchanged": true,
+      "inputs_preserved": true,
+      "candidate_file_sha256_before": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "candidate_file_sha256_after": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "harness": {
+        "limit_seconds": 900,
+        "timed_out": false,
+        "controller_error": null,
+        "blocked_file_write_count": 0,
+        "blocked_file_write_operations": [],
+        "clear_for_business_review": true,
+        "scope_modes": {
+          "SCOPE_CONTRACT_MODE": "contract",
+          "WHOLE_CONTAINER_MODE": "contract"
+        }
+      },
+      "outputs": [
+        {
+          "original_saved_name": "CP-002_结果_v1.0.15.docx",
+          "attempt_relative_path": "work/data/CP-002_结果_v1.0.15.docx",
+          "shared_name": "a83c6df_A001_CP-002_结果_v1.0.15.docx",
+          "bytes": 37761,
+          "sha256": "e73d7ed7fc1c3b8e03be3b36730e421d6ef671a3ecbc212ec4ec90b1c33f4ae3",
+          "package_review": {
+            "xml_parts_scanned": 16,
+            "sensitive_pattern_matches": 0,
+            "external_relationships": [],
+            "core_properties": [
+              {
+                "property": "title",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "subject",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "creator",
+                "value_present": true,
+                "value_sha256": "0d8eb615908c7b351e4eae8f1880868455fa2a36d39beba92fd5a9b20b4589e8"
+              },
+              {
+                "property": "keywords",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "description",
+                "value_present": true,
+                "value_sha256": "55cc5c37fb969e2783532824dd7796a67c6b5c149d478f992723c6780cc606b6"
+              },
+              {
+                "property": "lastModifiedBy",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "revision",
+                "value_present": true,
+                "value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+              },
+              {
+                "property": "created",
+                "value_present": true,
+                "value_sha256": "7543a7f7a975d83d559234257a271d3906f7776b4094474ce90c4b33e8522dee"
+              },
+              {
+                "property": "modified",
+                "value_present": true,
+                "value_sha256": "7543a7f7a975d83d559234257a271d3906f7776b4094474ce90c4b33e8522dee"
+              },
+              {
+                "property": "category",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              }
+            ],
+            "review_boundary": "Finite text-pattern and package inspection; binary/media privacy and semantic content require human review."
+          }
+        }
+      ],
+      "offline_audit": {
+        "audit_present": true,
+        "auditor_version": "1.0.23",
+        "auditor_sha256": "d0710d6fabd928d7c8f65b0d2f749dc68b38436c7e2637ae9e97a732498b1c9f",
+        "manual_review": "not decided by exporter",
+        "checks": [
+          {
+            "name": "candidate_unchanged_during_execution",
+            "status": "pass"
+          },
+          {
+            "name": "frozen_hash:云芦园区长指南_v1.0.15.txt",
+            "status": "pass"
+          },
+          {
+            "name": "work_input_hash:云芦园区长指南_v1.0.15.txt",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_exists:work/data/CP-002_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_hash:work/data/CP-002_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "requested_output_filename:work/data/CP-002_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_outputs_match_actual_word_files",
+            "status": "pass",
+            "detail": {
+              "unrecorded": [],
+              "recorded_not_discovered": []
+            }
+          },
+          {
+            "name": "exactly_one_recorded_word",
+            "status": "pass",
+            "detail": {
+              "count": 1
+            }
+          }
+        ],
+        "output_checks": [
+          {
+            "path": "work/data/CP-002_结果_v1.0.15.docx",
+            "sha256": "e73d7ed7fc1c3b8e03be3b36730e421d6ef671a3ecbc212ec4ec90b1c33f4ae3",
+            "checks": [
+              {
+                "name": "requested_document_title_present",
+                "status": "fail"
+              },
+              {
+                "name": "requested_document_title_at_start",
+                "status": "fail"
+              },
+              {
+                "name": "body_within_frozen_request_limit",
+                "status": "fail",
+                "detail": {
+                  "actual": 339,
+                  "limit": 160
+                }
+              },
+              {
+                "name": "no_tables",
+                "status": "fail"
+              },
+              {
+                "name": "resolved_chinese_font_and_color",
+                "status": "fail",
+                "detail": {
+                  "mismatches": [
+                    {
+                      "location": "p[0]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "黑体"
+                    },
+                    {
+                      "location": "p[2]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "微软雅黑"
+                    },
+                    {
+                      "location": "p[4]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "微软雅黑"
+                    },
+                    {
+                      "location": "table[2].row[0].cell[0].p[0]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "微软雅黑"
+                    },
+                    {
+                      "location": "table[2].row[0].cell[1].p[0]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "微软雅黑"
+                    }
+                  ],
+                  "unresolved": [],
+                  "note": "Theme/automatic/missing values are unknown; inspect effective theme/Word rendering, not automatic failure."
+                }
+              }
+            ],
+            "body_non_whitespace_characters": 339,
+            "all_non_whitespace_characters": 339,
+            "limit": 160,
+            "table_count": 3,
+            "document_title_found": false,
+            "document_title_at_start": false,
+            "title_paragraph_indices_zero_based": []
+          }
+        ]
+      },
+      "manual_review": {
+        "available": true,
+        "ready_for_write": true,
+        "manual_receipt_sha256": "127dc09534c7b7b8acef0b10920c5730ef6e767c35edaf850146812bca241817",
+        "reviewer": "Codex; independent read-only agent checks included",
+        "renderer": "WPS readonly export plus Poppler; not Microsoft Word",
+        "reviewed_pages": [
+          {
+            "name": "page-1.png",
+            "sha256": "6f63e41a24955f57af2af447afbd075061db9139a03644a638a9f34fc83c92e5"
+          }
+        ],
+        "selected_observations": {
+          "summary_zh": "file检索后end路径的15天、发现起4小时内报演示协调员、75天均写对；但正文339大于160、缺总标题、3张表及部分非宋体。未覆盖原摘要直接end路径。",
+          "case_verdict_zh": "整例失败；原摘要路径待补验",
+          "core_original_defect": "file retrieval route has correct E2 facts; original summary-only direct-end route was not exercised in this attempt",
+          "overall_case": "fail",
+          "visual_observation": "15天、4小时from discovery、演示协调员、75天 correctly related in final Word; required total title absent, 339 non-whitespace characters vs160, 3 tables despite no-table instruction, several headings use 黑体 or 微软雅黑. All text black. No original input changed.",
+          "defect_status": "DEF003 remains pending original route acceptance; supports continuing DEF004 total-title/length issue; no claim of default-model or latest-KG acceptance.",
+          "sampling": "One actual CP002 business run this round; no stability claim. Further unchanged repeats deferred because whole-case already fails and would not justify closure."
+        },
+        "verdict_source": "Explicit manual Chinese verdict only; exporter does not infer acceptance from English text or checks."
+      },
+      "acceptance": "manual semantic and visual review required; exporter does not close defects",
+      "limitations": [
+        "Request model identity only; response model identity not independently retained.",
+        "One isolated database per batch, not per case; cases serialized.",
+        "Archived WorkBuddy protocol adapter reused in memory; old local docx-prompt and console-exit patches were not copied into candidate.",
+        "900 seconds is a harness bound, not a product performance SLA."
+      ]
+    },
+    {
+      "case": "CP-003",
+      "attempt": "001",
+      "candidate_commit": "a83c6dffa1584ab87423b523fdf2e89cdcb40f55",
+      "evidence_date": "2026-10-29",
+      "execution_receipt_sha256": "65a6c0bceecde49350ca2bdeaadec9d72c235258cb1c7d048991e16e278f834c",
+      "runner_sha256": "8aaf1b38dccd4724aafc16584ad2f33220b5638914b9ae4ca4d11d1be1f84740",
+      "adapter_sha256": "c48981177807e47aadc0666fd708d451f3130de123873e7f0466f20ac16128c3",
+      "model_requested": "hy3",
+      "response_model_identity": "not independently retained",
+      "original_attempt": "CP-003",
+      "request": {
+        "text": "同时提供了旧版和新版，但本次只允许依据《沐川会议设备新规则_v1.0.15.txt》，旧版只是干扰材料。请写《沐川会议设备借用说明 v1.0.15》，说明新版借用期限、预约、审批和归还要求，不能混用旧版9天、1个工作日或演示管理员。正文最多180个非空白字符，不含文档标题、含章节标题；不用表格，不检索知识库，不补充收费押金，全部文字黑色、中文宋体，另存为CP-003_结果_v1.0.15.docx。\n",
+        "sha256": "a6e7d53f6a1e826454ecb7d8b32bf19047925fd364a5a810804601b2292d5850"
+      },
+      "pre_run_expected": {
+        "text": "# CP-003 预期检查清单 v1.0.15\n\n版本：v1.0.15。制定阶段：运行前。业务状态：未执行。用例：[查看操作](../cases/case_CP-003_v1.0.15.md)。\n\n## 逐项核对\n\n- [ ] 采用新规则4天、提前3个工作日，不采用旧规则9天和提前1个工作日。\n- [ ] 审批人为演示资料员且先确认可用，不能沿用旧版演示管理员。\n- [ ] 归还外观检查并登记时间两项齐全，不只沿用旧版登记时间。\n- [ ] 不把两份资料折中为一个新的期限或自行选择混合规则；本次优先级已在请求中明确。\n- [ ] 不因费用未说明而写成免费或免押金，不增加实际人员。\n- [ ] 正文≤180个非空白字符，不含文档标题、含章节标题；宋体黑色、无表格，新版标题和输出版本v1.0.15。\n\n## 判定边界\n\n- 优先级由本子例明确指定，不代表系统已解决未指定优先级的知识库冲突。旧输入文件保留真实v1.0.14版本。\n\n输入基准与哈希见[准备清单](../manifest_v1.0.15.json)及[Word结构基准](baselines_v1.0.15.json)。结构快照只描述输入，不是预期输出，更不是实际输出。\n\n未检查项保持未检查；生成式内容可用等义表达，但数字、对应关系和否定条件必须逐项对照。仅结构核对不能代替Word页面实看；字体和颜色也要检查实际继承。发现失败先保留完整材料，再确认是否为原产品缺陷、接入适配、环境问题或待确认需求。\n",
+        "sha256": "f7625ba32f65139dd8dd90fe58cbd37f91781e480227d27357dfba2778c64d0a"
+      },
+      "inputs": [
+        {
+          "name": "沐川会议设备旧规则_v1.0.14.txt",
+          "frozen_sha256": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10",
+          "work_sha256": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10"
+        },
+        {
+          "name": "沐川会议设备新规则_v1.0.15.txt",
+          "frozen_sha256": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d",
+          "work_sha256": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d"
+        }
+      ],
+      "started": "2026-10-29T22:24:46.453270+08:00",
+      "finished": "2026-10-29T22:32:30.991927+08:00",
+      "elapsed_seconds": 464.53,
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "business_error": null,
+      "business_result_record_present": true,
+      "candidate_unchanged": true,
+      "inputs_preserved": true,
+      "candidate_file_sha256_before": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "candidate_file_sha256_after": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "harness": {
+        "limit_seconds": 900,
+        "timed_out": false,
+        "controller_error": null,
+        "blocked_file_write_count": 0,
+        "blocked_file_write_operations": [],
+        "clear_for_business_review": true,
+        "scope_modes": {
+          "SCOPE_CONTRACT_MODE": "contract",
+          "WHOLE_CONTAINER_MODE": "contract"
+        }
+      },
+      "outputs": [
+        {
+          "original_saved_name": "CP-003_结果_v1.0.15.docx",
+          "attempt_relative_path": "work/data/CP-003_结果_v1.0.15.docx",
+          "shared_name": "a83c6df_A001_CP-003_结果_v1.0.15.docx",
+          "bytes": 38596,
+          "sha256": "4c491929b673ad0fcd15e611c22fc3c57da9a5f49d119a574dfbf2e827cdaf83",
+          "package_review": {
+            "xml_parts_scanned": 16,
+            "sensitive_pattern_matches": 0,
+            "external_relationships": [],
+            "core_properties": [
+              {
+                "property": "title",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "subject",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "creator",
+                "value_present": true,
+                "value_sha256": "0d8eb615908c7b351e4eae8f1880868455fa2a36d39beba92fd5a9b20b4589e8"
+              },
+              {
+                "property": "keywords",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "description",
+                "value_present": true,
+                "value_sha256": "55cc5c37fb969e2783532824dd7796a67c6b5c149d478f992723c6780cc606b6"
+              },
+              {
+                "property": "lastModifiedBy",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "revision",
+                "value_present": true,
+                "value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+              },
+              {
+                "property": "created",
+                "value_present": true,
+                "value_sha256": "7543a7f7a975d83d559234257a271d3906f7776b4094474ce90c4b33e8522dee"
+              },
+              {
+                "property": "modified",
+                "value_present": true,
+                "value_sha256": "7543a7f7a975d83d559234257a271d3906f7776b4094474ce90c4b33e8522dee"
+              },
+              {
+                "property": "category",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              }
+            ],
+            "review_boundary": "Finite text-pattern and package inspection; binary/media privacy and semantic content require human review."
+          }
+        }
+      ],
+      "offline_audit": {
+        "audit_present": true,
+        "auditor_version": "1.0.23",
+        "auditor_sha256": "d0710d6fabd928d7c8f65b0d2f749dc68b38436c7e2637ae9e97a732498b1c9f",
+        "manual_review": "not decided by exporter",
+        "checks": [
+          {
+            "name": "candidate_unchanged_during_execution",
+            "status": "pass"
+          },
+          {
+            "name": "frozen_hash:沐川会议设备旧规则_v1.0.14.txt",
+            "status": "pass"
+          },
+          {
+            "name": "work_input_hash:沐川会议设备旧规则_v1.0.14.txt",
+            "status": "pass"
+          },
+          {
+            "name": "frozen_hash:沐川会议设备新规则_v1.0.15.txt",
+            "status": "pass"
+          },
+          {
+            "name": "work_input_hash:沐川会议设备新规则_v1.0.15.txt",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_exists:work/data/CP-003_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_hash:work/data/CP-003_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "requested_output_filename:work/data/CP-003_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_outputs_match_actual_word_files",
+            "status": "pass",
+            "detail": {
+              "unrecorded": [],
+              "recorded_not_discovered": []
+            }
+          },
+          {
+            "name": "exactly_one_recorded_word",
+            "status": "pass",
+            "detail": {
+              "count": 1
+            }
+          }
+        ],
+        "output_checks": [
+          {
+            "path": "work/data/CP-003_结果_v1.0.15.docx",
+            "sha256": "4c491929b673ad0fcd15e611c22fc3c57da9a5f49d119a574dfbf2e827cdaf83",
+            "checks": [
+              {
+                "name": "requested_document_title_present",
+                "status": "fail"
+              },
+              {
+                "name": "requested_document_title_at_start",
+                "status": "fail"
+              },
+              {
+                "name": "body_within_frozen_request_limit",
+                "status": "fail",
+                "detail": {
+                  "actual": 933,
+                  "limit": 180
+                }
+              },
+              {
+                "name": "no_tables",
+                "status": "fail"
+              },
+              {
+                "name": "resolved_chinese_font_and_color",
+                "status": "fail",
+                "detail": {
+                  "mismatches": [
+                    {
+                      "location": "p[0]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "微软雅黑"
+                    },
+                    {
+                      "location": "p[2]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "微软雅黑"
+                    },
+                    {
+                      "location": "p[3]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "微软雅黑"
+                    },
+                    {
+                      "location": "p[5]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "微软雅黑"
+                    },
+                    {
+                      "location": "p[7]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "微软雅黑"
+                    },
+                    {
+                      "location": "p[8]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "微软雅黑"
+                    },
+                    {
+                      "location": "p[10]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "微软雅黑"
+                    },
+                    {
+                      "location": "p[12]",
+                      "run": 0,
+                      "property": "eastAsia_font",
+                      "actual": "微软雅黑"
+                    }
+                  ],
+                  "unresolved": [],
+                  "note": "Theme/automatic/missing values are unknown; inspect effective theme/Word rendering, not automatic failure."
+                }
+              }
+            ],
+            "body_non_whitespace_characters": 933,
+            "all_non_whitespace_characters": 933,
+            "limit": 180,
+            "table_count": 4,
+            "document_title_found": false,
+            "document_title_at_start": false,
+            "title_paragraph_indices_zero_based": []
+          }
+        ]
+      },
+      "manual_review": {
+        "available": true,
+        "ready_for_write": true,
+        "manual_receipt_sha256": "127dc09534c7b7b8acef0b10920c5730ef6e767c35edaf850146812bca241817",
+        "reviewer": "Codex; independent read-only agent checks included",
+        "renderer": "WPS readonly export plus Poppler; not Microsoft Word",
+        "reviewed_pages": [
+          {
+            "name": "page-1.png",
+            "sha256": "e4590f4d92cbbd03de7ae8014f516fc28f3b99e49fa26a2f43d3da0447bd4192"
+          },
+          {
+            "name": "page-2.png",
+            "sha256": "fc13979d8b3513e9fcd9388664e99dcb7763260a0e88a8c641d79a03e9ddbb38"
+          }
+        ],
+        "selected_observations": {
+          "summary_zh": "新版4天、提前3个工作日、演示资料员确认可用后批准、外观检查和登记时间均采用正确；但正文933大于180、缺指定总标题、4张表，部分标题非宋体。额外加入无据归还与审批建议。",
+          "case_verdict_zh": "失败；DEF-004仍存在",
+          "core_original_defect": "Whole-document title and length constraints still fail. Not the same fourfold repetition shape as historical CP003.",
+          "overall_case": "fail",
+          "visual_observation": "Both actual WPS pages inspected. 933 nonwhitespace characters vs180, 4 tables despite no tables, missing requested total title; table crosses page. Old 9 days,1 workday,old administrator only appear explicitly invalidated, not adopted as current rules.",
+          "independent_package_check": "Independent reader confirmed final content, source relations and unsupported expansion observations.",
+          "remaining_observation": "Do not report old-noise tokens as adopted false facts. Only one actual run this case; no stability claim."
+        },
+        "verdict_source": "Explicit manual Chinese verdict only; exporter does not infer acceptance from English text or checks."
+      },
+      "acceptance": "manual semantic and visual review required; exporter does not close defects",
+      "limitations": [
+        "Request model identity only; response model identity not independently retained.",
+        "One isolated database per batch, not per case; cases serialized.",
+        "Archived WorkBuddy protocol adapter reused in memory; old local docx-prompt and console-exit patches were not copied into candidate.",
+        "900 seconds is a harness bound, not a product performance SLA."
+      ]
+    },
+    {
+      "case": "CP-009",
+      "attempt": "001",
+      "candidate_commit": "a83c6dffa1584ab87423b523fdf2e89cdcb40f55",
+      "evidence_date": "2026-10-29",
+      "execution_receipt_sha256": "0f8d7d354a098951f5d14bfa197e58abb70a3e4cd4b2aeef21a01b43ff7c396b",
+      "runner_sha256": "8aaf1b38dccd4724aafc16584ad2f33220b5638914b9ae4ca4d11d1be1f84740",
+      "adapter_sha256": "c48981177807e47aadc0666fd708d451f3130de123873e7f0466f20ac16128c3",
+      "model_requested": "hy3",
+      "response_model_identity": "not independently retained",
+      "original_attempt": "CP-009",
+      "request": {
+        "text": "只修改《巡检清单_v1.0.15.docx》中“二、巡检表”的第1张表格：设备标识为“设备A”的行、列标题为“检查频率”的单元格，改为“每月检查一次”。设备B、数量列、正文、表头和表格行列结构全部保留。其他文字格式不变，中文宋体、全部文字黑色，不检索知识库，不覆盖原稿，另存为CP-009_结果_v1.0.15.docx。\n",
+        "sha256": "f24bfaeaf0fe3240b3e213c0b8fedb06a1655ae869f4eedb98372e192c2c3aa8"
+      },
+      "pre_run_expected": {
+        "text": "# CP-009 预期检查清单 v1.0.15\n\n版本：v1.0.15。制定阶段：运行前。业务状态：未执行。用例：[查看操作](../cases/case_CP-009_v1.0.15.md)。\n\n## 逐项核对\n\n- [ ] 唯一授权格为第1张表、设备A行、检查频率列，结果为每月检查一次。\n- [ ] 设备B检查频率仍为每季度检查一次；设备A数量12台、设备B数量7台不变。\n- [ ] 第一章正文中设备A/设备B及“每季度检查一次”保持原文。\n- [ ] 表头、其他单元格、3行3列结构、单元格对应关系保持。\n- [ ] 表后“未检查不得签字”及其他文字、格式和页面设置核对不变。\n- [ ] 输入前后哈希一致；结果另存；实际打开表格检查宽度、换行和分页。\n\n## 判定边界\n\n- 没有额外验收口径；尚未执行。\n\n输入基准与哈希见[准备清单](../manifest_v1.0.15.json)及[Word结构基准](baselines_v1.0.15.json)。结构快照只描述输入，不是预期输出，更不是实际输出。\n\n未检查项保持未检查；生成式内容可用等义表达，但数字、对应关系和否定条件必须逐项对照。仅结构核对不能代替Word页面实看；字体和颜色也要检查实际继承。发现失败先保留完整材料，再确认是否为原产品缺陷、接入适配、环境问题或待确认需求。\n",
+        "sha256": "fd176604b36087c4cfa91f9ded24a88a28ab238eab8727e59da86f76656b19ba"
+      },
+      "inputs": [
+        {
+          "name": "巡检清单_v1.0.15.docx",
+          "frozen_sha256": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
+          "work_sha256": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166"
+        }
+      ],
+      "started": "2026-10-29T22:32:32.645377+08:00",
+      "finished": "2026-10-29T22:36:46.239152+08:00",
+      "elapsed_seconds": 253.59,
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "business_error": "file工具反馈：文件路径不存在：巡检清单_v1.0.15.docx",
+      "business_result_record_present": true,
+      "candidate_unchanged": true,
+      "inputs_preserved": true,
+      "candidate_file_sha256_before": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "candidate_file_sha256_after": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "harness": {
+        "limit_seconds": 900,
+        "timed_out": false,
+        "controller_error": null,
+        "blocked_file_write_count": 0,
+        "blocked_file_write_operations": [],
+        "clear_for_business_review": true,
+        "scope_modes": {
+          "SCOPE_CONTRACT_MODE": "contract",
+          "WHOLE_CONTAINER_MODE": "contract"
+        }
+      },
+      "outputs": [
+        {
+          "original_saved_name": "CP-009_结果_v1.0.15.docx",
+          "attempt_relative_path": "work/inputs/CP-009_结果_v1.0.15.docx",
+          "shared_name": "a83c6df_A001_CP-009_结果_v1.0.15.docx",
+          "bytes": 37345,
+          "sha256": "30f42aaeae74c106350b4776c84e3490c92ee2e68a6e1a2362b60108afcc54ab",
+          "package_review": {
+            "xml_parts_scanned": 16,
+            "sensitive_pattern_matches": 0,
+            "external_relationships": [],
+            "core_properties": [
+              {
+                "property": "title",
+                "value_present": true,
+                "value_sha256": "05257269802a717d6dbb4200218c13cff4f16547336d4dc78db0b476279383e7"
+              },
+              {
+                "property": "subject",
+                "value_present": true,
+                "value_sha256": "4fa9d7cfd43395c4607149e8bf746b285aaa799c9cbb91647f3a790907e6f15b"
+              },
+              {
+                "property": "creator",
+                "value_present": true,
+                "value_sha256": "062ad77cab0674735396475672ad2d875e27d4c33053ac99811bc0b002133758"
+              },
+              {
+                "property": "keywords",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "description",
+                "value_present": true,
+                "value_sha256": "cc7e05aa07b67a46ce39e86c9678472f8381454566d0a41a4469b088f200bd25"
+              },
+              {
+                "property": "lastModifiedBy",
+                "value_present": true,
+                "value_sha256": "062ad77cab0674735396475672ad2d875e27d4c33053ac99811bc0b002133758"
+              },
+              {
+                "property": "revision",
+                "value_present": true,
+                "value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+              },
+              {
+                "property": "created",
+                "value_present": true,
+                "value_sha256": "275a3eefb6bad7c0d5dac63be87e2c5aa2ad24cd026604cbe99a67e2a4ee9697"
+              },
+              {
+                "property": "modified",
+                "value_present": true,
+                "value_sha256": "275a3eefb6bad7c0d5dac63be87e2c5aa2ad24cd026604cbe99a67e2a4ee9697"
+              },
+              {
+                "property": "category",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "version",
+                "value_present": true,
+                "value_sha256": "74cb62fa67c5f58118b68398107eab3dc1238c440888e8863ae631b3878c7856"
+              }
+            ],
+            "review_boundary": "Finite text-pattern and package inspection; binary/media privacy and semantic content require human review."
+          }
+        }
+      ],
+      "offline_audit": {
+        "audit_present": true,
+        "auditor_version": "1.0.23",
+        "auditor_sha256": "d0710d6fabd928d7c8f65b0d2f749dc68b38436c7e2637ae9e97a732498b1c9f",
+        "manual_review": "not decided by exporter",
+        "checks": [
+          {
+            "name": "candidate_unchanged_during_execution",
+            "status": "pass"
+          },
+          {
+            "name": "frozen_hash:巡检清单_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "work_input_hash:巡检清单_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_exists:work/inputs/CP-009_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_hash:work/inputs/CP-009_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "requested_output_filename:work/inputs/CP-009_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_outputs_match_actual_word_files",
+            "status": "pass",
+            "detail": {
+              "unrecorded": [],
+              "recorded_not_discovered": []
+            }
+          },
+          {
+            "name": "exactly_one_recorded_word",
+            "status": "pass",
+            "detail": {
+              "count": 1
+            }
+          }
+        ],
+        "output_checks": [
+          {
+            "path": "work/inputs/CP-009_结果_v1.0.15.docx",
+            "sha256": "30f42aaeae74c106350b4776c84e3490c92ee2e68a6e1a2362b60108afcc54ab",
+            "checks": [
+              {
+                "name": "exact_authorized_text_changes_only",
+                "status": "pass",
+                "detail": {
+                  "count": 0,
+                  "examples": []
+                }
+              },
+              {
+                "name": "ordered_body_element_types",
+                "status": "pass",
+                "detail": {
+                  "source": [
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "tbl",
+                    "p",
+                    "sectPr"
+                  ],
+                  "output": [
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "p",
+                    "tbl",
+                    "p",
+                    "sectPr"
+                  ]
+                }
+              },
+              {
+                "name": "page_section_properties_excluding_header_footer_references",
+                "status": "pass"
+              },
+              {
+                "name": "table_count",
+                "status": "pass"
+              },
+              {
+                "name": "table[0]_nontext_structure_and_format",
+                "status": "fail",
+                "detail": {
+                  "source_cell_widths_twips": [
+                    [
+                      "3061",
+                      "3061",
+                      "3061"
+                    ],
+                    [
+                      "3061",
+                      "3061",
+                      "3061"
+                    ],
+                    [
+                      "3061",
+                      "3061",
+                      "3061"
+                    ]
+                  ],
+                  "output_cell_widths_twips": [
+                    [
+                      "3211",
+                      "3211",
+                      "3211"
+                    ],
+                    [
+                      "3211",
+                      "3211",
+                      "3211"
+                    ],
+                    [
+                      "3211",
+                      "3211",
+                      "3211"
+                    ]
+                  ],
+                  "note": "XML structure includes row/cell/paragraph/run properties; run repartition may require causal review."
+                }
+              },
+              {
+                "name": "protected_paragraph_and_effective_character_formats",
+                "status": "fail",
+                "detail": {
+                  "mismatches": [
+                    {
+                      "location": "table[0].row[0].cell[0].p[0]",
+                      "property": "direct_paragraph_properties",
+                      "source_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "80",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      },
+                      "output_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "120",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      }
+                    },
+                    {
+                      "location": "table[0].row[0].cell[0].p[0]",
+                      "property": "effective_character_properties",
+                      "positions": [
+                        0,
+                        1,
+                        2,
+                        3
+                      ]
+                    },
+                    {
+                      "location": "table[0].row[0].cell[1].p[0]",
+                      "property": "direct_paragraph_properties",
+                      "source_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "80",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      },
+                      "output_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "120",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      }
+                    },
+                    {
+                      "location": "table[0].row[0].cell[1].p[0]",
+                      "property": "effective_character_properties",
+                      "positions": [
+                        0,
+                        1,
+                        2,
+                        3
+                      ]
+                    },
+                    {
+                      "location": "table[0].row[0].cell[2].p[0]",
+                      "property": "direct_paragraph_properties",
+                      "source_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "80",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      },
+                      "output_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "120",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      }
+                    },
+                    {
+                      "location": "table[0].row[0].cell[2].p[0]",
+                      "property": "effective_character_properties",
+                      "positions": [
+                        0,
+                        1
+                      ]
+                    },
+                    {
+                      "location": "table[0].row[1].cell[0].p[0]",
+                      "property": "direct_paragraph_properties",
+                      "source_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "80",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      },
+                      "output_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "120",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      }
+                    },
+                    {
+                      "location": "table[0].row[1].cell[1].p[0]",
+                      "property": "direct_paragraph_properties",
+                      "source_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "80",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      },
+                      "output_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "120",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      }
+                    },
+                    {
+                      "location": "table[0].row[1].cell[2].p[0]",
+                      "property": "direct_paragraph_properties",
+                      "source_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "80",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      },
+                      "output_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "120",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      }
+                    },
+                    {
+                      "location": "table[0].row[2].cell[0].p[0]",
+                      "property": "direct_paragraph_properties",
+                      "source_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "80",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      },
+                      "output_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "120",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      }
+                    },
+                    {
+                      "location": "table[0].row[2].cell[1].p[0]",
+                      "property": "direct_paragraph_properties",
+                      "source_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "80",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      },
+                      "output_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "120",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      }
+                    },
+                    {
+                      "location": "table[0].row[2].cell[2].p[0]",
+                      "property": "direct_paragraph_properties",
+                      "source_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "80",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      },
+                      "output_effective_paragraph_properties": {
+                        "spacing": {
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}after": "120",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}line": "312",
+                          "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}lineRule": "auto"
+                        }
+                      }
+                    }
+                  ],
+                  "unmapped_locations": []
+                }
+              },
+              {
+                "name": "resolved_chinese_font_and_color",
+                "status": "pass",
+                "detail": {
+                  "mismatches": [],
+                  "unresolved": [],
+                  "note": "Theme/automatic/missing values are unknown; inspect effective theme/Word rendering, not automatic failure."
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "manual_review": {
+        "available": true,
+        "ready_for_write": true,
+        "manual_receipt_sha256": "127dc09534c7b7b8acef0b10920c5730ef6e767c35edaf850146812bca241817",
+        "reviewer": "Codex; independent read-only agent checks included",
+        "renderer": "WPS readonly export plus Poppler; not Microsoft Word",
+        "reviewed_pages": [
+          {
+            "name": "page-1.png",
+            "sha256": "5b1efb14d2d11f5a66b811942aa93fd32d7caa5ea5ebcfd07fc5692f17e326b4"
+          },
+          {
+            "name": "page-1.png",
+            "sha256": "b46e31ec70df2978c59671bca86d6d0e712e434526daa2d43796748ea0f48595"
+          }
+        ],
+        "selected_observations": {
+          "summary_zh": "设备A目标格改为每月正确，其他8格、正文及3×3结构保持；9格段后由4磅变6磅，3个表头丢粗体，9格tcW3061变3211而列网格未变，原稿保持。",
+          "case_verdict_zh": "失败；DEF-005仍存在",
+          "core_original_defect": "Original table-format loss reproduced.",
+          "overall_case": "fail",
+          "visual_observation": "Actual before/after pages inspected: target monthly, deviceB quarterly and inventory remain; table header visibly loses bold; table remains one page. Do not infer visual width change from tcW alone.",
+          "independent_package_check": "Independent XML/style resolution confirmed after4pt-to6pt all9, header bold loss3, tcW changes9 and unchanged tblGrid, all other text retained."
+        },
+        "verdict_source": "Explicit manual Chinese verdict only; exporter does not infer acceptance from English text or checks."
+      },
+      "acceptance": "manual semantic and visual review required; exporter does not close defects",
+      "limitations": [
+        "Request model identity only; response model identity not independently retained.",
+        "One isolated database per batch, not per case; cases serialized.",
+        "Archived WorkBuddy protocol adapter reused in memory; old local docx-prompt and console-exit patches were not copied into candidate.",
+        "900 seconds is a harness bound, not a product performance SLA."
+      ]
+    },
+    {
+      "case": "CP-010",
+      "attempt": "001",
+      "candidate_commit": "a83c6dffa1584ab87423b523fdf2e89cdcb40f55",
+      "evidence_date": "2026-10-29",
+      "execution_receipt_sha256": "8936b1b9db3d7b9b6deba7fc173d413981fc7186fc513f97b66fce662bc946d6",
+      "runner_sha256": "8aaf1b38dccd4724aafc16584ad2f33220b5638914b9ae4ca4d11d1be1f84740",
+      "adapter_sha256": "c48981177807e47aadc0666fd708d451f3130de123873e7f0466f20ac16128c3",
+      "model_requested": "hy3",
+      "response_model_identity": "not independently retained",
+      "original_attempt": "CP-010",
+      "request": {
+        "text": "只调整《记录排版样例_v1.0.15.docx》的格式，所有文字一字不改。文档标题18磅居中，一级标题16磅，其他正文和表格文字12磅；所有段落段前0磅、段后6磅、1.5倍行距；全部文字黑色、中文宋体。保留段落顺序、表格文字和3行3列结构，不检索知识库，不覆盖原稿，另存为CP-010_结果_v1.0.15.docx。\n",
+        "sha256": "1f1897a772741b16cef32dd0087f913672d21afaef54eeea8e061c13ad2d7e5e"
+      },
+      "pre_run_expected": {
+        "text": "# CP-010 预期检查清单 v1.0.15\n\n版本：v1.0.15。制定阶段：运行前。业务状态：未执行。用例：[查看操作](../cases/case_CP-010_v1.0.15.md)。\n\n## 逐项核对\n\n- [ ] 包括标题、语料标识、正文、表头和各格的逐元素文字完全一致，不只比较总字数。\n- [ ] 文档标题18磅居中，两个一级标题16磅，其他正文和所有表格文字12磅。\n- [ ] 所有段落（含表格段落）段前0磅、段后6磅，1.5倍行距；检查实际样式继承与直接格式。\n- [ ] 全部中文宋体、所有文字黑色；不使用不同字体或彩色文字作为输入差异。\n- [ ] 表格保持3行3列，5份/3份/8份及45天的对应关系逐字不变。\n- [ ] 原稿哈希不变；结果另存并实际打开检查页面。此输入字号段距不同是有意设置的测试条件，不应提前规范成预期。\n\n## 判定边界\n\n- 只覆盖普通正文和简单表格，不声称复杂图片/公式/分节保真已验证。\n\n输入基准与哈希见[准备清单](../manifest_v1.0.15.json)及[Word结构基准](baselines_v1.0.15.json)。结构快照只描述输入，不是预期输出，更不是实际输出。\n\n未检查项保持未检查；生成式内容可用等义表达，但数字、对应关系和否定条件必须逐项对照。仅结构核对不能代替Word页面实看；字体和颜色也要检查实际继承。发现失败先保留完整材料，再确认是否为原产品缺陷、接入适配、环境问题或待确认需求。\n",
+        "sha256": "a6e9d167fa51679b6aa7ea86355025ffdcea6aac8e3c8059d8df3e29338fac49"
+      },
+      "inputs": [
+        {
+          "name": "记录排版样例_v1.0.15.docx",
+          "frozen_sha256": "6f571cdbb6ecf9090c142aa4657aeeeae7ed8ed235bd98624fe22274c9768a8f",
+          "work_sha256": "6f571cdbb6ecf9090c142aa4657aeeeae7ed8ed235bd98624fe22274c9768a8f"
+        }
+      ],
+      "started": "2026-10-29T22:36:49.963936+08:00",
+      "finished": "2026-10-29T22:40:21.144540+08:00",
+      "elapsed_seconds": 211.19,
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "business_error": "file工具反馈：文件路径不存在：记录排版样例_v1.0.15.docx",
+      "business_result_record_present": true,
+      "candidate_unchanged": true,
+      "inputs_preserved": true,
+      "candidate_file_sha256_before": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "candidate_file_sha256_after": {
+        ".gitignore": "3b7639ac6d4abc05ef6d1dd462feaba60b4122503e4071515fe19cc1fba6a7be",
+        "LICENSE": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+        "README.md": "d36bef85d583e26e81dc7c814adb98e6cc251e1822824beb2385a40ccf5d8bc1",
+        "pyproject.toml": "cc37d813718146a39232c13a241524cc92768a5b98be5cbf121859c487da8563",
+        "src/document_agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/agent/agent_core.py": "5a65fd6af5a6dab6770fecce4eff1b70d92db926abbaf0d54195846673767386",
+        "src/document_agent/agent/docx_node.py": "ecbb7c5cfaa8e504459e7091e37363f04c903fd2a081ae94b6982b5620a8a983",
+        "src/document_agent/agent/file_retrieve_node.py": "1c97de80f525d25d98736b65837040669cb493147054f0fa9ea5640f56ce6e24",
+        "src/document_agent/agent/gdb_retrieve_node.py": "f981fda7a15ae6b938a0d6d9c0bde534532caced1064751a1642de3cd8baa2f2",
+        "src/document_agent/agent/intent_node.py": "42f31cc9c9b6233cea9ca75918532c574793ac97a72b4cb93f00a71cd159b1db",
+        "src/document_agent/agent/llm_client.py": "237653a4966c78b9ccfec3bd5cd536d91a8c228c90d716aac9c2b03744cc8b9d",
+        "src/document_agent/agent/retrieval_material.py": "ac471ed83f6f6847d57d12c8a0a5699702255486bdbfaf714fe7a98be751b4c9",
+        "src/document_agent/agent/retrieve_node.py": "2b30b7049da5339ce46207f3accb419aa3bf5722e0ccdebf2bc0ca2eadc2f0e6",
+        "src/document_agent/agent/rewrite_node.py": "e9652bd86c22565ce4342dc26f5a52da6465a965f15104fb5372a4f9ff369ac2",
+        "src/document_agent/agent/scope_contract.py": "33c62cb4c373f012f814e4377207ff27503ddb09fa29432cbf7a544852639300",
+        "src/document_agent/agent/summary_node.py": "13bf2cc416953fc584f06259727f46249648dd9bc8971b700c91eb89c0f27b20",
+        "src/document_agent/console_app.py": "5ffab9d580a427d4159a911d296c3aac15c8fa2850c3cbe7c19b0cc1269650b2",
+        "src/document_agent/knowledge_base_record.py": "c22abf8b58c73c6ba2e0ca05e9ad39cfdebb5530ed0a7f20735dff545f06a048",
+        "src/document_agent/memory/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/memory/knowledge_graph.py": "0b1829116dfbb340608f01a12a59cd439f81ac8eb5ba2c60f2153113c9c8fc37",
+        "src/document_agent/memory/neo_graph_db.py": "2f61555338475814ef0394a6fc91d2162b75a0ee953116569ccaf727e733f576",
+        "src/document_agent/retrieve_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/retrieve_tool/excel_tools.py": "ce8fb257baad9c8bf9a22fd997accf9f07b6f6388362de66925949d2649835a6",
+        "src/document_agent/retrieve_tool/extract_document.py": "4da38da1c87f9c5987ce105fddbfd3fbbfd5150b99f22b3b01f14f3d42d42b23",
+        "src/document_agent/retrieve_tool/extract_word_text.py": "99ff80411d27db42e93c2b127aa22dd02e0037e73a31f46d4dc2c7955ea30788",
+        "src/document_agent/retrieve_tool/pdf_tools.py": "501e255fd09ac86a468938dacc77502509e48aa1e3a96622d02f6182f956567b",
+        "src/document_agent/retrieve_tool/summary_dag.py": "78f020a1b4cbb26a084afee822c6ec6988c619ee60ad1988e7f449c3f14a4cce",
+        "src/document_agent/write_tool/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "src/document_agent/write_tool/word_replace.py": "d381d0950bca5ab479224d0089ea2871df830a7e8f6fa7a3b056fc5d2fcd61e6",
+        "src/document_agent/write_tool/word_tool.py": "e99ba854fc1b0d01b050393012a360f2323d1210e5cfd1c092bcb8c2a4982765",
+        "src/setting.json": "ae75a3b5631e422157de974786df901079c93047e161753b91ae3f28672abc63"
+      },
+      "harness": {
+        "limit_seconds": 900,
+        "timed_out": false,
+        "controller_error": null,
+        "blocked_file_write_count": 0,
+        "blocked_file_write_operations": [],
+        "clear_for_business_review": true,
+        "scope_modes": {
+          "SCOPE_CONTRACT_MODE": "contract",
+          "WHOLE_CONTAINER_MODE": "contract"
+        }
+      },
+      "outputs": [
+        {
+          "original_saved_name": "CP-010_结果_v1.0.15.docx",
+          "attempt_relative_path": "work/inputs/CP-010_结果_v1.0.15.docx",
+          "shared_name": "a83c6df_A001_CP-010_结果_v1.0.15.docx",
+          "bytes": 37453,
+          "sha256": "61e0dac316bd27901cc132451ecb82c8b16955aadafbd706d52c1613e0ec7e23",
+          "package_review": {
+            "xml_parts_scanned": 16,
+            "sensitive_pattern_matches": 0,
+            "external_relationships": [],
+            "core_properties": [
+              {
+                "property": "title",
+                "value_present": true,
+                "value_sha256": "c938f38165cf8dc7853cb8fbeede5eef8032f63d370e3a97a0af9b6249b088bf"
+              },
+              {
+                "property": "subject",
+                "value_present": true,
+                "value_sha256": "4fa9d7cfd43395c4607149e8bf746b285aaa799c9cbb91647f3a790907e6f15b"
+              },
+              {
+                "property": "creator",
+                "value_present": true,
+                "value_sha256": "062ad77cab0674735396475672ad2d875e27d4c33053ac99811bc0b002133758"
+              },
+              {
+                "property": "keywords",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "description",
+                "value_present": true,
+                "value_sha256": "cc7e05aa07b67a46ce39e86c9678472f8381454566d0a41a4469b088f200bd25"
+              },
+              {
+                "property": "lastModifiedBy",
+                "value_present": true,
+                "value_sha256": "062ad77cab0674735396475672ad2d875e27d4c33053ac99811bc0b002133758"
+              },
+              {
+                "property": "revision",
+                "value_present": true,
+                "value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+              },
+              {
+                "property": "created",
+                "value_present": true,
+                "value_sha256": "275a3eefb6bad7c0d5dac63be87e2c5aa2ad24cd026604cbe99a67e2a4ee9697"
+              },
+              {
+                "property": "modified",
+                "value_present": true,
+                "value_sha256": "275a3eefb6bad7c0d5dac63be87e2c5aa2ad24cd026604cbe99a67e2a4ee9697"
+              },
+              {
+                "property": "category",
+                "value_present": false,
+                "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "property": "version",
+                "value_present": true,
+                "value_sha256": "74cb62fa67c5f58118b68398107eab3dc1238c440888e8863ae631b3878c7856"
+              }
+            ],
+            "review_boundary": "Finite text-pattern and package inspection; binary/media privacy and semantic content require human review."
+          }
+        }
+      ],
+      "offline_audit": {
+        "audit_present": true,
+        "auditor_version": "1.0.23",
+        "auditor_sha256": "d0710d6fabd928d7c8f65b0d2f749dc68b38436c7e2637ae9e97a732498b1c9f",
+        "manual_review": "not decided by exporter",
+        "checks": [
+          {
+            "name": "candidate_unchanged_during_execution",
+            "status": "pass"
+          },
+          {
+            "name": "frozen_hash:记录排版样例_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "work_input_hash:记录排版样例_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_exists:work/inputs/CP-010_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_output_hash:work/inputs/CP-010_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "requested_output_filename:work/inputs/CP-010_结果_v1.0.15.docx",
+            "status": "pass"
+          },
+          {
+            "name": "recorded_outputs_match_actual_word_files",
+            "status": "pass",
+            "detail": {
+              "unrecorded": [],
+              "recorded_not_discovered": []
+            }
+          },
+          {
+            "name": "exactly_one_recorded_word",
+            "status": "pass",
+            "detail": {
+              "count": 1
+            }
+          }
+        ],
+        "output_checks": [
+          {
+            "path": "work/inputs/CP-010_结果_v1.0.15.docx",
+            "sha256": "61e0dac316bd27901cc132451ecb82c8b16955aadafbd706d52c1613e0ec7e23",
+            "checks": [
+              {
+                "name": "all_text_and_element_locations_unchanged",
+                "status": "pass",
+                "detail": {
+                  "count": 0,
+                  "examples": []
+                }
+              },
+              {
+                "name": "ordered_body_element_types",
+                "status": "pass"
+              },
+              {
+                "name": "table_text_and_3_by_3_structure",
+                "status": "pass"
+              },
+              {
+                "name": "page_section_properties_excluding_header_footer_references",
+                "status": "pass"
+              },
+              {
+                "name": "p[0].run[0]_size_pt",
+                "status": "pass",
+                "detail": {
+                  "expected": 18,
+                  "actual": 18.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[0]_spacing_before",
+                "status": "pass",
+                "detail": {
+                  "expected": 0,
+                  "actual": 0.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[0]_spacing_after",
+                "status": "pass",
+                "detail": {
+                  "expected": 120,
+                  "actual": 120.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[0]_spacing_line",
+                "status": "pass",
+                "detail": {
+                  "expected": 360,
+                  "actual": 360.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[0]_line_rule",
+                "status": "pass",
+                "detail": {
+                  "expected": "auto",
+                  "actual": "auto",
+                  "note": null
+                }
+              },
+              {
+                "name": "title_center_alignment",
+                "status": "pass",
+                "detail": {
+                  "expected": "center",
+                  "actual": "center",
+                  "note": null
+                }
+              },
+              {
+                "name": "p[1].run[0]_size_pt",
+                "status": "pass",
+                "detail": {
+                  "expected": 12,
+                  "actual": 12.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[1]_spacing_before",
+                "status": "pass",
+                "detail": {
+                  "expected": 0,
+                  "actual": 0.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[1]_spacing_after",
+                "status": "pass",
+                "detail": {
+                  "expected": 120,
+                  "actual": 120.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[1]_spacing_line",
+                "status": "pass",
+                "detail": {
+                  "expected": 360,
+                  "actual": 360.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[1]_line_rule",
+                "status": "pass",
+                "detail": {
+                  "expected": "auto",
+                  "actual": "auto",
+                  "note": null
+                }
+              },
+              {
+                "name": "p[2].run[0]_size_pt",
+                "status": "pass",
+                "detail": {
+                  "expected": 16,
+                  "actual": 16.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[2]_spacing_before",
+                "status": "pass",
+                "detail": {
+                  "expected": 0,
+                  "actual": 0.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[2]_spacing_after",
+                "status": "pass",
+                "detail": {
+                  "expected": 120,
+                  "actual": 120.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[2]_spacing_line",
+                "status": "pass",
+                "detail": {
+                  "expected": 360,
+                  "actual": 360.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[2]_line_rule",
+                "status": "pass",
+                "detail": {
+                  "expected": "auto",
+                  "actual": "auto",
+                  "note": null
+                }
+              },
+              {
+                "name": "p[3].run[0]_size_pt",
+                "status": "pass",
+                "detail": {
+                  "expected": 12,
+                  "actual": 12.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[3]_spacing_before",
+                "status": "pass",
+                "detail": {
+                  "expected": 0,
+                  "actual": 0.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[3]_spacing_after",
+                "status": "pass",
+                "detail": {
+                  "expected": 120,
+                  "actual": 120.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[3]_spacing_line",
+                "status": "pass",
+                "detail": {
+                  "expected": 360,
+                  "actual": 360.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[3]_line_rule",
+                "status": "pass",
+                "detail": {
+                  "expected": "auto",
+                  "actual": "auto",
+                  "note": null
+                }
+              },
+              {
+                "name": "p[4].run[0]_size_pt",
+                "status": "pass",
+                "detail": {
+                  "expected": 16,
+                  "actual": 16.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[4]_spacing_before",
+                "status": "pass",
+                "detail": {
+                  "expected": 0,
+                  "actual": 0.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[4]_spacing_after",
+                "status": "pass",
+                "detail": {
+                  "expected": 120,
+                  "actual": 120.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[4]_spacing_line",
+                "status": "pass",
+                "detail": {
+                  "expected": 360,
+                  "actual": 360.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[4]_line_rule",
+                "status": "pass",
+                "detail": {
+                  "expected": "auto",
+                  "actual": "auto",
+                  "note": null
+                }
+              },
+              {
+                "name": "p[5].run[0]_size_pt",
+                "status": "pass",
+                "detail": {
+                  "expected": 12,
+                  "actual": 12.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[5]_spacing_before",
+                "status": "pass",
+                "detail": {
+                  "expected": 0,
+                  "actual": 0.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[5]_spacing_after",
+                "status": "pass",
+                "detail": {
+                  "expected": 120,
+                  "actual": 120.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[5]_spacing_line",
+                "status": "pass",
+                "detail": {
+                  "expected": 360,
+                  "actual": 360.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "p[5]_line_rule",
+                "status": "pass",
+                "detail": {
+                  "expected": "auto",
+                  "actual": "auto",
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[0].cell[0].p[0].run[0]_size_pt",
+                "status": "fail",
+                "detail": {
+                  "expected": 12,
+                  "actual": 10.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[0].cell[0].p[0]_spacing_before",
+                "status": "fail",
+                "detail": {
+                  "expected": 0,
+                  "actual": 180.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[0].cell[0].p[0]_spacing_after",
+                "status": "fail",
+                "detail": {
+                  "expected": 120,
+                  "actual": 20.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[0].cell[0].p[0]_spacing_line",
+                "status": "fail",
+                "detail": {
+                  "expected": 360,
+                  "actual": 240.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[0].cell[0].p[0]_line_rule",
+                "status": "pass",
+                "detail": {
+                  "expected": "auto",
+                  "actual": "auto",
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[0].cell[1].p[0].run[0]_size_pt",
+                "status": "fail",
+                "detail": {
+                  "expected": 12,
+                  "actual": 10.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[0].cell[1].p[0]_spacing_before",
+                "status": "fail",
+                "detail": {
+                  "expected": 0,
+                  "actual": 180.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[0].cell[1].p[0]_spacing_after",
+                "status": "fail",
+                "detail": {
+                  "expected": 120,
+                  "actual": 20.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[0].cell[1].p[0]_spacing_line",
+                "status": "fail",
+                "detail": {
+                  "expected": 360,
+                  "actual": 240.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[0].cell[1].p[0]_line_rule",
+                "status": "pass",
+                "detail": {
+                  "expected": "auto",
+                  "actual": "auto",
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[0].cell[2].p[0].run[0]_size_pt",
+                "status": "fail",
+                "detail": {
+                  "expected": 12,
+                  "actual": 10.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[0].cell[2].p[0]_spacing_before",
+                "status": "fail",
+                "detail": {
+                  "expected": 0,
+                  "actual": 180.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[0].cell[2].p[0]_spacing_after",
+                "status": "fail",
+                "detail": {
+                  "expected": 120,
+                  "actual": 20.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[0].cell[2].p[0]_spacing_line",
+                "status": "fail",
+                "detail": {
+                  "expected": 360,
+                  "actual": 240.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[0].cell[2].p[0]_line_rule",
+                "status": "pass",
+                "detail": {
+                  "expected": "auto",
+                  "actual": "auto",
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[1].cell[0].p[0].run[0]_size_pt",
+                "status": "pass",
+                "detail": {
+                  "expected": 12,
+                  "actual": 12.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[1].cell[0].p[0]_spacing_before",
+                "status": "unknown",
+                "detail": {
+                  "expected": 0,
+                  "actual": null,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[1].cell[0].p[0]_spacing_after",
+                "status": "fail",
+                "detail": {
+                  "expected": 120,
+                  "actual": 80.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[1].cell[0].p[0]_spacing_line",
+                "status": "fail",
+                "detail": {
+                  "expected": 360,
+                  "actual": 312.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[1].cell[0].p[0]_line_rule",
+                "status": "pass",
+                "detail": {
+                  "expected": "auto",
+                  "actual": "auto",
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[1].cell[1].p[0].run[0]_size_pt",
+                "status": "pass",
+                "detail": {
+                  "expected": 12,
+                  "actual": 12.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[1].cell[1].p[0]_spacing_before",
+                "status": "unknown",
+                "detail": {
+                  "expected": 0,
+                  "actual": null,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[1].cell[1].p[0]_spacing_after",
+                "status": "fail",
+                "detail": {
+                  "expected": 120,
+                  "actual": 80.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[1].cell[1].p[0]_spacing_line",
+                "status": "fail",
+                "detail": {
+                  "expected": 360,
+                  "actual": 312.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[1].cell[1].p[0]_line_rule",
+                "status": "pass",
+                "detail": {
+                  "expected": "auto",
+                  "actual": "auto",
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[1].cell[2].p[0].run[0]_size_pt",
+                "status": "fail",
+                "detail": {
+                  "expected": 12,
+                  "actual": 10.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[1].cell[2].p[0]_spacing_before",
+                "status": "fail",
+                "detail": {
+                  "expected": 0,
+                  "actual": 180.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[1].cell[2].p[0]_spacing_after",
+                "status": "fail",
+                "detail": {
+                  "expected": 120,
+                  "actual": 20.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[1].cell[2].p[0]_spacing_line",
+                "status": "fail",
+                "detail": {
+                  "expected": 360,
+                  "actual": 240.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[1].cell[2].p[0]_line_rule",
+                "status": "pass",
+                "detail": {
+                  "expected": "auto",
+                  "actual": "auto",
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[2].cell[0].p[0].run[0]_size_pt",
+                "status": "pass",
+                "detail": {
+                  "expected": 12,
+                  "actual": 12.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[2].cell[0].p[0]_spacing_before",
+                "status": "unknown",
+                "detail": {
+                  "expected": 0,
+                  "actual": null,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[2].cell[0].p[0]_spacing_after",
+                "status": "fail",
+                "detail": {
+                  "expected": 120,
+                  "actual": 80.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[2].cell[0].p[0]_spacing_line",
+                "status": "fail",
+                "detail": {
+                  "expected": 360,
+                  "actual": 312.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[2].cell[0].p[0]_line_rule",
+                "status": "pass",
+                "detail": {
+                  "expected": "auto",
+                  "actual": "auto",
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[2].cell[1].p[0].run[0]_size_pt",
+                "status": "pass",
+                "detail": {
+                  "expected": 12,
+                  "actual": 12.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[2].cell[1].p[0]_spacing_before",
+                "status": "unknown",
+                "detail": {
+                  "expected": 0,
+                  "actual": null,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[2].cell[1].p[0]_spacing_after",
+                "status": "fail",
+                "detail": {
+                  "expected": 120,
+                  "actual": 80.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[2].cell[1].p[0]_spacing_line",
+                "status": "fail",
+                "detail": {
+                  "expected": 360,
+                  "actual": 312.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[2].cell[1].p[0]_line_rule",
+                "status": "pass",
+                "detail": {
+                  "expected": "auto",
+                  "actual": "auto",
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[2].cell[2].p[0].run[0]_size_pt",
+                "status": "fail",
+                "detail": {
+                  "expected": 12,
+                  "actual": 10.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[2].cell[2].p[0]_spacing_before",
+                "status": "fail",
+                "detail": {
+                  "expected": 0,
+                  "actual": 180.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[2].cell[2].p[0]_spacing_after",
+                "status": "fail",
+                "detail": {
+                  "expected": 120,
+                  "actual": 20.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[2].cell[2].p[0]_spacing_line",
+                "status": "fail",
+                "detail": {
+                  "expected": 360,
+                  "actual": 240.0,
+                  "note": null
+                }
+              },
+              {
+                "name": "table[0].row[2].cell[2].p[0]_line_rule",
+                "status": "pass",
+                "detail": {
+                  "expected": "auto",
+                  "actual": "auto",
+                  "note": null
+                }
+              },
+              {
+                "name": "resolved_chinese_font_and_color",
+                "status": "pass",
+                "detail": {
+                  "mismatches": [],
+                  "unresolved": [],
+                  "note": "Theme/automatic/missing values are unknown; inspect effective theme/Word rendering, not automatic failure."
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "manual_review": {
+        "available": true,
+        "ready_for_write": true,
+        "manual_receipt_sha256": "127dc09534c7b7b8acef0b10920c5730ef6e767c35edaf850146812bca241817",
+        "reviewer": "Codex; independent read-only agent checks included",
+        "renderer": "WPS readonly export plus Poppler; not Microsoft Word",
+        "reviewed_pages": [
+          {
+            "name": "page-1.png",
+            "sha256": "4f97464fe438fb9d143006ab8c3ea681edef750a62d13100f9c70793e01def1d"
+          },
+          {
+            "name": "page-1.png",
+            "sha256": "29b36234faa3fe7a0127fc8af7bdb6863ea9036fdc5b089c177876379454fbc2"
+          }
+        ],
+        "selected_observations": {
+          "summary_zh": "正文18/16/12磅和0/6磅/1.5倍行距均正确，文字顺序、3×3结构及原稿保持；但表格5格从12磅改成10磅并为9/1磅单倍，其余4格段后4磅、1.3倍未更新，段前保留未知。",
+          "case_verdict_zh": "失败；DEF-006仍存在",
+          "core_original_defect": "Same table-format failure as historical DEF006 reproduced; all internal DOCX package member bytes identical to old failed output.",
+          "overall_case": "fail",
+          "visual_observation": "Before/after actual WPS pages inspected; body typography adjusted while table headings/third column visibly smaller and uneven vertical spacing; one page retained. Character/property checks establish exact sizes and spacings.",
+          "independent_package_check": "All text and table relationships retained. All original cells12pt; 5 changed10pt/9pt-before/1pt-after/single; other4 remain12pt/4pt-after/1.3line. Unresolved before spacing for4 remains unknown, not classified pass or numeric failure."
+        },
+        "verdict_source": "Explicit manual Chinese verdict only; exporter does not infer acceptance from English text or checks."
+      },
+      "acceptance": "manual semantic and visual review required; exporter does not close defects",
+      "limitations": [
+        "Request model identity only; response model identity not independently retained.",
+        "One isolated database per batch, not per case; cases serialized.",
+        "Archived WorkBuddy protocol adapter reused in memory; old local docx-prompt and console-exit patches were not copied into candidate.",
+        "900 seconds is a harness bound, not a product performance SLA."
+      ]
+    }
+  ],
+  "historical_second_batch_count": 3,
+  "historical_second_batch": [
+    {
+      "evidence_date": "2026-10-24",
+      "baseline_commit": "dca3fc627d8ae88c2fb0746ca35775fc9ccdf813",
+      "case": "CP-003",
+      "attempt_id": "CP-003",
+      "defect_id": "DEF-004",
+      "historical_not_new_execution": true,
+      "existing_locally_adapted_baseline": true,
+      "baseline_limitation": "Frozen baseline includes existing WorkBuddy, writing-prompt and console-exit adaptations; pure original default-provider behavior was not executed.",
+      "harness_differences": [
+        "reuses existing runtime credential/environment functions",
+        "original console module from byte-identical frozen source copy",
+        "isolated working directories and empty database on 17687",
+        "UTF-8 request via stdin",
+        "HTTP host guard and metadata-only receipts"
+      ],
+      "baseline_receipt_sha256": "f8d8e10b7603f88fa5c988e6bb7b605c482c3bc3ac1f03e731cedb797e1353ef",
+      "retained_manifest_sha256": "344bdb9407cfd225a3c7115259fb7b4106ca69256c063fee80b1bda93e8b7a47",
+      "confirmed_findings_receipt_sha256": "03e244c624f1b6c30f1f0cbb59fc9cbf858a7d27dc18ab4aec51f443b13d2fe1",
+      "execution_receipt_sha256": "ea4611e0b970660b195a13d53ceb6f06df08885993ecf2993de3627d243d420d",
+      "model_requested": "hy3",
+      "response_model_identity": "not independently retained",
+      "request": {
+        "text": "同时提供了旧版和新版，但本次只允许依据《沐川会议设备新规则_v1.0.15.txt》，旧版只是干扰材料。请写《沐川会议设备借用说明 v1.0.15》，说明新版借用期限、预约、审批和归还要求，不能混用旧版9天、1个工作日或演示管理员。正文最多180个非空白字符，不含文档标题、含章节标题；不用表格，不检索知识库，不补充收费押金，全部文字黑色、中文宋体，另存为CP-003_结果_v1.0.15.docx。\n",
+        "raw_sha256": "a6e7d53f6a1e826454ecb7d8b32bf19047925fd364a5a810804601b2292d5850",
+        "published_text_sha256": "84609d6d2c7c5e54a97efe2be0ce43c009c5f3e79dcc098be086005f64fb406f",
+        "hash_boundary": "Raw request includes its original trailing newline; the historical published text omits it."
+      },
+      "pre_run_expected_sha256": "f7625ba32f65139dd8dd90fe58cbd37f91781e480227d27357dfba2778c64d0a",
+      "inputs": [
+        {
+          "name": "沐川会议设备旧规则_v1.0.14.txt",
+          "frozen_sha256": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10",
+          "work_sha256": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10"
+        },
+        {
+          "name": "沐川会议设备新规则_v1.0.15.txt",
+          "frozen_sha256": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d",
+          "work_sha256": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d"
+        }
+      ],
+      "started": "2026-10-24T19:47:43.375660+08:00",
+      "finished": "2026-10-24T19:54:40.924522+08:00",
+      "elapsed_seconds": 417.55,
+      "process_exit_code": 0,
+      "harness_timed_out": false,
+      "inputs_preserved": true,
+      "output": {
+        "original_saved_name": "CP-003_结果_v1.0.15.docx",
+        "shared_name": "CP-003_结果_v1.0.15.docx",
+        "sha256": "4ba6785deabf91b8d21df4d2facddd9d35f7b4407ffc6418fedd5d55c3faef22",
+        "bytes": 37241,
+        "shared_copy_state": "present_hash_verified",
+        "package_review": {
+          "xml_parts_scanned": 16,
+          "sensitive_pattern_matches": 0,
+          "external_relationships": [],
+          "core_properties": [
+            {
+              "property": "title",
+              "value_present": false,
+              "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            {
+              "property": "subject",
+              "value_present": false,
+              "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            {
+              "property": "creator",
+              "value_present": true,
+              "value_sha256": "0d8eb615908c7b351e4eae8f1880868455fa2a36d39beba92fd5a9b20b4589e8"
+            },
+            {
+              "property": "keywords",
+              "value_present": false,
+              "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            {
+              "property": "description",
+              "value_present": true,
+              "value_sha256": "55cc5c37fb969e2783532824dd7796a67c6b5c149d478f992723c6780cc606b6"
+            },
+            {
+              "property": "lastModifiedBy",
+              "value_present": false,
+              "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            {
+              "property": "revision",
+              "value_present": true,
+              "value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+            },
+            {
+              "property": "created",
+              "value_present": true,
+              "value_sha256": "7543a7f7a975d83d559234257a271d3906f7776b4094474ce90c4b33e8522dee"
+            },
+            {
+              "property": "modified",
+              "value_present": true,
+              "value_sha256": "7543a7f7a975d83d559234257a271d3906f7776b4094474ce90c4b33e8522dee"
+            },
+            {
+              "property": "category",
+              "value_present": false,
+              "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            }
+          ],
+          "review_boundary": "Finite text-pattern and package inspection; binary/media privacy and semantic content require human review."
+        }
+      },
+      "summary_zh": "采用了新版4天/3工作日，但整篇重复4组，正文255字符超过180，审批前确认可用的条件丢失。",
+      "historical_status_zh": "失败",
+      "retained_location_checks": {
+        "paragraph_count": 36,
+        "document_title_occurrence_indices_zero_based": [
+          0,
+          9,
+          18,
+          27
+        ],
+        "complete_rule_group_count": 4,
+        "all_nonwhite_characters": 272,
+        "initial_title_nonwhite_characters": 17,
+        "body_nonwhite_excluding_only_initial_title": 255,
+        "limit": 180,
+        "exit_code": 0
+      },
+      "retained_page_review": {
+        "renderer": "WPS read-only copy export + bundled Poppler",
+        "pages_reviewed": 2,
+        "findings": [
+          "两页完整可读，未见文字遮挡",
+          "四组文档标题与四项规则重复，跨页延续第四组",
+          "审批均未体现确认可用后批准，正文长度超限"
+        ],
+        "source_unchanged": true
+      },
+      "checks_boundary": "These are retained 2026-10-24 structured observations, cross-checked to original artifacts; they are not new-candidate checks or new model execution."
+    },
+    {
+      "evidence_date": "2026-10-24",
+      "baseline_commit": "dca3fc627d8ae88c2fb0746ca35775fc9ccdf813",
+      "case": "CP-009",
+      "attempt_id": "CP-009",
+      "defect_id": "DEF-005",
+      "historical_not_new_execution": true,
+      "existing_locally_adapted_baseline": true,
+      "baseline_limitation": "Frozen baseline includes existing WorkBuddy, writing-prompt and console-exit adaptations; pure original default-provider behavior was not executed.",
+      "harness_differences": [
+        "reuses existing runtime credential/environment functions",
+        "original console module from byte-identical frozen source copy",
+        "isolated working directories and empty database on 17687",
+        "UTF-8 request via stdin",
+        "HTTP host guard and metadata-only receipts"
+      ],
+      "baseline_receipt_sha256": "f8d8e10b7603f88fa5c988e6bb7b605c482c3bc3ac1f03e731cedb797e1353ef",
+      "retained_manifest_sha256": "344bdb9407cfd225a3c7115259fb7b4106ca69256c063fee80b1bda93e8b7a47",
+      "confirmed_findings_receipt_sha256": "03e244c624f1b6c30f1f0cbb59fc9cbf858a7d27dc18ab4aec51f443b13d2fe1",
+      "execution_receipt_sha256": "db2a4fddb725086e056de13938d516e31b66a2c6bf092b9acd0019e26fbb9269",
+      "model_requested": "hy3",
+      "response_model_identity": "not independently retained",
+      "request": {
+        "text": "只修改《巡检清单_v1.0.15.docx》中“二、巡检表”的第1张表格：设备标识为“设备A”的行、列标题为“检查频率”的单元格，改为“每月检查一次”。设备B、数量列、正文、表头和表格行列结构全部保留。其他文字格式不变，中文宋体、全部文字黑色，不检索知识库，不覆盖原稿，另存为CP-009_结果_v1.0.15.docx。\n",
+        "raw_sha256": "f24bfaeaf0fe3240b3e213c0b8fedb06a1655ae869f4eedb98372e192c2c3aa8",
+        "published_text_sha256": "3f87d9b5f0688f357327e6f291148ded7a57eccd3c49d0c416b41dd368bbf88a",
+        "hash_boundary": "Raw request includes its original trailing newline; the historical published text omits it."
+      },
+      "pre_run_expected_sha256": "fd176604b36087c4cfa91f9ded24a88a28ab238eab8727e59da86f76656b19ba",
+      "inputs": [
+        {
+          "name": "巡检清单_v1.0.15.docx",
+          "frozen_sha256": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
+          "work_sha256": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166"
+        }
+      ],
+      "started": "2026-10-24T19:56:37.938923+08:00",
+      "finished": "2026-10-24T19:58:54.161575+08:00",
+      "elapsed_seconds": 136.22,
+      "process_exit_code": 0,
+      "harness_timed_out": false,
+      "inputs_preserved": true,
+      "output": {
+        "original_saved_name": "CP-009_结果_v1.0.15.docx",
+        "shared_name": "CP-009_结果_v1.0.15.docx",
+        "sha256": "dcfde15a275899b68f8294217bd79e81548c7421d6f1d85ece8f9c2d698b89d1",
+        "bytes": 37345,
+        "shared_copy_state": "present_hash_verified",
+        "package_review": {
+          "xml_parts_scanned": 16,
+          "sensitive_pattern_matches": 0,
+          "external_relationships": [],
+          "core_properties": [
+            {
+              "property": "title",
+              "value_present": true,
+              "value_sha256": "05257269802a717d6dbb4200218c13cff4f16547336d4dc78db0b476279383e7"
+            },
+            {
+              "property": "subject",
+              "value_present": true,
+              "value_sha256": "4fa9d7cfd43395c4607149e8bf746b285aaa799c9cbb91647f3a790907e6f15b"
+            },
+            {
+              "property": "creator",
+              "value_present": true,
+              "value_sha256": "062ad77cab0674735396475672ad2d875e27d4c33053ac99811bc0b002133758"
+            },
+            {
+              "property": "keywords",
+              "value_present": false,
+              "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            {
+              "property": "description",
+              "value_present": true,
+              "value_sha256": "cc7e05aa07b67a46ce39e86c9678472f8381454566d0a41a4469b088f200bd25"
+            },
+            {
+              "property": "lastModifiedBy",
+              "value_present": true,
+              "value_sha256": "062ad77cab0674735396475672ad2d875e27d4c33053ac99811bc0b002133758"
+            },
+            {
+              "property": "revision",
+              "value_present": true,
+              "value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+            },
+            {
+              "property": "created",
+              "value_present": true,
+              "value_sha256": "275a3eefb6bad7c0d5dac63be87e2c5aa2ad24cd026604cbe99a67e2a4ee9697"
+            },
+            {
+              "property": "modified",
+              "value_present": true,
+              "value_sha256": "275a3eefb6bad7c0d5dac63be87e2c5aa2ad24cd026604cbe99a67e2a4ee9697"
+            },
+            {
+              "property": "category",
+              "value_present": false,
+              "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            {
+              "property": "version",
+              "value_present": true,
+              "value_sha256": "74cb62fa67c5f58118b68398107eab3dc1238c440888e8863ae631b3878c7856"
+            }
+          ],
+          "review_boundary": "Finite text-pattern and package inspection; binary/media privacy and semantic content require human review."
+        }
+      },
+      "summary_zh": "指定格文字正确，其他文字保持；全表段后4变6磅、3个表头粗体丢失，首选格宽属性被改写。",
+      "historical_status_zh": "失败",
+      "retained_location_checks": {
+        "authorized_cell_text": "设备A检查频率正确变为每月检查一次",
+        "other_cell_texts_unchanged": 8,
+        "body_text_unchanged": true,
+        "table_rows": 3,
+        "table_columns": 3,
+        "all_9_cell_paragraph_spacing_after_points": {
+          "source": 4,
+          "output": 6
+        },
+        "header_bold_cells": {
+          "source": 3,
+          "output": 0
+        },
+        "all_9_cell_preferred_width_twips": {
+          "source": 3061,
+          "output": 3211
+        },
+        "table_grid_column_widths_twips": {
+          "source": [
+            3211,
+            3211,
+            3211
+          ],
+          "output": [
+            3211,
+            3211,
+            3211
+          ]
+        },
+        "effective_visual_table_width_changed": "not established; preferred tcW change alone does not prove actual rendered width changed",
+        "exit_code": 0
+      },
+      "retained_page_review": {
+        "renderer": "WPS read-only copy export + bundled Poppler",
+        "pages_reviewed": 2,
+        "findings": [
+          "原稿与结果均一页，所有页面已查看",
+          "目标设备A频率正确改为每月，其他可见文字保持",
+          "表头粗体消失，表格留白有差异；属性核对确认全表段后4磅变6磅及首选格宽变化，不把文字视觉位移当作对齐属性改变"
+        ],
+        "source_unchanged": true
+      },
+      "checks_boundary": "These are retained 2026-10-24 structured observations, cross-checked to original artifacts; they are not new-candidate checks or new model execution."
+    },
+    {
+      "evidence_date": "2026-10-24",
+      "baseline_commit": "dca3fc627d8ae88c2fb0746ca35775fc9ccdf813",
+      "case": "CP-010",
+      "attempt_id": "CP-010",
+      "defect_id": "DEF-006",
+      "historical_not_new_execution": true,
+      "existing_locally_adapted_baseline": true,
+      "baseline_limitation": "Frozen baseline includes existing WorkBuddy, writing-prompt and console-exit adaptations; pure original default-provider behavior was not executed.",
+      "harness_differences": [
+        "reuses existing runtime credential/environment functions",
+        "original console module from byte-identical frozen source copy",
+        "isolated working directories and empty database on 17687",
+        "UTF-8 request via stdin",
+        "HTTP host guard and metadata-only receipts"
+      ],
+      "baseline_receipt_sha256": "f8d8e10b7603f88fa5c988e6bb7b605c482c3bc3ac1f03e731cedb797e1353ef",
+      "retained_manifest_sha256": "344bdb9407cfd225a3c7115259fb7b4106ca69256c063fee80b1bda93e8b7a47",
+      "confirmed_findings_receipt_sha256": "03e244c624f1b6c30f1f0cbb59fc9cbf858a7d27dc18ab4aec51f443b13d2fe1",
+      "execution_receipt_sha256": "50ac5f5c23859896c39a94af280d9163857f98f010625b9237edd38f1a995e35",
+      "model_requested": "hy3",
+      "response_model_identity": "not independently retained",
+      "request": {
+        "text": "只调整《记录排版样例_v1.0.15.docx》的格式，所有文字一字不改。文档标题18磅居中，一级标题16磅，其他正文和表格文字12磅；所有段落段前0磅、段后6磅、1.5倍行距；全部文字黑色、中文宋体。保留段落顺序、表格文字和3行3列结构，不检索知识库，不覆盖原稿，另存为CP-010_结果_v1.0.15.docx。\n",
+        "raw_sha256": "1f1897a772741b16cef32dd0087f913672d21afaef54eeea8e061c13ad2d7e5e",
+        "published_text_sha256": "3a0eb66615c57bb5ebb8d361e7b0a1f265ef70c026764334381081fbce0f30c5",
+        "hash_boundary": "Raw request includes its original trailing newline; the historical published text omits it."
+      },
+      "pre_run_expected_sha256": "a6e9d167fa51679b6aa7ea86355025ffdcea6aac8e3c8059d8df3e29338fac49",
+      "inputs": [
+        {
+          "name": "记录排版样例_v1.0.15.docx",
+          "frozen_sha256": "6f571cdbb6ecf9090c142aa4657aeeeae7ed8ed235bd98624fe22274c9768a8f",
+          "work_sha256": "6f571cdbb6ecf9090c142aa4657aeeeae7ed8ed235bd98624fe22274c9768a8f"
+        }
+      ],
+      "started": "2026-10-24T19:58:55.978099+08:00",
+      "finished": "2026-10-24T20:01:36.864036+08:00",
+      "elapsed_seconds": 160.89,
+      "process_exit_code": 0,
+      "harness_timed_out": false,
+      "inputs_preserved": true,
+      "output": {
+        "original_saved_name": "CP-010_结果_v1.0.15.docx",
+        "shared_name": "CP-010_结果_v1.0.15.docx",
+        "sha256": "749f21bc7c1d378bab7d22c829fd0667ad28646559bad42f8ada272623d66b13",
+        "bytes": 37453,
+        "shared_copy_state": "present_hash_verified",
+        "package_review": {
+          "xml_parts_scanned": 16,
+          "sensitive_pattern_matches": 0,
+          "external_relationships": [],
+          "core_properties": [
+            {
+              "property": "title",
+              "value_present": true,
+              "value_sha256": "c938f38165cf8dc7853cb8fbeede5eef8032f63d370e3a97a0af9b6249b088bf"
+            },
+            {
+              "property": "subject",
+              "value_present": true,
+              "value_sha256": "4fa9d7cfd43395c4607149e8bf746b285aaa799c9cbb91647f3a790907e6f15b"
+            },
+            {
+              "property": "creator",
+              "value_present": true,
+              "value_sha256": "062ad77cab0674735396475672ad2d875e27d4c33053ac99811bc0b002133758"
+            },
+            {
+              "property": "keywords",
+              "value_present": false,
+              "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            {
+              "property": "description",
+              "value_present": true,
+              "value_sha256": "cc7e05aa07b67a46ce39e86c9678472f8381454566d0a41a4469b088f200bd25"
+            },
+            {
+              "property": "lastModifiedBy",
+              "value_present": true,
+              "value_sha256": "062ad77cab0674735396475672ad2d875e27d4c33053ac99811bc0b002133758"
+            },
+            {
+              "property": "revision",
+              "value_present": true,
+              "value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+            },
+            {
+              "property": "created",
+              "value_present": true,
+              "value_sha256": "275a3eefb6bad7c0d5dac63be87e2c5aa2ad24cd026604cbe99a67e2a4ee9697"
+            },
+            {
+              "property": "modified",
+              "value_present": true,
+              "value_sha256": "275a3eefb6bad7c0d5dac63be87e2c5aa2ad24cd026604cbe99a67e2a4ee9697"
+            },
+            {
+              "property": "category",
+              "value_present": false,
+              "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            {
+              "property": "version",
+              "value_present": true,
+              "value_sha256": "74cb62fa67c5f58118b68398107eab3dc1238c440888e8863ae631b3878c7856"
+            }
+          ],
+          "review_boundary": "Finite text-pattern and package inspection; binary/media privacy and semantic content require human review."
+        }
+      },
+      "summary_zh": "全部文字保持且正文18/16/12及0/6/1.5正确；表格5格错用10磅/9/1/单倍，4格保留旧段距行距。",
+      "historical_status_zh": "失败",
+      "retained_location_checks": {
+        "body_user_format_checks": "标题18居中、一级标题16、正文12及0/6/1.5等当前结构核对正确",
+        "text_and_3_by_3_structure_preserved": true,
+        "table_group_a": {
+          "cell_positions_zero_based": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ],
+          "cell_count": 5,
+          "font_size_points": 10,
+          "spacing_before_points": 9,
+          "spacing_after_points": 1,
+          "line_spacing_multiple": 1.0
+        },
+        "table_group_b": {
+          "cell_positions_zero_based": [
+            [
+              1,
+              0
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              0
+            ],
+            [
+              2,
+              1
+            ]
+          ],
+          "cell_count": 4,
+          "font_size_points": 12,
+          "spacing_after_points": 4,
+          "line_spacing_multiple": 1.3,
+          "spacing_before": "not asserted from absent direct setting; inherited-value boundary retained"
+        },
+        "exit_code": 0
+      },
+      "retained_page_review": {
+        "renderer": "WPS read-only copy export + bundled Poppler",
+        "pages_reviewed": 2,
+        "findings": [
+          "原稿与结果各一页，文字完整可读",
+          "正文标题和段落排版有调整，文字内容保持",
+          "表格保留原有不一致的小字号和段距，未达到全段落统一要求"
+        ],
+        "source_unchanged": true
+      },
+      "checks_boundary": "These are retained 2026-10-24 structured observations, cross-checked to original artifacts; they are not new-candidate checks or new model execution."
+    }
+  ],
+  "counting_boundary": "attempt_count includes selected completed new-candidate attempts only; the three historical records are separate and never counted as new executions.",
+  "sharing_review": {
+    "sensitive_pattern_matches": 0,
+    "raw_model_messages_exported": false,
+    "full_logs_exported": false,
+    "private_settings_exported": false,
+    "http_records_exported": false,
+    "boundary": "Finite pattern scans are not an absolute privacy or correctness guarantee. Human document and evidence review remains required."
+  },
+  "rendered_pages": [
+    {
+      "case": "CP-003",
+      "attempt": "001",
+      "view": "after",
+      "page": 1,
+      "name": "a83c6df_CP-003_after_page-1_v1.0.23.png",
+      "sha256": "e4590f4d92cbbd03de7ae8014f516fc28f3b99e49fa26a2f43d3da0447bd4192",
+      "source_word_sha256": "4c491929b673ad0fcd15e611c22fc3c57da9a5f49d119a574dfbf2e827cdaf83",
+      "method": "WPS read-only copy to PDF; Poppler PNG; viewed by root; unedited pixels"
+    },
+    {
+      "case": "CP-003",
+      "attempt": "001",
+      "view": "after",
+      "page": 2,
+      "name": "a83c6df_CP-003_after_page-2_v1.0.23.png",
+      "sha256": "fc13979d8b3513e9fcd9388664e99dcb7763260a0e88a8c641d79a03e9ddbb38",
+      "source_word_sha256": "4c491929b673ad0fcd15e611c22fc3c57da9a5f49d119a574dfbf2e827cdaf83",
+      "method": "WPS read-only copy to PDF; Poppler PNG; viewed by root; unedited pixels"
+    },
+    {
+      "case": "CP-009",
+      "attempt": "001",
+      "view": "before",
+      "page": 1,
+      "name": "a83c6df_CP-009_before_page-1_v1.0.23.png",
+      "sha256": "5b1efb14d2d11f5a66b811942aa93fd32d7caa5ea5ebcfd07fc5692f17e326b4",
+      "source_word_sha256": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
+      "method": "WPS read-only copy to PDF; Poppler PNG; viewed by root; unedited pixels"
+    },
+    {
+      "case": "CP-009",
+      "attempt": "001",
+      "view": "after",
+      "page": 1,
+      "name": "a83c6df_CP-009_after_page-1_v1.0.23.png",
+      "sha256": "b46e31ec70df2978c59671bca86d6d0e712e434526daa2d43796748ea0f48595",
+      "source_word_sha256": "30f42aaeae74c106350b4776c84e3490c92ee2e68a6e1a2362b60108afcc54ab",
+      "method": "WPS read-only copy to PDF; Poppler PNG; viewed by root; unedited pixels"
+    },
+    {
+      "case": "CP-010",
+      "attempt": "001",
+      "view": "before",
+      "page": 1,
+      "name": "a83c6df_CP-010_before_page-1_v1.0.23.png",
+      "sha256": "4f97464fe438fb9d143006ab8c3ea681edef750a62d13100f9c70793e01def1d",
+      "source_word_sha256": "6f571cdbb6ecf9090c142aa4657aeeeae7ed8ed235bd98624fe22274c9768a8f",
+      "method": "WPS read-only copy to PDF; Poppler PNG; viewed by root; unedited pixels"
+    },
+    {
+      "case": "CP-010",
+      "attempt": "001",
+      "view": "after",
+      "page": 1,
+      "name": "a83c6df_CP-010_after_page-1_v1.0.23.png",
+      "sha256": "29b36234faa3fe7a0127fc8af7bdb6863ea9036fdc5b089c177876379454fbc2",
+      "source_word_sha256": "61e0dac316bd27901cc132451ecb82c8b16955aadafbd706d52c1613e0ec7e23",
+      "method": "WPS read-only copy to PDF; Poppler PNG; viewed by root; unedited pixels"
+    }
+  ],
+  "post_export_verification": {
+    "checked_at": "2026-10-29T22:54:10.723417+08:00",
+    "historical_copies": [
+      {
+        "name": "CP-003_结果_v1.0.15.docx",
+        "sha256": "4ba6785deabf91b8d21df4d2facddd9d35f7b4407ffc6418fedd5d55c3faef22"
+      },
+      {
+        "name": "CP-009_结果_v1.0.15.docx",
+        "sha256": "dcfde15a275899b68f8294217bd79e81548c7421d6f1d85ece8f9c2d698b89d1"
+      },
+      {
+        "name": "CP-010_结果_v1.0.15.docx",
+        "sha256": "749f21bc7c1d378bab7d22c829fd0667ad28646559bad42f8ada272623d66b13"
+      }
+    ],
+    "operation": "Finalize initially pending historical copy states after actual copy hashes were checked; add reviewed raw page receipts. No Word bytes changed."
+  }
+}
