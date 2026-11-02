@@ -1828,6 +1828,10 @@ class GenreFormatPlan(BaseModel):
     genre: str = Field(default="", description="文档体裁判断，如 邮件往来/会议纪要/公文/报告/合同/清单")
     paragraph_roles: List[ParagraphRoleAssignment] = Field(default_factory=list, description="每个段落元素对应的角色")
     role_formats: List[RoleFormatEntry] = Field(default_factory=list, description="每个实际用到的角色对应的排版格式规范")
+    requested_fields: Optional[List[str]] = Field(
+        default_factory=list,
+        description="用户明确要求改变的格式字段，只填规范字段名；空列表表示未明确点名",
+    )
 
 
 def _paragraph_format_hint(item: dict, base_item) -> str:
@@ -1874,6 +1878,73 @@ def _role_is_heading(role: str) -> bool:
     return any(h in r for h in _HEADING_ROLE_HINTS)
 
 
+_FORMAT_FIELD_KEYWORDS = {
+    "font_name": ("字体", "宋体", "黑体", "楷体", "仿宋", "微软雅黑", "雅黑", "Times", "Arial"),
+    "font_size": ("字号", "磅", "号字", "小四", "四号", "三号", "小三", "小二", "二号"),
+    "bold": ("加粗", "粗体"),
+    "color": ("颜色", "黑色", "红色", "蓝色", "绿色", "灰色", "#"),
+    "alignment": ("对齐", "居中", "左对齐", "右对齐", "两端对齐"),
+    "line_spacing": ("行距", "倍行距", "单倍", "1.5倍", "固定值"),
+    "spacing_before": ("段前", "间距"),
+    "spacing_after": ("段后", "间距"),
+    "first_line_indent": ("缩进",),
+    "left_indent": ("缩进",),
+    "right_indent": ("缩进",),
+}
+
+_FORMAT_FIELD_ALIASES = {
+    "font_name": ("font_name", "字体", "字体名称", "字型"),
+    "font_size": ("font_size", "字号", "字体大小", "字号大小"),
+    "bold": ("bold", "加粗", "粗体"),
+    "color": ("color", "颜色", "字体颜色"),
+    "alignment": ("alignment", "对齐", "对齐方式"),
+    "line_spacing": ("line_spacing", "行距", "行间距", "行距倍数"),
+    "spacing_before": ("spacing_before", "段前", "段前间距"),
+    "spacing_after": ("spacing_after", "段后", "段后间距"),
+    "first_line_indent": ("first_line_indent", "首行缩进"),
+    "left_indent": ("left_indent", "左缩进"),
+    "right_indent": ("right_indent", "右缩进"),
+}
+
+
+def _normalize_requested_fields(fields) -> set:
+    """把模型返回的 requested_fields 规范成 RoleFormatSpec 支持的字段名。"""
+    normalized = set()
+    for raw in fields or []:
+        key = str(raw).strip().lower().replace("-", "_")
+        for canonical, aliases in _FORMAT_FIELD_ALIASES.items():
+            if key == canonical or key in aliases:
+                normalized.add(canonical)
+                break
+    return normalized
+
+
+def _dialog_requires_format_preservation(dialog: str) -> bool:
+    """用户是否明确要求除指定项外保持原格式。"""
+    tokens = ("保持不变", "保持原样", "其他格式保持", "其余格式保持", "格式保持")
+    return any(token in (dialog or "") for token in tokens)
+
+
+def _format_fields_from_keywords(dialog: str) -> set:
+    """关键词兜底：从用户原话识别明确点名的格式字段。"""
+    return {
+        field for field, keywords in _FORMAT_FIELD_KEYWORDS.items()
+        if any(keyword in (dialog or "") for keyword in keywords)
+    }
+
+
+def _strip_format_fields_not_in(role_spec: RoleFormatSpec, requested_fields: set) -> None:
+    """只保留 requested_fields 中列出的字段，其余置空以沿用原文格式。"""
+    for field in _FORMAT_FIELD_KEYWORDS:
+        if field not in requested_fields:
+            setattr(role_spec, field, None)
+
+
+def _strip_unrequested_format_fields(dialog: str, role_spec: RoleFormatSpec) -> None:
+    """旧关键词兜底：只保留用户原话点名的格式字段。"""
+    _strip_format_fields_not_in(role_spec, _format_fields_from_keywords(dialog))
+
+
 def _propose_genre_format_plan(llm, dialog: str, retrieved_info: str, preview: str) -> Optional[GenreFormatPlan]:
     #让模型先判断体裁、逐段分配角色并设计格式（只输出排版，不产出文字）
     prompt = (
@@ -1891,7 +1962,10 @@ def _propose_genre_format_plan(llm, dialog: str, retrieved_info: str, preview: s
         "4. 同一角色全文取值必须完全一致；标题/强调类角色字号要形成清晰梯度；\n"
         "5. 中文文档优先使用系统常见字体（宋体、黑体、楷体、仿宋、微软雅黑）；\n"
         "6. 字号单位为磅：小四=12、四号=14、小三=15、三号=16、小二=18、二号=22；\n"
-        "7. 邮件头/分隔线/清单项等非成段正文不要设置首行缩进；正文是否首行缩进按体裁习惯决定。"
+        "7. 邮件头/分隔线/清单项等非成段正文不要设置首行缩进；正文是否首行缩进按体裁习惯决定；\n"
+        "8. requested_fields 只列出用户明确要求改变的格式字段，使用规范名：font_name、font_size、bold、"
+        "color、alignment、line_spacing、spacing_before、spacing_after、first_line_indent、left_indent、"
+        "right_indent；未点名的字段不要列入。用户只要求字体和颜色时，只填 font_name、color。"
     )
     return llm_model_invoke(llm, prompt, GenreFormatPlan)
 
@@ -2160,6 +2234,9 @@ def run_format_rewrite(llm, dialog: str, retrieved_info: str, doc: Document,
 
     plan_by_index: Dict[int, str] = {}
     role_formats: Dict[str, RoleFormatSpec] = {}
+    requested_fields = set()
+    if genre_plan is not None:
+        requested_fields = _normalize_requested_fields(genre_plan.requested_fields)
     if genre_plan is not None and genre_plan.paragraph_roles:
         for assign in genre_plan.paragraph_roles:
             plan_by_index[assign.index] = assign.role
@@ -2167,6 +2244,33 @@ def run_format_rewrite(llm, dialog: str, retrieved_info: str, doc: Document,
             if entry.format is not None:
                 role_formats[entry.role] = entry.format
     spec = builtin_spec
+
+    #用户要求“其他格式保持”时，优先按模型返回的 requested_fields 裁剪；
+    #模型漏填或返回非法字段时，回退到原关键词表，避免行为退化。
+    if _dialog_requires_format_preservation(dialog):
+        if requested_fields:
+            for role_spec in role_formats.values():
+                _strip_format_fields_not_in(role_spec, requested_fields)
+            for role_spec in (spec.heading1, spec.heading2, spec.heading3, spec.heading4,
+                              spec.body, spec.tail_meta, spec.table_text):
+                if role_spec is not None:
+                    _strip_format_fields_not_in(role_spec, requested_fields)
+            detected = _format_fields_from_keywords(dialog)
+            missing = detected - requested_fields
+            if missing:
+                print(f"【格式规范】提示：关键词检测到 {sorted(missing)}，"
+                      "但 requested_fields 未包含；按模型列表执行，请复核")
+            print(f"【格式规范】按 requested_fields 裁剪：保留 {sorted(requested_fields)}")
+        else:
+            for role_spec in role_formats.values():
+                _strip_unrequested_format_fields(dialog, role_spec)
+            for role_spec in (spec.heading1, spec.heading2, spec.heading3, spec.heading4,
+                              spec.body, spec.tail_meta, spec.table_text):
+                if role_spec is not None:
+                    _strip_unrequested_format_fields(dialog, role_spec)
+            print("【格式规范】requested_fields 为空或非法，回退关键词表")
+        if not any(keyword in dialog for keyword in ("大纲", "导航", "目录")):
+            spec.apply_outline_level = False
 
     if plan_by_index:
         role_count: Dict[str, int] = {}
