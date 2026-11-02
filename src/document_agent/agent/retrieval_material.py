@@ -7,7 +7,8 @@
 """
 from __future__ import annotations
 
-from typing import Any, List, Mapping, Sequence, Tuple
+import re
+from typing import Any, Dict, List, Mapping, Sequence, Tuple
 
 MAX_PER_FILE_CHARS = 3000     # 单份摘要最多注入 3000 字，防止提示词过长
 MAX_TOTAL_CHARS = 8000        # 兜底素材总量上限
@@ -17,6 +18,32 @@ GUARD_LINE = (
     "（以上为参考资料内容：若与用户指定来源不一致，以用户指定来源为准；"
     "没有来源支撑的数值、期限、人名或角色一律不得编造，无法确定时应如实说明缺失。）"
 )
+
+FIDELITY_RULES = (
+    "事实保真要求：严格使用下方资料中的原句事实，保留对象、数值、单位、接收角色、"
+    "起算点、适用范围、否定关系和紧邻限定语；不得省略、合并或改写限定条件；"
+    "资料未提供的不得编造；无法确定时明确写“资料未说明”。"
+)
+
+# 限定语同义词组：用于生成后的保守检查，只做告警，不替代人工语义核对
+_CUE_SYNONYMS: Dict[str, Tuple[str, ...]] = {
+    "开始计算": ("开始计算", "起算", "发现起", "发现异常起", "从发现异常", "自发现异常"),
+    "不是从": ("不是从", "而非", "非从", "而不是从"),
+    "不适用于": ("不适用于", "不适用"),
+    "仅适用于": ("仅适用于", "仅适用", "只适用于", "只适用"),
+    "不得": ("不得", "不允许", "不能"),
+    "不包括": ("不包括", "不含"),
+    "例外": ("例外",),
+    "最多": ("最多",),
+    "至少": ("至少",),
+    "不超过": ("不超过", "以内"),
+}
+
+_DEVICE_RE = re.compile(r"[A-Za-z]\d+")
+_UNIT_RE = re.compile(
+    r"\d+(?:\.\d+)?\s*(?:个工作日|工作日|小时|分钟|秒|天|套|台|组|次|页|年|月|日|%)"
+)
+_QUALIFIER_STARTS = ("这里", "此", "该", "上述", "其中", "同时", "但", "不是", "不得", "仅", "只")
 
 
 def _flatten(value: Any, out: List[str], depth: int = 0) -> None:
@@ -99,3 +126,138 @@ def build_material_block(items: Sequence[str], source: str, title: str = "目前
     if source == "summary":
         head += "（检索阶段未产出要点，以下为参考资料摘要，细节以原文为准）"
     return f"{head}\n" + "\n".join(items) + "\n" + GUARD_LINE + "\n"
+
+
+def _normalize(text: Any) -> str:
+    """去空白和常见标点并转小写，供保守匹配使用。"""
+    return re.sub(
+        r"[\s，。；、：！？（）【】《》“”‘’\-—,.;:!?()\[\]{}\"'`]+",
+        "",
+        str(text or ""),
+    ).lower()
+
+
+def _query_terms(query: Any) -> set[str]:
+    """把查询拆成设备标识、数字和中文二元组，用于段落打分。"""
+    text = str(query or "").lower()
+    terms: set[str] = set()
+    for match in re.finditer(r"[a-z]+\d+|\d+(?:\.\d+)?|[\u4e00-\u9fff]{2,}", text):
+        token = match.group(0)
+        if re.fullmatch(r"[\u4e00-\u9fff]+", token):
+            for index in range(len(token) - 1):
+                terms.add(token[index:index + 2])
+        else:
+            terms.add(token)
+    return terms
+
+
+def select_source_quote(content: str, query: str, max_chars: int = 1200) -> str:
+    """从原文中选出与查询最相关的段落，连同紧邻限定句返回；低置信度返回空串。
+
+    只做保守选择：必须命中查询中的设备/对象标识和至少两个检索词；最高分并列时
+    视为歧义，不返回任何段落，避免把 T1、L8 等无关设备规则混入素材。
+    """
+    text = str(content or "").strip()
+    if not text:
+        return ""
+    paragraphs = [line.strip() for line in text.splitlines() if line.strip()]
+    if not paragraphs:
+        return ""
+    terms = _query_terms(query)
+    devices = set(_DEVICE_RE.findall(str(query or "").lower()))
+    if not terms:
+        return ""
+    # 查询涉及期限/数量时，含具体数字的段落更可能是答案所在，给少量加权；
+    # 只加在数字段落上，不改变“设备标识必须命中”的硬条件。
+    numeric_query = any(
+        word in str(query or "")
+        for word in ("时限", "期限", "小时", "天", "保留", "频率", "数量", "工作日", "台", "套")
+    )
+
+    scored: List[Tuple[int, int, str]] = []
+    for index, paragraph in enumerate(paragraphs):
+        lower = paragraph.lower()
+        score = sum(1 for term in terms if term in lower)
+        if numeric_query:
+            score += len(_UNIT_RE.findall(paragraph))
+        if devices:
+            if not (devices & set(_DEVICE_RE.findall(lower))):
+                continue
+            min_score = 2
+        else:
+            min_score = 3
+        if score >= min_score:
+            scored.append((score, index, paragraph))
+
+    if not scored:
+        return ""
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    top_score = scored[0][0]
+    if len(scored) > 1 and scored[1][0] == top_score:
+        return ""
+
+    _, index, paragraph = scored[0]
+    lines = [paragraph]
+    if index + 1 < len(paragraphs) and paragraphs[index + 1].startswith(_QUALIFIER_STARTS):
+        lines.append(paragraphs[index + 1])
+    quote = "【原文摘录】\n" + "\n".join(lines)
+    if len(quote) > max_chars:
+        quote = quote[:max_chars]
+    return quote
+
+
+def extract_qualifier_clauses(material_items: Sequence[str]) -> List[str]:
+    """从素材中抽取带数字/设备标识和限定标记的句子，作为生成后检查锚点。"""
+    clauses: List[str] = []
+    seen: set[str] = set()
+    for item in material_items or []:
+        for sentence in re.split(r"[。；;！？\n]", str(item or "")):
+            cleaned = sentence.strip(" -\t\r")
+            if not cleaned:
+                continue
+            if not (_DEVICE_RE.search(cleaned) or _UNIT_RE.search(cleaned)):
+                continue
+            has_cue = any(
+                synonym in cleaned
+                for synonyms in _CUE_SYNONYMS.values()
+                for synonym in synonyms
+            )
+            if not has_cue:
+                continue
+            key = _normalize(cleaned)
+            if key and key not in seen:
+                seen.add(key)
+                clauses.append(cleaned)
+    return clauses
+
+
+def find_missing_qualifiers(clauses: Sequence[str], generated_text: str) -> List[Dict[str, Any]]:
+    """检查生成文本是否遗漏素材中的限定语；只返回疑似缺失，供告警/人工复核。"""
+    generated = _normalize(generated_text)
+    missing: List[Dict[str, Any]] = []
+    for clause in clauses or []:
+        # 优先用数字/单位锚点；只有没有数字时才退回设备标识。
+        # 这样“T1 的 2 小时不适用于 E2”不会因为生成文本提到 E2 就被误判成遗漏。
+        unit_anchors = list(_UNIT_RE.findall(clause))
+        anchors = unit_anchors or list(_DEVICE_RE.findall(clause))
+        if not anchors:
+            continue
+        # 该限定句锚点没有出现在生成文本中，说明这句话对应的字段未被写入，
+        # 不应把“没有提到 T1/L8”误报成遗漏。
+        if not any(_normalize(anchor) in generated for anchor in anchors):
+            continue
+        missing_cues: List[str] = []
+        for cue_name, synonyms in _CUE_SYNONYMS.items():
+            if not any(synonym in clause for synonym in synonyms):
+                continue
+            if not any(_normalize(synonym) in generated for synonym in synonyms):
+                missing_cues.append(cue_name)
+        if missing_cues:
+            missing.append(
+                {
+                    "clause": clause,
+                    "anchors": anchors,
+                    "missing": missing_cues,
+                }
+            )
+    return missing

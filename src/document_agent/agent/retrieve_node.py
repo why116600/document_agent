@@ -32,7 +32,11 @@ def create_retrieve_node(llm, enable_remote_kg: bool = False):
             "规章条款、流程规范优先用knowledge，人物/组织/产品/事件之间的关系优先用knowledge_remote，"
             "参数query为要检索的关键内容。\n"
         )
-    tools_block += "end为结束检索的工具，如果你认为目前已知的内容已经满足用户要求，可以调用end工具结束检索。\n"
+    tools_block += (
+        "end为结束检索的工具，如果你认为目前已知的内容已经满足用户要求，可以调用end工具结束检索。\n"
+        "调用end时，arguments中应逐条列出已确认事实的完整原句；保留对象、数值、单位、接收角色、"
+        "起算点、适用范围、否定关系和例外；不得只写结论或省略紧邻限定语。\n"
+    )
 
     def retrive_node(state : AgentState) -> AgentState:
         s = state["retrieve_target"]
