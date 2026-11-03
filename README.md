@@ -219,6 +219,15 @@ kg.close()
 
 模型、账号等也可用环境变量覆盖：`NEO4J_URI`、`NEO4J_USER`、`NEO4J_PASSWORD`、`NEO4J_DATABASE`。
 
+如果要用远程知识图谱，则需要加入以下配置：
+    "remote_kg": {
+        "enabled": true,
+        "base_url": "http://127.0.0.1:8000",
+        "auth_token": "",
+        "timeout": 60,
+        "max_retries": 2
+    }
+
 ### 依赖与模型
 
 该模块需要 `neo4j`、`sentence-transformers`（已装入 conda 环境 `llm`）：

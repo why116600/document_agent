@@ -5,17 +5,20 @@ import json
 
 from llm_client import llm_invoke, llm_model_invoke, extract_json_from_text
 from agent_core import AgentState
+from retrieved_context import build_retrieved_info
 from document_agent.write_tool.word_tool import replace_node_with_data,ParagraphItem,TableItem,DocxRoot,resolve_save_path,save_document
 
-def create_new_docx_node(llm):#从零编写文档的节点
+def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档的节点
+    """创建新建文档节点。
+
+    :param knowledge_mode: 检索资料模式，``remote`` 时按远程知识图谱的来源标记渲染；
+        ``local``（默认）保持原有格式
+    """
     def docx_node(state : AgentState) -> AgentState:#写docx的节点
         s=state["messages"]
         # input_files=state['input_file_path']
         # file_list_str="\n".join(input_files)
-        retrieved_items=state["retrieved_content"]
-        retrieved_info=""
-        if retrieved_items is not None and len(retrieved_items)>0:
-            retrieved_info="目前已知：\n"+"\n".join(retrieved_items)
+        retrieved_info=build_retrieved_info(state["retrieved_content"], mode=knowledge_mode)
         prompt=(
             "你是文档写作助手，现在需要用户输入和已知信息列出整个文档的各个章节\n"
             "如果某些内容可以按表格的形式输出，则按一个章节来输出\n"

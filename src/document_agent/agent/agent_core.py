@@ -62,24 +62,61 @@ class AgentCore:
         self.graph=None
         self.agent_invoke=None
         self.checkpointer=InMemorySaver()#使用检查点记录会话内容
-        
-    def build_graph(self, gdb, kg=None): #构建agent图
+        #知识图谱检索阶段的模式：由 setting.json 的 remote_kg.enabled 决定
+        self.knowledge_mode="local"#local=本地图数据库，remote=远程知识图谱
+        self.remote_kg_settings=None#RemoteKGSettings 快照
+        self.remote_kg_tool=None#远程模式下复用的 RemoteKGTool 实例
+
+    def _build_remote_kg_tool(self, settings):
+        """按配置创建远程知识图谱客户端（整个会话复用同一实例）。"""
+        try:
+            from document_agent.retrieve_tool.remote_kg_tool import RemoteKGTool
+        except ImportError:#兼容只把 agent 目录加入 sys.path 的启动方式
+            from remote_kg_tool import RemoteKGTool
+        return RemoteKGTool(settings.base_url, **settings.tool_kwargs())
+
+    def build_graph(self, gdb, kg=None, remote_kg=None): #构建agent图
+        """组装检索与写作节点。
+
+        :param gdb: 本地 Memgraph 篇章树；远程知识图谱模式下不使用，可传 None
+        :param kg: 本地知识图谱记忆；远程知识图谱模式下不使用，可传 None
+        :param remote_kg: 远程知识图谱配置（RemoteKGSettings）；缺省时读 setting.json，
+            其 enabled 决定知识图谱检索节点用远程还是本地
+        """
+        from remote_kg_config import RemoteKGSettings, load_remote_kg_settings
         from intent_node import create_intent_node, route_after_intent
         from summary_node import create_summary_node
         from retrieve_node import create_retrieve_node
         from docx_node import create_new_docx_node
         from rewrite_node import create_rewrite_node
         from file_retrieve_node import create_file_retrieve_node
-        from gdb_retrieve_node import create_gdb_retrieve_node
+
+        settings = remote_kg if isinstance(remote_kg, RemoteKGSettings) else load_remote_kg_settings()
+        self.remote_kg_settings = settings
+        self.knowledge_mode = settings.mode
+        print(f"[知识图谱] {settings.describe()}")
 
         self.graph = StateGraph(AgentState)
         self.graph.add_node("intent", create_intent_node(self.llm))
         self.graph.add_node("summary", create_summary_node(self.llm))
         self.graph.add_node("retrieve", create_retrieve_node(self.llm))
         self.graph.add_node("retrieve_file", create_file_retrieve_node(self.llm))
-        self.graph.add_node("retrieve_gdb", create_gdb_retrieve_node(self.llm, gdb, kg))
-        self.graph.add_node("new_docx", create_new_docx_node(self.llm))
-        self.graph.add_node("rewrite_docx", create_rewrite_node(self.llm))
+        #知识图谱检索节点：按配置在“远程知识图谱”与“本地图数据库”之间二选一
+        if settings.enabled:
+            from kg_retrieve_node import create_kg_retrieve_node
+            self.remote_kg_tool = self._build_remote_kg_tool(settings)
+            knowledge_node = "retrieve_remote_kg"
+            self.graph.add_node(
+                knowledge_node, create_kg_retrieve_node(self.llm, self.remote_kg_tool)
+            )
+        else:
+            from gdb_retrieve_node import create_gdb_retrieve_node
+            self.remote_kg_tool = None
+            knowledge_node = "retrieve_gdb"
+            self.graph.add_node(knowledge_node, create_gdb_retrieve_node(self.llm, gdb, kg))
+        #两个写作节点要按同一模式渲染检索资料（远程结果带来源标记）
+        self.graph.add_node("new_docx", create_new_docx_node(self.llm, knowledge_mode=self.knowledge_mode))
+        self.graph.add_node("rewrite_docx", create_rewrite_node(self.llm, knowledge_mode=self.knowledge_mode))
         self.graph.set_entry_point("intent")
         #意图识别出错时直接结束流程
         self.graph.add_conditional_edges(
@@ -89,12 +126,12 @@ class AgentCore:
         )
         self.graph.add_edge("summary","retrieve")
         self.graph.add_edge("retrieve_file","retrieve")
-        self.graph.add_edge("retrieve_gdb","retrieve")
+        self.graph.add_edge(knowledge_node,"retrieve")
         #按检索工具与用户意图决定流转（继续检索 / 改写 / 新建 / 结束）
         self.graph.add_conditional_edges(
             "retrieve",
             route_retrieve,
-            {"rewrite":"rewrite_docx","new":"new_docx","file":"retrieve_file","knowledge":"retrieve_gdb","end":END},
+            {"rewrite":"rewrite_docx","new":"new_docx","file":"retrieve_file","knowledge":knowledge_node,"end":END},
         )
         self.graph.add_edge("new_docx",END)
         self.graph.add_edge("rewrite_docx",END)

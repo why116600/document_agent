@@ -2355,7 +2355,12 @@ def dispatch_rewrite_mode(llm, mode: str, dialog: str, retrieved_info: str, doc:
     return run_patch_rewrite(llm, dialog, retrieved_info, doc, nodes, base_items, description, target, target_range)
 
 
-def create_rewrite_node(llm):
+def create_rewrite_node(llm, knowledge_mode: str = "local"):
+    """创建改写节点。
+
+    :param knowledge_mode: 检索资料模式，``remote`` 时按远程知识图谱的来源标记渲染；
+        ``local``（默认）保持原有格式
+    """
     """创建改写节点，按 state['rewrite_steps'] 的有序步骤依次调度四层改写引擎。"""
     def rewrite_node(state: AgentState) -> AgentState:
         rewrite_path = state.get("rewrite_file")
