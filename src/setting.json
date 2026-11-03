@@ -11,5 +11,12 @@
     "top_k": 8,
     "neighbor_limit": 8,
     "enable_vector_index": true,
-    "require_llm": true
+    "require_llm": true,
+    "remote_kg": {
+        "enabled": true,
+        "base_url": "http://192.168.1.136:8000",
+        "auth_token": "",
+        "timeout": 60,
+        "max_retries": 2
+    }
 }
