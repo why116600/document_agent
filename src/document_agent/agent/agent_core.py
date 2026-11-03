@@ -27,6 +27,7 @@ class AgentState(TypedDict):
     rewrite_steps: List[Dict[str, Any]]#有序改写步骤清单：复合指令由大模型拆成多步，每步含 action/scope/instruction/replace_pairs（兼容旧 mode/target），改写节点逐步重建快照后依次执行
     replace_pairs: Optional[Dict[str, str]]#replace 模式下旧词到新词的映射
     save_path: str#输出文档的保存路径，为空时自动生成
+    new_doc_spec: Optional[Dict[str, Any]]#新建文档的结构化约束（标题/字数/表格/字体作用域等）
     file_roles: Optional[Dict[str, str]]#文件角色标签映射（如待修改目标文档、辅助参考/风格模板）
     error: Optional[str]#错误结果
 

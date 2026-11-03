@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from agent_core import AgentState, get_last_user_text
 from llm_client import llm_model_invoke
 from scope_contract import MODE_TO_ACTION, Scope, capability_text
+from new_doc_spec import NewDocSpec, normalize_spec
 
 #参考文件支持的后缀，与 extract_document 的解析能力保持一致
 SUPPORTED_REFERENCE_SUFFIXES = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".txt", ".json", ".csv", ".md"}
@@ -90,6 +91,13 @@ class DocumentTaskIntent(BaseModel):
     replace_pairs: Dict[str, str] = Field(
         default_factory=dict,
         description="当改写步骤中出现 replace 模式时，汇总提取所有要查找替换的词对 {原词: 新词}；非 replace 情况必须为空字典。"
+    )
+    new_doc_spec: Optional[NewDocSpec] = Field(
+        default=None,
+        description=(
+            "仅 task_type='new' 时填写：从用户原话提取的显式写作约束。"
+            "未明确要求的项必须保持 null/unspecified/空列表，不得根据文件名、用例名或常识推断。"
+        )
     )
     save_mode: Literal["new_file", "overwrite"] = Field(
         default="new_file",
@@ -374,7 +382,18 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str], outli
         "     * 若为 rewrite 模式且为 new_file：根据待改写文件名、参考文件风格和改写意图智能拟定一个专业得体的新文件名"
         "（例如：原文件是'11_粗糙排版_各业务线自报数据与零散问题汇总.docx'，参考了'正式版2'，可智能拟定为'11_各业务线自报数据与零散问题汇总_正式版.docx'或'11_各业务线自报数据与零散问题汇总_规范排版版.docx'）；\n"
         "     * 若为 overwrite 模式：可填原文件名或保持为 null。\n"
-        "7. reasoning：简要阐述判断依据、是否为复合指令及步骤拆分理由，以及文件名推导理由。"
+        "7. reasoning：简要阐述判断依据、是否为复合指令及步骤拆分理由，以及文件名推导理由。\n"
+        "8. new_doc_spec 提取（仅当 task_type 为 'new' 时；只提取用户原话中明确写出的约束）：\n"
+        "   - title：用户明确指定的总标题；参考资料文件名不是标题；未指定必须为 null；\n"
+        "   - max_body_chars：正文/全文字数上限的数字；未写数字必须为 null；\n"
+        "   - counting_rule：非空白字符→non_whitespace，汉字/字→chinese_chars，全部字符→all_chars；\n"
+        "   - table_policy：不用/禁止/不允许表格→forbid，明确允许/需要表格→allow，未提→unspecified；\n"
+        "   - text_styles：按作用域拆成数组，每项 {font_name, font_color, scope}；"
+        "scope 取 all/body/headings/table；例如“标题黑体、正文宋体”必须输出两条，不能合并成全篇宋体；"
+        "未提字体/颜色时留空数组；\n"
+        "   - required_topics：只抄用户明确要求覆盖的主题/字段；“字段名称/章节标题/文档标题”等格式要求不算主题；\n"
+        "   - duplicate_policy：用户明确不要重复/只写一次/不要总览→strict，否则 normal；\n"
+        "   - 以上任一项没有明确依据时，宁可留空，也不要推断。"
     )
 
 
@@ -513,6 +532,7 @@ def create_intent_node(llm=None):
         rewrite_steps: List[Dict[str, Any]] = []
         extracted_save_filename = None
         user_intent = "new"
+        new_doc_spec = None
 
         # 2. 大模型全量分析指令与候选文件池
         if llm is not None and user_prompt:
@@ -552,6 +572,9 @@ def create_intent_node(llm=None):
                     rewrite_mode = None
                     save_mode = task_intent.save_mode or "new_file"
                     extracted_save_filename = task_intent.suggested_filename or task_intent.save_filename
+                    new_doc_spec = normalize_spec(task_intent.new_doc_spec)
+                    if new_doc_spec:
+                        print(f"【写作约束】{new_doc_spec.model_dump_json(ensure_ascii=False)}")
             else:
                 # 大模型结构化解析失败时，默认按全新写作处理
                 print("【意图分析】结构化解析无结果，按全新写作处理")
@@ -610,6 +633,7 @@ def create_intent_node(llm=None):
             "rewrite_steps": rewrite_steps,
             "replace_pairs": replace_pairs,
             "save_path": final_save_path,
+            "new_doc_spec": new_doc_spec.model_dump() if new_doc_spec else None,
             "input_file_path": valid_input_files,  # 保留全部文件
             "file_roles": file_roles,              # 各文件角色
         }

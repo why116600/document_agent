@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any, Dict, List, Mapping, Sequence, Tuple
 
 MAX_PER_FILE_CHARS = 3000     # 单份摘要最多注入 3000 字，防止提示词过长
@@ -44,6 +45,66 @@ _UNIT_RE = re.compile(
     r"\d+(?:\.\d+)?\s*(?:个工作日|工作日|小时|分钟|秒|天|套|台|组|次|页|年|月|日|%)"
 )
 _QUALIFIER_STARTS = ("这里", "此", "该", "上述", "其中", "同时", "但", "不是", "不得", "仅", "只")
+
+
+def extract_fact_keys(text: Any) -> List[str]:
+    """提取“数值+单位”事实键，如 2小时、3个工作日、40天。"""
+    return [re.sub(r"\s+", "", match.group(0)) for match in _UNIT_RE.finditer(str(text or ""))]
+
+
+def _read_source_text(path: str) -> str:
+    """读取原始资料文本；不支持的格式返回空串，由调用方退回检索素材统计。"""
+    source = Path(path)
+    suffix = source.suffix.lower()
+    try:
+        if suffix in (".txt", ".md"):
+            try:
+                return source.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                return source.read_text(encoding="gbk")
+        if suffix == ".docx":
+            from docx import Document
+            doc = Document(str(source))
+            parts = [paragraph.text for paragraph in doc.paragraphs]
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        parts.append(cell.text)
+            return "\n".join(parts)
+        if suffix == ".pdf":
+            import pdfplumber
+            with pdfplumber.open(str(source)) as pdf:
+                return "\n".join(page.extract_text() or "" for page in pdf.pages)
+    except Exception:
+        return ""
+    return ""
+
+
+def source_fact_counts_from_files(paths: Sequence[str]) -> Dict[str, int]:
+    """方案要点：优先从原始资料文件统计事实，避免检索片段重复放大计数。"""
+    counts: Dict[str, int] = {}
+    for path in paths or []:
+        text = _read_source_text(str(path))
+        if not text:
+            continue
+        for key, count in source_fact_counts([text]).items():
+            counts[key] = counts.get(key, 0) + count
+    return counts
+
+
+def source_fact_counts(items: Sequence[str]) -> Dict[str, int]:
+    """方案要点：源感知去重——按去重后的原文句子统计事实，避免检索重复放大计数。"""
+    counts: Dict[str, int] = {}
+    seen_sentences = set()
+    for item in items or []:
+        for sentence in re.split(r"[。；;！？!\n]", str(item)):
+            normalized = re.sub(r"\s+", "", sentence)
+            if len(normalized) < MIN_ITEM_CHARS or normalized in seen_sentences:
+                continue
+            seen_sentences.add(normalized)
+            for key in sorted(set(extract_fact_keys(normalized))):
+                counts[key] = counts.get(key, 0) + 1
+    return counts
 
 
 def _flatten(value: Any, out: List[str], depth: int = 0) -> None:
