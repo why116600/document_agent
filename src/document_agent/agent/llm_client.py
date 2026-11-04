@@ -49,9 +49,9 @@ def get_deepseek_llm() -> ChatOpenAI:
         temperature=0,
         timeout=120,
         max_retries=1,
-        extra_body={
-        "thinking": {"type": "disabled"}  # ✅ 关键：关闭思考模式
-        }
+        # extra_body={
+        # "thinking": {"type": "disabled"}  # ✅ 关键：关闭思考模式
+        # }
     )
     
 def llm_invoke(llm,prompt : str,retry=3):
