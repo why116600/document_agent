@@ -1,0 +1,326 @@
+{
+  "version": "1.0.25",
+  "updated_date": "2026-11-04",
+  "candidate_commit": "b6b5f2bb675fb59794147713f39eb41ea5f9a8b9",
+  "previous_candidate": "a83c6dffa1584ab87423b523fdf2e89cdcb40f55",
+  "new_natural_scenarios": 2,
+  "new_controlled_replays": 0,
+  "business_execution_not_confused_with_preflight": true,
+  "runtime_scope": "isolated synthetic test database; existing packages and Java/Neo4j reused; no product patch",
+  "model_adapter": "retained external WorkBuddy protocol adapter in process; candidate LLM source unchanged",
+  "remote_knowledge_graph_tested": false,
+  "remote_knowledge_graph_disabled_in_case_settings": true,
+  "formal_defects_closed": [],
+  "original_formal_TC_suite_completed": false,
+  "database_cleanup": "user stop command returned DB_STOPPED; local state stopped and no test-port listener",
+  "cases": [
+    {
+      "case_id": "CP-007",
+      "attempt": "001",
+      "kind": "natural_console_execution",
+      "executed_by": "user ran the supplied command; assistant reviewed files and pages",
+      "candidate_commit": "b6b5f2bb675fb59794147713f39eb41ea5f9a8b9",
+      "requested_model": "hy3",
+      "actual_response_model_identity": "not independently retained",
+      "started": "2026-11-03T23:50:29.313675+08:00",
+      "finished": "2026-11-03T23:52:46.481661+08:00",
+      "elapsed_seconds": 137.17,
+      "exit_code": 0,
+      "business_state": "succeeded",
+      "harness_timed_out": false,
+      "source_files_preserved": true,
+      "original_request": "请对《借用替换样例_v1.0.15.docx》执行全文查找替换，将全部“7天”改为“3天”，将“1个工作日”改为“2个工作日”。范围包括正文、表格和页眉；不要把库存数量“7台”改掉，也不要修改“5天”。只做这些替换，其他文字、段落、表格结构和格式保持，中文仍宋体、全部文字黑色，不检索知识库，不覆盖原稿，另存为CP-007_结果_v1.0.15.docx。",
+      "request_sha256": "aef0483bf92b36d70cb1bf3e6aceb3fe3460589689bfda9cce98d5071d9dd941",
+      "expected_sha256": "e593cda2672d276ecd69bced78361a18297b38a1462bd6f0b3647847a94877b8",
+      "input_artifacts": [
+        {
+          "name": "借用替换样例_v1.0.15.docx",
+          "sha256": "5c4f1110b31e5952edec9d3dea65d2470a2ff845173b5319166ca031ad94e6d1",
+          "bytes": 38096
+        }
+      ],
+      "output": {
+        "path": "b6b5f2b_A001_CP-007_结果_v1.0.15.docx",
+        "sha256": "63f4ce0864ebcfdfd1bf5668f18a6dba090283425e1c6357a4b4193a0d6db8a5",
+        "bytes": 38096
+      },
+      "review": {
+        "verdict": "original_CP007_content_structure_and_WPS_page_checks_passed_with_flow_observation",
+        "formal_defect_closed": false,
+        "original_request_and_expectation_preserved": true,
+        "changed_parts": [
+          "word/document.xml",
+          "word/header1.xml"
+        ],
+        "all_other_parts_byte_identical": true,
+        "nontext_XML_in_changed_parts_equal": true,
+        "per_paragraph_exact_authorized_replacements": true,
+        "counts": {
+          "7天": {
+            "before": 4,
+            "after": 0
+          },
+          "3天": {
+            "before": 0,
+            "after": 4
+          },
+          "1个工作日": {
+            "before": 1,
+            "after": 0
+          },
+          "2个工作日": {
+            "before": 0,
+            "after": 1
+          },
+          "12台": {
+            "before": 1,
+            "after": 1
+          },
+          "7台": {
+            "before": 1,
+            "after": 1
+          },
+          "5天": {
+            "before": 1,
+            "after": 1
+          }
+        },
+        "cross_run_result": [
+          {
+            "text": "第二台展示设备每次最多借用",
+            "bold_explicit": false
+          },
+          {
+            "text": "3",
+            "bold_explicit": true
+          },
+          {
+            "text": "天",
+            "bold_explicit": false
+          },
+          {
+            "text": "。不同文字片段仍组成同一词组。",
+            "bold_explicit": false
+          }
+        ],
+        "limits": [
+          "one original equal-length replacement case only",
+          "no unequal-length replacement or format-only acceptance",
+          "not full DEF-001 second-round closure",
+          "DEF-003 is outside this CP-007 execution; see CP-002 record in this batch"
+        ]
+      },
+      "pages": [
+        {
+          "path": "b6b5f2b_CP-007_before_page-1_v1.0.25.png",
+          "sha256": "291f93344f148010c8bab31be9b1099199eb20f931307ab85c9afea4e8d83c74",
+          "phase": "before",
+          "renderer": "WPS readonly private-copy export plus Poppler",
+          "original_Docx_bytes_preserved": true,
+          "visually_reviewed": true
+        },
+        {
+          "path": "b6b5f2b_CP-007_after_page-1_v1.0.25.png",
+          "sha256": "55b15a9f6aeac2e403740b3987ebacdd9147b5adb89101481df5178687b9c8ec",
+          "phase": "after",
+          "renderer": "WPS readonly private-copy export plus Poppler",
+          "original_Docx_bytes_preserved": true,
+          "visually_reviewed": true
+        }
+      ]
+    },
+    {
+      "case_id": "CP-002",
+      "attempt": "001",
+      "kind": "natural_console_execution",
+      "executed_by": "user ran the supplied command; assistant reviewed files and pages",
+      "candidate_commit": "b6b5f2bb675fb59794147713f39eb41ea5f9a8b9",
+      "requested_model": "hy3",
+      "actual_response_model_identity": "not independently retained",
+      "started": "2026-11-04T00:07:56.622978+08:00",
+      "finished": "2026-11-04T00:16:50.619211+08:00",
+      "elapsed_seconds": 534.0,
+      "exit_code": 0,
+      "business_state": "succeeded",
+      "harness_timed_out": false,
+      "source_files_preserved": true,
+      "original_request": "只依据《云芦园区长指南_v1.0.15.txt》写《监测箱E2检查要点 v1.0.15》，只回答三个字段：E2例行检查频率、E2异常报告时限及接收角色、E2校验记录保留期。明确对象和单位，不使用T1、L8、工具便条或通行资料的规则。正文最多160个非空白字符，不含文档标题，包含字段名称；不用表格，不检索知识库，不补充资料没有的信息，全部文字黑色、中文宋体，另存为CP-002_结果_v1.0.15.docx。",
+      "request_sha256": "341790d8bfdec0c97639b3c33e3ea7e5c796635d4a7a3b39c40615d5586a03cb",
+      "expected_sha256": "1744d6830c2fbe380e3d41c67b1ff7a0cfc6b05032dcdbc3db00e90a541fa77f",
+      "input_artifacts": [
+        {
+          "name": "云芦园区长指南_v1.0.15.txt",
+          "sha256": "d0a41b1cbfb6276ebe3d16497e0847fe3fad5f1a8db72127a6b3a4a0c31c0b6b",
+          "bytes": 9317
+        }
+      ],
+      "output": {
+        "path": "b6b5f2b_A001_CP-002_结果_v1.0.15.docx",
+        "sha256": "cc004a1622f7fcff2399e1042a578b0a497510e4c931e2fe664475fd5d8be311",
+        "bytes": 38304
+      },
+      "review": {
+        "def003_facts_and_qualifiers_in_observed_path_passed": true,
+        "complete_CP002_case_passed": false,
+        "formal_defect_closed": false,
+        "facts_checks": {
+          "frequency_15_days": true,
+          "report_within_4_hours_to_demonstration_coordinator": true,
+          "clock_starts_at_discovery_not_routine_check": true,
+          "E2_verification_record_retention_75_days": true
+        },
+        "scope_checks": {
+          "nonwhitespace_body_chars": 798,
+          "max_allowed": 160,
+          "requested_title": "监测箱E2检查要点 v1.0.15",
+          "title_count": 0,
+          "tables": 1,
+          "nonempty_text_runs_by_east_asian_font": {
+            "微软雅黑": 10,
+            "宋体": 30
+          },
+          "nonempty_text_runs_by_color": {
+            "000000": 40
+          },
+          "non_SimSun_examples": [
+            {
+              "text": "E2例行检查频率",
+              "east_asian_font": "微软雅黑"
+            },
+            {
+              "text": "E2异常报告时限及接收角色",
+              "east_asian_font": "微软雅黑"
+            },
+            {
+              "text": "异常报告时限与起算",
+              "east_asian_font": "微软雅黑"
+            },
+            {
+              "text": "报告内容与期限适用范围",
+              "east_asian_font": "微软雅黑"
+            },
+            {
+              "text": "报告后记录与接收角色",
+              "east_asian_font": "微软雅黑"
+            },
+            {
+              "text": "E2校验记录保留期",
+              "east_asian_font": "微软雅黑"
+            },
+            {
+              "text": "保留期限与适用对象",
+              "east_asian_font": "微软雅黑"
+            },
+            {
+              "text": "记录查回与内容完整性",
+              "east_asian_font": "微软雅黑"
+            },
+            {
+              "text": "状态标记与授权限制",
+              "east_asian_font": "微软雅黑"
+            },
+            {
+              "text": "保留期说明要求",
+              "east_asian_font": "微软雅黑"
+            }
+          ]
+        },
+        "retrieval_path": {
+          "actual_tool_calls": [
+            {
+              "line": 45,
+              "tool": "file"
+            },
+            {
+              "line": 82,
+              "tool": "file"
+            },
+            {
+              "line": 114,
+              "tool": "file"
+            }
+          ],
+          "ended_by_retrieval_count_limit": true,
+          "explicit_end_tool_call": false,
+          "original_summary_direct_end_branch_covered": false,
+          "file_original_excerpt_present": true
+        },
+        "original_request_and_expectation_preserved": true,
+        "important_interpretations": [
+          "T1 and L8 numbers appear in explicit exclusions; this is not evidence of applying wrong device rules",
+          "process success and fact-check log do not make the whole document pass",
+          "the original direct-end branch was not tested in this new natural run"
+        ]
+      },
+      "pages": [
+        {
+          "path": "b6b5f2b_CP-002_after_page-1_v1.0.25.png",
+          "sha256": "a87af05a932ee249361d11adef394101030c835e8a20db62a1bf56b47145d2f4",
+          "phase": "after",
+          "renderer": "WPS readonly private-copy export plus Poppler",
+          "original_Docx_bytes_preserved": true,
+          "visually_reviewed": true
+        },
+        {
+          "path": "b6b5f2b_CP-002_after_page-2_v1.0.25.png",
+          "sha256": "089990d668e90ff888c7339e816ac5fb9900f3e49cc41bdfe0c3163470c0e057",
+          "phase": "after",
+          "renderer": "WPS readonly private-copy export plus Poppler",
+          "original_Docx_bytes_preserved": true,
+          "visually_reviewed": true
+        }
+      ]
+    }
+  ],
+  "source_log_excerpt_policy": "selected relevant lines only; raw prompts/responses and machine paths stay local",
+  "log_excerpts": {
+    "CP-007": [
+      {
+        "line": 96,
+        "text": "【整篇替换】容器=['body', 'header', 'table'] 命中分布={'body': 3, 'header': 1, 'table': 1}"
+      },
+      {
+        "line": 97,
+        "text": "共替换5处：7天→3天4处，1个工作日→2个工作日1处（摘要，准确数量由实际Word另行核对）"
+      },
+      {
+        "line": 55,
+        "observation": "file tool used an unresolved basename; rewrite later used the resolved full target path"
+      }
+    ],
+    "CP-002": [
+      {
+        "line": 45,
+        "tool": "file"
+      },
+      {
+        "line": 47,
+        "text": "【文件检索】原文摘录=有 结果字数=361"
+      },
+      {
+        "line": 82,
+        "tool": "file"
+      },
+      {
+        "line": 84,
+        "text": "【文件检索】原文摘录=有 结果字数=412"
+      },
+      {
+        "line": 114,
+        "tool": "file"
+      },
+      {
+        "line": 116,
+        "text": "【文件检索】原文摘录=有 结果字数=278"
+      },
+      {
+        "line": 117,
+        "text": "超出检索次数"
+      },
+      {
+        "line": 123,
+        "text": "【事实校验】素材限定句=4，未发现缺失"
+      }
+    ]
+  }
+}
