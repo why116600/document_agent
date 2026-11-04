@@ -227,3 +227,5 @@ src/workspace/
 .models/
 .piptmp/
 .pipcache/
+
+src/setting.json
