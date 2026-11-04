@@ -4,6 +4,7 @@ from docx.oxml.ns import qn
 from docx.shared import RGBColor
 import difflib
 import json
+import os
 import re
 from typing import List, Optional
 
@@ -18,6 +19,14 @@ from retrieval_material import (
     find_missing_qualifiers,
     source_fact_counts,
     source_fact_counts_from_files,
+)
+from field_plan import (
+    DocumentPlan,
+    build_document_plan,
+    field_plan_block,
+    fields_for_chapter,
+    is_missing_fact,
+    validate_document_plan,
 )
 from document_agent.write_tool.word_tool import (
     replace_node_with_data, DocxRoot, resolve_save_path, save_document
@@ -41,6 +50,8 @@ COUNT_UNITS = {
     "chinese_chars": "个汉字",
     "all_chars": "个字符",
 }
+# 方案要点：灰度开关；shadow 只记录计划，不影响写作。
+DOCUMENT_PLAN_MODE = os.environ.get("DOCUMENT_PLAN_MODE", "on").strip().lower()
 TEST_METADATA_PATTERN = re.compile(
     r"(?:语料标识|用例编号|测试标识|CP-\d+)", re.I
 )
@@ -618,6 +629,7 @@ def _repair_new_doc(llm, dialog: str, retrieved_info: str, title: str,
                     check_duplicates: bool = True,
                     spec: Optional[NewDocSpec] = None,
                     protected_facts=None,
+                    field_plan: Optional[DocumentPlan] = None,
                     extra_rule: str = ""):
     """一次受控修复：按硬约束重写为纯段落正文；失败返回 (None, 校验问题)。"""
     if spec is not None:
@@ -650,11 +662,19 @@ def _repair_new_doc(llm, dialog: str, retrieved_info: str, title: str,
         f"必须保留以下原文事实：{'、'.join(sorted(protected_facts))}；\n"
         if protected_facts else ""
     )
+    plan_rule = ""
+    if field_plan is not None:
+        plan_rule = (
+            "章节标题由系统添加，正文不要输出 heading_level=1 的章节标题；\n"
+            "字段计划中的 facts 必须原样写入对应章节，不得改写、合并或省略；\n"
+        )
     prompt = (
         "你是文档写作修复助手。当前新建文档不符合硬约束，需要重写。\n"
         f"当前问题：{', '.join(issues)}\n"
         f"用户原始要求：{dialog}\n"
         f"{FIELD_ASSIGNMENT_RULE}"
+        f"{field_plan_block(field_plan)}"
+        f"{plan_rule}"
         f"{FIDELITY_RULES}\n"
         f"{retrieved_info}\n"
         f"当前文档内容（仅用于修复，不得复述无关内容）：\n{current_text}\n"
@@ -679,7 +699,13 @@ def _repair_new_doc(llm, dialog: str, retrieved_info: str, title: str,
     if res is None:
         return None, ["repair_failed"]
     doc = _new_document()
-    skipped = _append_items(doc, res.items)
+    if field_plan is not None:
+        for chapter in field_plan.chapters:
+            doc.add_heading(chapter, level=1)
+        items = _filter_plan_items(res.items, field_plan.chapters)
+    else:
+        items = res.items
+    skipped = _append_items(doc, items)
     insert_title(doc, title)
     remove_duplicate_titles(doc, title)
     if text_styles:
@@ -690,6 +716,75 @@ def _repair_new_doc(llm, dialog: str, retrieved_info: str, title: str,
     if skipped:
         validation["issues"].append(f"invalid_items:{skipped}")
     return doc, validation["issues"]
+
+
+def _paragraph_item_text(paragraph) -> str:
+    return "".join(str(run.text or "") for run in (paragraph.runs or []))
+
+
+def _filter_plan_items(items, chapters):
+    """字段计划模式下由系统插入章节标题，过滤模型重复输出的章节标题。"""
+    chapter_norms = {_normalize(item) for item in chapters if item}
+    filtered = []
+    for item in items:
+        if getattr(item, "type", "") != "paragraph":
+            filtered.append(item)
+            continue
+        paragraph = getattr(item, "Paragraph", None)
+        if paragraph is None:
+            filtered.append(item)
+            continue
+        text = _paragraph_item_text(paragraph)
+        if paragraph.heading_level == 1 or _normalize(text) in chapter_norms:
+            continue
+        filtered.append(item)
+    return filtered
+
+
+def _build_field_plan_fallback(plan: DocumentPlan, title: str):
+    """模型修复仍不合格时的结构化兜底：章节标题 + 字段：事实。"""
+    doc = _new_document()
+    insert_title(doc, title)
+    for chapter in plan.chapters:
+        doc.add_heading(chapter, level=1)
+        for field in fields_for_chapter(plan, chapter):
+            facts = [
+                fact.text.strip() for fact in field.facts
+                if fact.text.strip() and not is_missing_fact(fact.text)
+            ]
+            text = "；".join(facts) if facts else "资料未说明"
+            doc.add_paragraph(f"{field.field}：{text}")
+    return doc
+
+
+def _clean_section_title(text: str) -> str:
+    """章节名只保留标题部分，避免模型把“标题：正文”整体写进 sections。"""
+    value = str(text or "").strip()
+    value = re.split(r"[：:。；;]", value, maxsplit=1)[0]
+    return value.strip(" -—")
+
+
+def _compact_missing_sections(sections, plan: Optional[DocumentPlan]):
+    """把多个“资料未说明”占位章节合并，保留非缺失章节结构。"""
+    if plan is None:
+        return sections, plan
+    missing = []
+    for section in sections:
+        mapped = fields_for_chapter(plan, section)
+        if mapped and all(
+            all(is_missing_fact(fact.text) for fact in field.facts)
+            for field in mapped
+        ):
+            missing.append(section)
+    if len(missing) <= 1:
+        return sections, plan
+    merged = "、".join(missing)
+    new_sections = [section for section in sections if section not in missing] + [merged]
+    for field in plan.fields:
+        if field.chapter in missing:
+            field.chapter = merged
+    plan.chapters = new_sections
+    return new_sections, plan
 
 
 def _parse_plan(section_str: str):
@@ -723,10 +818,10 @@ def _parse_plan(section_str: str):
             text = section.get("title") or section.get("name") or ""
         else:
             text = section
-        text = str(text).strip()
+        text = _clean_section_title(str(text))
         if text:
             normalized_sections.append(text)
-    return title, normalized_sections, ""
+    return title, list(dict.fromkeys(normalized_sections)), ""
 
 
 def create_new_docx_node(llm):#从零编写文档的节点
@@ -792,9 +887,26 @@ def create_new_docx_node(llm):#从零编写文档的节点
             print(f"【结构】用户未指定总标题，忽略模型计划标题：{plan_title}")
         if title:
             sections = [section for section in sections if _normalize(section) != _normalize(title)]
+        sections = list(dict.fromkeys(section for section in sections if section))
         print(f"【结构】总标题={title or '<未指定>'} 章节数={len(sections)} 正文上限={max_chars} 无表格={no_table}")
         if not sections:
             return {**state, "state": "error", "error": "章节规划为空"}
+
+        document_plan = None
+        if DOCUMENT_PLAN_MODE in ("on", "shadow"):
+            built_plan = build_document_plan(
+                llm, dialog_text, retrieved_info, sections, spec.required_topics
+            )
+            if built_plan:
+                if DOCUMENT_PLAN_MODE == "shadow":
+                    print(f"【字段计划】{built_plan.model_dump_json(ensure_ascii=False)}")
+                    print("【字段计划】shadow 模式：仅记录，不改变写作")
+                else:
+                    sections, document_plan = _compact_missing_sections(sections, built_plan)
+                    section_str = json.dumps(
+                        {"title": explicit_title, "sections": sections}, ensure_ascii=False
+                    )
+                    print(f"【字段计划】{document_plan.model_dump_json(ensure_ascii=False)}")
 
         doc = _new_document()
         insert_title(doc, title)
@@ -813,6 +925,12 @@ def create_new_docx_node(llm):#从零编写文档的节点
                 if max_chars is not None else ""
             )
             table_rule = "本次禁止输出表格，所有信息用段落表达。" if no_table else ""
+            field_rule = ""
+            if document_plan is not None:
+                field_rule = (
+                    "章节标题由系统添加，正文不要输出 heading_level=1 的章节标题；\n"
+                    "字段计划中的 facts 必须原样写入本章，不得改写、合并或省略；\n"
+                )
             prompt = (
                 "你是一个写作系统的智能助手，需要根据章节主旨以及源信息进行文档生成，"
                 + ("只输出段落，不输出表格。\n" if no_table else "包括段落和表格。\n")
@@ -826,6 +944,8 @@ def create_new_docx_node(llm):#从零编写文档的节点
                 "不要写总览、摘要或概述段；本章只写当前章节标题对应的规则，"
                 "不要提前汇总整份文档，也不要在本章复述其他章节；同一规则全篇只出现一次。\n"
                 f"{FIELD_ASSIGNMENT_RULE}"
+                f"{field_plan_block(document_plan, section)}"
+                f"{field_rule}"
                 f"{budget_rule}\n"
                 f"{table_rule}\n"
                 f"整个文档的大纲：\n{section_str}\n"
@@ -833,11 +953,14 @@ def create_new_docx_node(llm):#从零编写文档的节点
                 f"{FIDELITY_RULES}\n"
                 f"{retrieved_info}\n"
             )
+            if document_plan is not None:
+                doc.add_heading(section, level=1)
             res = llm_model_invoke(llm, prompt, DocxRoot)
             if res is None:
                 print("写作失败")
                 return {**state, "error": "写作失败", "state": "error"}
-            invalid_items += _append_items(doc, res.items)
+            items = _filter_plan_items(res.items, [section]) if document_plan is not None else res.items
+            invalid_items += _append_items(doc, items)
             print(f"【结构】本章节后正文{unit}={count_body_chars(doc, title, spec.counting_rule)}")
 
         remove_duplicate_titles(doc, title)
@@ -847,8 +970,14 @@ def create_new_docx_node(llm):#从零编写文档的节点
         validation = validate_new_doc(
             doc, title, max_chars, no_table, check_duplicates=check_duplicates, spec=spec
         )
-        validation["issues"].extend(_fact_issues(doc, source_counts))
-        protected_facts = _protected_facts_in_doc(doc, source_counts)
+        if document_plan:
+            validation["issues"].extend(
+                validate_document_plan(doc, document_plan, sections)
+            )
+            protected_facts = set()
+        else:
+            validation["issues"].extend(_fact_issues(doc, source_counts))
+            protected_facts = _protected_facts_in_doc(doc, source_counts)
         if invalid_items:
             validation["issues"].append(f"invalid_items:{invalid_items}")
         print(f"【结构校验】{validation}")
@@ -862,9 +991,14 @@ def create_new_docx_node(llm):#从零编写文档的节点
                     doc, title, max_chars, no_table, check_duplicates=check_duplicates,
                     spec=spec,
                 )
-                validation["issues"].extend(
-                    _fact_issues(doc, source_counts, protected_facts)
-                )
+                if document_plan:
+                    validation["issues"].extend(
+                        validate_document_plan(doc, document_plan, sections)
+                    )
+                else:
+                    validation["issues"].extend(
+                        _fact_issues(doc, source_counts, protected_facts)
+                    )
                 print(f"【结构校验】标题修复后：{validation}")
 
             if validation["issues"]:
@@ -874,17 +1008,24 @@ def create_new_docx_node(llm):#从零编写文档的节点
                     validation["issues"], _document_text(doc),
                     check_duplicates=check_duplicates, spec=spec,
                     protected_facts=protected_facts,
+                    field_plan=document_plan,
                 )
                 if repaired is not None:
-                    fact_after = _fact_issues(
-                        repaired, source_counts, protected_facts
-                    )
+                    if document_plan:
+                        fact_after = validate_document_plan(
+                            repaired, document_plan, sections
+                        )
+                    else:
+                        fact_after = _fact_issues(
+                            repaired, source_counts, protected_facts
+                        )
                     if fact_after:
                         repair_issues = list(repair_issues) + fact_after
                 # 方案要点：A001 类“修复后仍超长”允许一次精准二次压缩。
                 retryable = (
                     "body_too_long:", "duplicate_fact:", "same_field_duplicate:",
-                    "protected_fact_missing:",
+                    "protected_fact_missing:", "field_fact_missing:",
+                    "field_fact_misplaced:", "field_fact_duplicate:",
                 )
                 if repaired is not None and repair_issues and all(
                     issue.startswith(retryable) for issue in repair_issues
@@ -919,22 +1060,48 @@ def create_new_docx_node(llm):#从零编写文档的节点
                         repair_issues, _document_text(repaired),
                         check_duplicates=check_duplicates, spec=spec,
                         protected_facts=protected_facts,
+                        field_plan=document_plan,
                         extra_rule="".join(extra_parts),
                     )
                 if repaired is None or repair_issues:
-                    message = "文档结构校验失败且修复未通过：" + (
-                        "; ".join(repair_issues) if repair_issues else "修复写作失败"
-                    )
-                    print(message)
-                    return {**state, "state": "error", "error": message}
+                    fallback_issues = []
+                    fallback = None
+                    if document_plan is not None:
+                        fallback = _build_field_plan_fallback(document_plan, title)
+                        if spec.text_styles:
+                            apply_text_styles(fallback, spec.text_styles, title)
+                        fallback_validation = validate_new_doc(
+                            fallback, title, max_chars, no_table,
+                            check_duplicates=check_duplicates, spec=spec,
+                        )
+                        fallback_validation["issues"].extend(
+                            validate_document_plan(fallback, document_plan, sections)
+                        )
+                        fallback_issues = fallback_validation["issues"]
+                    if fallback is None or fallback_issues:
+                        message = "文档结构校验失败且修复未通过：" + (
+                            "; ".join(repair_issues) if repair_issues else "修复写作失败"
+                        )
+                        if fallback_issues:
+                            message += "; 字段兜底仍不合格：" + "; ".join(fallback_issues)
+                        print(message)
+                        return {**state, "state": "error", "error": message}
+                    print("【结构兜底】使用字段计划结构化稿")
+                    repaired = fallback
+                    repair_issues = []
                 doc = repaired
                 validation = validate_new_doc(
                     doc, title, max_chars, no_table, check_duplicates=check_duplicates,
                     spec=spec,
                 )
-                validation["issues"].extend(
-                    _fact_issues(doc, source_counts, protected_facts)
-                )
+                if document_plan:
+                    validation["issues"].extend(
+                        validate_document_plan(doc, document_plan, sections)
+                    )
+                else:
+                    validation["issues"].extend(
+                        _fact_issues(doc, source_counts, protected_facts)
+                    )
                 print(f"【结构修复】修复后：{validation}")
 
         if validation["issues"]:
