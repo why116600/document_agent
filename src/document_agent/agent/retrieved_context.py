@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 LOCAL_MODE = "local"
 REMOTE_MODE = "remote"
@@ -24,9 +24,15 @@ REMOTE_MODE = "remote"
 # 远程知识图谱结果的来源标记说明（与 kg_retrieve_node 的渲染保持一致）
 REMOTE_SOURCE_NOTICE = (
     "以下资料来自系统「远程知识图谱」，行首标记表示来源："
+    "【可引用文档】本次可引用的文档完整名称；"
     "【文档】文档元信息；【实体】图谱实体及其描述；【关系】实体间关系；"
     "【分块】原文片段摘要；【原文】分块原文；【路径】实体间关系链；"
     "【实体提及】用户说法在图谱中对齐到的实体。"
+)
+REMOTE_CITATION_RULE = (
+    "【引用规范】正文中引用知识图谱里的文档时，必须逐字使用【可引用文档】列出的完整文档名称"
+    "（含扩展名），并用《》括起；禁止使用简称、缩写、省略扩展名，也禁止把分块标题、"
+    "章节或附件标题（如《附件1》）当作文档名。若不确定完整名称，宁可不引用也不要简写。"
 )
 REMOTE_USAGE_HINT = (
     "写作时以【原文】作为可直接引用的依据，【实体】【关系】【路径】用于补充背景与因果；"
@@ -76,15 +82,71 @@ def build_retrieved_info(
     body = "\n".join(lines)
     if remote_limit > 0 and len(body) > remote_limit:
         body = body[:remote_limit].rstrip() + "\n……（检索资料较长，已截断）"
-    block = f"{header}\n{REMOTE_SOURCE_NOTICE}\n{body}\n{REMOTE_USAGE_HINT}"
+    block = (
+        f"{header}\n{REMOTE_SOURCE_NOTICE}\n{REMOTE_CITATION_RULE}\n{body}\n{REMOTE_USAGE_HINT}"
+    )
     return block + ("\n" if trailing_newline else "")
+
+
+def _doc_stem(full_name: str) -> str:
+    """取文档名去掉扩展名后的部分（引用里常见“标题不带扩展名”）。"""
+    return full_name.rsplit(".", 1)[0] if "." in full_name else full_name
+
+
+def enforce_full_document_names(
+    doc: Any,
+    citations: Optional[Iterable[Any]],
+) -> List[Tuple[str, str, int]]:
+    """把正文里用简称写的《…》引用补全成知识图谱里的完整文档名。
+
+    只在远程知识图谱模式下调用：检索结果同时给出完整文件名（``path`` 的文件名）与图谱
+    标题（可能只是简称），模型偶尔会把简称、甚至“附件1”这类章节标题当文档名来引用，
+    这里按 ``《简称》 -> 《完整文件名》`` 做一次确定性补全，返回实际发生替换的条目。
+
+    :param doc: ``python-docx`` 的 ``Document`` 对象（正文与表格都会被处理）
+    :param citations: ``state["document_citations"]``，每项含 ``full_name`` / ``title``
+    :return: ``[(原文, 替换为, 命中次数), ...]``；没有可补全的引用时为空列表
+    """
+    if not citations:
+        return []
+
+    # 简称 → 完整名。同一个简称对应多篇文档时保持原样（无法判断该补成哪一篇）
+    candidates: Dict[str, Set[str]] = {}
+    full_names: Set[str] = set()
+    for citation in citations:
+        if not isinstance(citation, dict):
+            continue
+        full_name = str(citation.get("full_name") or "").strip()
+        if not full_name:
+            continue
+        full_names.add(full_name)
+        aliases = {str(citation.get("title") or "").strip(), _doc_stem(full_name)}
+        for alias in aliases:
+            if not alias or alias == full_name:
+                continue
+            candidates.setdefault(alias, set()).add(full_name)
+
+    pairs: Dict[str, str] = {}
+    for alias, names in candidates.items():
+        if len(names) != 1 or alias in full_names:
+            continue
+        pairs[f"《{alias}》"] = f"《{next(iter(names))}》"
+    if not pairs:
+        return []
+
+    from document_agent.write_tool.word_replace import batch_replace_in_document
+
+    stats = batch_replace_in_document(doc, pairs)
+    return [(old, pairs[old], count) for old, count in stats.items() if count]
 
 
 __all__ = [
     "LOCAL_MODE",
     "REMOTE_MODE",
     "REMOTE_SOURCE_NOTICE",
+    "REMOTE_CITATION_RULE",
     "REMOTE_USAGE_HINT",
     "DEFAULT_REMOTE_LIMIT",
     "build_retrieved_info",
+    "enforce_full_document_names",
 ]

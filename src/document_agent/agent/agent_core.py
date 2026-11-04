@@ -28,6 +28,7 @@ class AgentState(TypedDict):
     replace_pairs: Optional[Dict[str, str]]#replace 模式下旧词到新词的映射
     save_path: str#输出文档的保存路径，为空时自动生成
     output_dir: Optional[str]#输出目录：为空时新建文档保存到 data 目录，Web 版传入会话文件夹
+    document_citations: List[Dict[str, Any]]#远程知识图谱检索到的可引用文档：[{id, full_name, title, path}]，full_name 为完整文件名
     file_roles: Optional[Dict[str, str]]#文件角色标签映射（如待修改目标文档、辅助参考/风格模板）
     error: Optional[str]#错误结果
 
@@ -170,6 +171,7 @@ class AgentCore:
                 "replace_pairs": {},
                 "save_path": save_path or "",
                 "output_dir": output_dir or "",
+                "document_citations": [],
                 "file_roles": {},
                 "error": None,
             },

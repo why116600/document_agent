@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from llm_client import llm_invoke, llm_model_invoke
 from agent_core import AgentState
+from retrieved_context import build_retrieved_info, enforce_full_document_names
 from document_agent.write_tool.word_tool import (
     DEFAULT_FONT_SIZE,
     DEFAULT_FONT_COLOR,
@@ -2378,10 +2379,12 @@ def create_rewrite_node(llm, knowledge_mode: str = "local"):
             return {**state, "state": "error", "error": f"文档内容为空，无法改写：{rewrite_path}"}
         print(f"待改写文档共{len(nodes)}个元素")
 
-        retrieved_items = state.get("retrieved_content") or []
-        retrieved_info = ""
-        if retrieved_items:
-            retrieved_info = "可供参考的信息：\n" + "\n".join(retrieved_items) + "\n"
+        retrieved_info = build_retrieved_info(
+            state.get("retrieved_content"),
+            mode=knowledge_mode,
+            header="可供参考的信息：",
+            trailing_newline=True,
+        )
 
         dialog = f"{state['messages']}"
         mode = (state.get("rewrite_mode") or "patch").lower()
@@ -2442,6 +2445,11 @@ def create_rewrite_node(llm, knowledge_mode: str = "local"):
             save_path = resolve_save_path(state["save_path"])#有指定路径就另存，复用补后缀和建目录
         else:
             save_path = Path(rewrite_path)#没有指定路径时默认原地覆盖原文件
+
+        #远程知识图谱模式：引用必须是完整文档名，模型写成简称时按检索到的文档清单补全
+        if str(knowledge_mode).strip().lower() == "remote":
+            for old, new, count in enforce_full_document_names(doc, state.get("document_citations") or []):
+                print(f"【引用规范】把简称引用 {old} 补全为 {new}（{count} 处）")
 
         save_path = save_document(doc, save_path)  #目标被占用时会避让另存并返回实际路径
         print("改写后的文档已保存到：", str(save_path))

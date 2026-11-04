@@ -286,6 +286,53 @@ button { cursor: pointer; }
   color: #7f90ad;
 }
 
+/* 知识图谱模式徽标 + 远程连接状态 */
+.kg-mode {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.6;
+  border: 1px solid transparent;
+}
+.mode-badge.local {
+  color: #c3cee2;
+  background: rgba(255, 255, 255, .06);
+  border-color: rgba(255, 255, 255, .12);
+}
+.mode-badge.remote {
+  color: #7fd4ff;
+  background: rgba(64, 169, 255, .14);
+  border-color: rgba(64, 169, 255, .35);
+}
+.kg-conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #8fa1bd;
+}
+.kg-conn .dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: #e0a33e;
+}
+.kg-conn.ok .dot { background: #35c489; box-shadow: 0 0 0 3px rgba(53, 196, 137, .16); }
+.kg-conn.error .dot { background: #ff6b6b; box-shadow: 0 0 0 3px rgba(255, 107, 107, .16); }
+.kg-conn.pending .dot { background: #e0a33e; }
+.kg-conn.error .kg-conn-text { color: #ff9b9b; }
+
 .sidebar-mask { display: none; }
 
 /* --------------------------------------------------------------- 顶栏 */

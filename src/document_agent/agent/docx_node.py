@@ -5,7 +5,7 @@ import json
 
 from llm_client import llm_invoke, llm_model_invoke, extract_json_from_text
 from agent_core import AgentState
-from retrieved_context import build_retrieved_info
+from retrieved_context import build_retrieved_info, enforce_full_document_names
 from document_agent.write_tool.word_tool import replace_node_with_data,ParagraphItem,TableItem,DocxRoot,resolve_save_path,save_document
 
 def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档的节点
@@ -69,6 +69,10 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                 elif item.type=="table":
                     node=doc.add_table(rows=0,cols=0)
                     replace_node_with_data(node,item.Table)
+        #远程知识图谱模式：引用必须是完整文档名，模型写成简称时按检索到的文档清单补全
+        if str(knowledge_mode).strip().lower() == "remote":
+            for old, new, count in enforce_full_document_names(doc, state.get("document_citations") or []):
+                print(f"【引用规范】把简称引用 {old} 补全为 {new}（{count} 处）")
         save_path=resolve_save_path(state.get("save_path"))
         save_path=save_document(doc, save_path)  # 目标被占用时会避让另存，返回实际保存路径
         print("保存到：",str(save_path))

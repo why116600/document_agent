@@ -82,7 +82,7 @@ python -m document_agent.console_app D:/docs/粗糙草稿.docx
 - **`format` 模式（格式规范化）**：只统一字体字号、标题层级、行距段距与对齐等**排版样式**，**原文文字一字不改**（图片、公式、域代码、超链接、合并单元格均原样保留）。它先按原文正文格式生成内置方案（同角色全文统一、标题字号形成梯度），再按你的显式要求（如"标题用黑体三号"）微调；写入前打印采用的格式方案，写入后自动做文字长度保全校验。注意：它不会凭空生成标题层级——若需要自动梳理章节标题（会改写文字），请使用 `global`；
 - **`global` 模式（全局重塑）**：按章节**重新生成正文**，属于生成式改写，会改写文字与措辞（为全篇口径统一服务）；若只想规范排版、要求原文文字一字不改，请直接使用 `format` 模式（系统也会把"只改格式"的诉求识别为 `format`）；
 - **保存行为**：默认一律**另存为新文件**（未指定文件名时智能拟定，兜底为 `<原文件名>_修改版.docx` 或 `data/新生成文档.docx`），不会动原稿；只有需求中明确说"直接在原文件上改 / 覆盖原文件"才会原地覆盖；
-- **图数据库（必需依赖）**：启动时读取 `src/setting.json`（键为 `gdb_uri`、`embedding_model`）并按其中的连接串连接 Memgraph；**文件不存在会打印"没找到配置文件"后退出，连接失败也会直接报错终止（没有降级）**。知识库检索（`knowledge` 工具）依赖该服务以及其中已录入的节点数据；
+- **图数据库（本地检索模式依赖）**：本地模式下启动时读取 `src/setting.json`（键为 `gdb_uri`、`embedding_model`）并按其中的连接串连接 Memgraph；**文件不存在会打印"没找到配置文件"后退出，连接失败也会直接报错终止（没有降级）**。知识库检索（`knowledge` 工具）依赖该服务以及其中已录入的节点数据。若改用远程知识图谱（见下文“知识图谱模式配置”），则不再需要本地 Memgraph；
 - 所有保存均采用"先写唯一临时文件再原子替换"，保障写盘安全，不会留下半截文档。
 
 ## Web 版（浏览器操作）
@@ -114,8 +114,9 @@ powershell -ExecutionPolicy Bypass -File .\start.ps1 start
 > 注意：`start.ps1` 含中文提示，必须保存为 **UTF-8 with BOM**，否则 Windows PowerShell 5.1
 > 会按 ANSI 解析导致乱码/语法错误（VS Code 保存时注意编码选择）。
 
-`start.ps1` 参数：`-Port 9000`、`-BindHost 0.0.0.0`、`-NoBrowser`、
-`-Python D:\Conda\envs\docx_agent\python.exe`。
+`start.ps1` 参数：`-Port 9000`（临时覆盖端口）、`-BindHost 0.0.0.0`（临时覆盖监听地址）、
+`-NoBrowser`、`-Python D:\Conda\envs\docx_agent\python.exe`。
+不指定 `-BindHost` 时，监听地址按 `setting.json` 决定（见下文“远程访问配置”）。
 
 ### 启动与停止（Linux / macOS）
 
@@ -129,17 +130,78 @@ export MODEL_API_KEY="你的密钥"
 ./start.sh stop
 ```
 
-`start.sh` 参数：`--port 9000`、`--host 0.0.0.0`、`--no-browser`。
+`start.sh` 参数：`--port 9000`（临时覆盖端口）、`--host 0.0.0.0`（临时覆盖监听地址）、
+`--no-browser`。不指定 `--host` 时，监听地址按 `setting.json` 决定。
 
 两个脚本的行为一致：
 
 - 后台启动服务，等待健康检查通过后再提示成功；
-- 检测到桌面环境时，自动用默认浏览器打开 `http://127.0.0.1:8000/`
+- 检测到桌面环境时，自动用默认浏览器打开本机地址（端口取 `setting.json` 的 `web_port`）
   （Windows 判断 `UserInteractive`，Linux/macOS 判断 `DISPLAY`/`WAYLAND_DISPLAY`，macOS 用 `open`）；
 - 运行状态写入项目根目录的 `.run/`（`server.pid`、`server.log`、`server.err.log`）；
 - `status` 退出码：0=运行中、1=未运行，便于脚本化判断。
 
 `MODEL_API_KEY` 未设置时服务仍可启动，页面会给出提示，生成任务会直接失败并说明原因。
+
+### 远程访问配置（src/setting.json）
+
+默认情况下，是否允许其他主机访问由配置文件决定；命令行/脚本的 `-BindHost`（Windows）或
+`--host`（Linux）可以临时覆盖，覆盖时以命令行参数为准：
+
+```json
+{
+  "web_allow_remote": false,
+  "web_port": 8000
+}
+```
+
+- 优先级：命令行 `-BindHost` / `--host` > `web_allow_remote` 配置；
+- `web_allow_remote: false`（默认）：监听 `127.0.0.1`，只有本机能访问；
+- `web_allow_remote: true`：监听 `0.0.0.0`，局域网内其他主机可通过
+  `http://<本机IP>:<web_port>/` 访问；
+- 临时允许一次远程访问（不修改配置）：`.\start.ps1 start -BindHost 0.0.0.0`
+  或 `./start.sh start --host 0.0.0.0`；下次不带参数启动仍按配置执行；
+- `web_port`：默认端口；脚本的 `-Port` / `--port` 只临时覆盖端口；
+- 修改配置后需要重启服务（`restart`）才生效；
+- 启动日志、`start.ps1/start.sh status` 以及页面左下角都会显示当前访问方式及其来源
+  （`setting.json 配置` 或 `命令行 -BindHost 覆盖`）；
+- 服务本身没有登录鉴权，开启远程访问前请确认处于可信网络，或自行在反向代理层加认证。
+
+### 知识图谱模式配置（src/setting.json）
+
+检索阶段（`knowledge` 工具）可以走**远程知识图谱**（HTTP 检索协议）或**本地图数据库**
+（Memgraph 篇章树 + 本地知识图谱），由配置文件的 `remote_kg.enabled` 决定：
+
+```json
+{
+  "remote_kg": {
+    "enabled": true,
+    "base_url": "http://192.168.1.136:8000",
+    "auth_token": "",
+    "timeout": 60,
+    "max_retries": 2
+  }
+}
+```
+
+- `enabled: true`：图中的 `retrieve_remote_kg` 节点取代 `retrieve_gdb`，启动时**不再连接本地
+  Memgraph**（`gdb_uri` 等配置可以留空），检索改走远程知识图谱的只读接口
+  （协议见 `src/document_agent/retrieve_tool/retrieve_protocol.md`）；
+- `enabled: false`：保持原有本地图数据库检索流程，其余行为不变；
+- `base_url`：远程知识图谱地址，末尾斜杠会自动去掉；
+- `auth_token`：远程服务配置了 `api.auth_token` 时填写，也可以改用环境变量
+  `REMOTE_KG_API_TOKEN` / `API_TOKEN`；
+- 临时切换（不改文件）：`DOC_AGENT_REMOTE_KG=1/0` 切换模式、`DOC_AGENT_REMOTE_KG_URL=...`
+  改地址、`DOC_AGENT_REMOTE_KG_TIMEOUT=...` 改超时；
+- 兼容扁平写法：`remote_kg_enabled` / `remote_kg_url` / `remote_kg_token` / `remote_kg_timeout`；
+- 启动日志、`/api/health`（`knowledge_mode` 与 `knowledge.remote_kg`）以及页面左下角的
+  「远程知识图谱 / 本地知识库」徽标都会显示当前模式；远程模式还会显示**连接是否正常**、
+  延迟与图谱规模（文档/实体数量）；
+- 远程模式由后端周期性探测（默认 20 秒，可用 `DOC_AGENT_REMOTE_KG_PROBE_SECONDS` 调整）。
+  连不上时生成任务会直接报错并说明原因，不会静默降级到本地；
+- **引用规范**：写作时引用知识图谱里的文档，必须使用**完整文档名称（含扩展名）**。
+  检索结果会给出「可引用文档」清单；若模型写成了简称，保存前会按清单自动补全为完整名称
+  （同名文档无法判断时保持原样）。
 
 ### 界面功能
 
@@ -154,13 +216,16 @@ export MODEL_API_KEY="你的密钥"
 
 - 会话目录：`src/workspace/sessions/<会话ID>/`，文件直接放在会话目录下，
   `.meta/` 子目录保存标题、消息与每次任务的运行日志；可通过 `DOC_AGENT_WORKSPACE` 改工作区位置。
-- 默认只监听 `127.0.0.1`；需要局域网访问时用 `-BindHost 0.0.0.0` / `--host 0.0.0.0`。
-- 服务启动后访问 `http://127.0.0.1:8000/docs` 可查看完整的 OpenAPI 接口文档。
+- 监听地址与端口默认由 `setting.json` 的 `web_allow_remote` / `web_port` 决定，
+  可用 `-BindHost` / `--host`、`-Port` / `--port` 临时覆盖（见上节）。
+- 服务启动后访问 `http://127.0.0.1:<web_port>/docs` 可查看完整的 OpenAPI 接口文档。
 - 主要接口：`/api/sessions`（会话）、`/api/sessions/{id}/files`（文件）、
-  `/api/sessions/{id}/messages`（提交需求）、`/api/jobs/{id}/events`（SSE 实时进度）。
+  `/api/sessions/{id}/messages`（提交需求）、`/api/jobs/{id}/events`（SSE 实时进度）；
+  `/api/health` 会返回 `remote_access`、`bind_host`、`host_source`、`remote_urls` 等监听信息。
 - 每个会话独立上下文；同一会话同一时间只允许一个生成任务（并发提交会返回 409）。
 - 多轮对话记忆保存在服务进程内；服务重启后界面仍会显示历史消息，可继续基于会话文件夹中的文件发起新需求。
-- 也可直接启动：`cd src && python -m document_agent.backend --host 127.0.0.1 --port 8000`。
+- 也可直接启动：`cd src && python -m document_agent.backend`（默认按 `setting.json` 监听）；
+  `--host` / `--port` 临时覆盖监听地址与端口，`--show-config` / `--print-endpoint` 用于查看最终监听配置。
 
 ## 工作流
 `intent`（参数校验与初始化）→ `summary`（参考文件摘要）→ `retrieve`（检索相关素材）→ 按意图分流：

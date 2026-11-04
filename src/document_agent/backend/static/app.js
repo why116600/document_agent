@@ -18,6 +18,7 @@
     es: null,
     logs: new Map(), // jobId -> string[]，页面刷新后仅保留内存中的日志
     warnedKey: false,
+    warnedRemote: false,
   };
 
   const nodes = {
@@ -33,6 +34,11 @@
     serverStatus: $('server-status'),
     statusText: $('server-status').querySelector('.text'),
     knowledgeStatus: $('knowledge-status'),
+    accessStatus: $('access-status'),
+    kgModeRow: $('kg-mode-row'),
+    kgModeBadge: $('kg-mode-badge'),
+    kgConn: $('kg-conn'),
+    kgConnText: $('kg-conn-text'),
     sessionTitle: $('session-title'),
     sessionPath: $('session-path'),
     deleteSession: $('delete-session'),
@@ -122,6 +128,8 @@
       nodes.serverStatus.className = `status-line ${configured ? 'ok' : 'warn'}`;
       nodes.statusText.textContent = configured ? '服务运行中 · 大模型已配置' : '服务运行中 · 未配置 API Key';
       nodes.knowledgeStatus.textContent = health.knowledge ? health.knowledge.message : '';
+      renderAccessStatus(health);
+      renderKnowledgeMode(health.knowledge || {});
       if (!configured && !state.warnedKey) {
         state.warnedKey = true;
         toast('未检测到 MODEL_API_KEY，生成文档会失败。请设置环境变量后重启服务。', 'warn', 9000);
@@ -130,6 +138,72 @@
       nodes.serverStatus.className = 'status-line error';
       nodes.statusText.textContent = '无法连接服务';
       nodes.knowledgeStatus.textContent = '请确认后端已启动';
+      nodes.accessStatus.textContent = '';
+      nodes.kgModeBadge.textContent = '知识图谱未知';
+      nodes.kgModeBadge.className = 'mode-badge local';
+      nodes.kgConn.hidden = true;
+    }
+  }
+
+  // 知识图谱模式：本地图数据库 / 远程知识图谱；远程模式还要显示连接是否正常
+  function renderKnowledgeMode(knowledge) {
+    const mode = knowledge.mode === 'remote' ? 'remote' : 'local';
+    nodes.kgModeBadge.className = `mode-badge ${mode}`;
+    nodes.kgModeBadge.textContent = mode === 'remote' ? '远程知识图谱' : '本地知识库';
+    nodes.kgModeBadge.title =
+      mode === 'remote'
+        ? `检索走远程知识图谱（${(knowledge.remote_kg && knowledge.remote_kg.url) || ''}）`
+        : '检索走本地图数据库（Memgraph）';
+
+    const remote = knowledge.remote_kg || null;
+    if (mode !== 'remote' || !remote) {
+      nodes.kgConn.hidden = true;
+      return;
+    }
+
+    const connected = remote.connected === true;
+    const pending = remote.connected === null || remote.connected === undefined;
+    nodes.kgConn.hidden = false;
+    nodes.kgConn.className = `kg-conn ${pending ? 'pending' : connected ? 'ok' : 'error'}`;
+
+    let text = pending ? '连接探测中…' : connected ? '连接正常' : '连接失败';
+    if (connected) {
+      if (typeof remote.latency_ms === 'number') text += ` · ${Math.round(remote.latency_ms)} ms`;
+      const graph = remote.graph || {};
+      if (!graph.empty && typeof graph.documents === 'number') {
+        text += ` · ${graph.documents} 篇 / ${graph.entities || 0} 实体`;
+      }
+    }
+    nodes.kgConnText.textContent = text;
+
+    const detail = [
+      remote.url ? `地址：${remote.url}` : '',
+      remote.message ? `状态：${remote.message}` : '',
+      remote.auth_enabled ? '鉴权：已配置 token' : '鉴权：无',
+      remote.checked_at ? `检查时间：${remote.checked_at}` : '',
+    ].filter(Boolean);
+    nodes.kgConn.title = detail.join('\n') || text;
+
+    if (!pending && !connected && !state.warnedRemote) {
+      state.warnedRemote = true;
+      toast(`远程知识图谱连接失败：${remote.message || '未知原因'}`, 'error', 9000);
+    }
+  }
+
+  function renderAccessStatus(health) {
+    const remote = Boolean(health.remote_access);
+    const urls = Array.isArray(health.remote_urls) ? health.remote_urls : [];
+    const source = health.host_source === 'command-line' ? '（命令行指定）' : '';
+    if (remote) {
+      nodes.accessStatus.textContent = urls.length
+        ? `允许远程访问${source}：${urls[0]}`
+        : `允许远程访问${source}（局域网 IP）`;
+      nodes.accessStatus.title = urls.length
+        ? `其他主机可通过以下地址访问：\n${urls.join('\n')}`
+        : `其他主机可通过 http://<本机局域网IP>:${health.port || ''} 访问`;
+    } else {
+      nodes.accessStatus.textContent = `仅本机访问${source}（127.0.0.1）`;
+      nodes.accessStatus.title = '如需其他主机访问，请在 src/setting.json 中设置 "web_allow_remote": true 后重启服务，或启动时用 -BindHost/--host 临时覆盖';
     }
   }
 

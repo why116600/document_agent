@@ -52,6 +52,8 @@ class BackendState:
         self.store = SessionStore(config.sessions_root())
         self.jobs = JobManager()
         self.runtime = GenerationRuntime(self.store)
+        # 监听配置在启动时解析一次：是否允许远程访问由 setting.json 决定
+        self.web = config.resolve_web_settings()
         self.tasks: Set[asyncio.Task] = set()
 
 
@@ -93,13 +95,27 @@ async def lifespan(app: FastAPI):
     state = backend_state()
     recovered = state.store.recover_interrupted()
     state.runtime.start()
-    url = config.server_url(config.DEFAULT_HOST, config.DEFAULT_PORT)
+    web = state.web
+    mode = "允许远程访问" if web["allow_remote"] else "仅本机访问"
+    source = "命令行 --host 指定" if web.get("host_source") == "command-line" else "setting.json 配置"
     print("=" * 72)
     print(f"文档智能体 Web 服务已启动（v{__version__}）")
-    print(f"  访问地址：{url}")
+    print(f"  监听地址：{web['host']}:{web['port']}（{mode}，来源：{source}）")
+    print(f"  访问地址：{web['local_url']}")
+    if web["allow_remote"]:
+        if web["remote_urls"]:
+            for item in web["remote_urls"]:
+                print(f"  远程访问：{item}")
+        else:
+            print(f"  远程访问：http://<本机局域网IP>:{web['port']}/")
+    elif web.get("host_source") != "command-line":
+        print('  提示：如需其他主机访问，请在 setting.json 中设置 "web_allow_remote": true 后重启')
     print(f"  工作区：  {state.store.root}")
     print(f"  大模型：  {'已配置' if config.llm_configured() else '未配置 MODEL_API_KEY'}")
-    print(f"  知识库：  {state.runtime.knowledge.status()['message']}")
+    knowledge = state.runtime.knowledge.status()
+    print(f"  知识图谱：{knowledge.get('message') or knowledge.get('state')}")
+    if knowledge.get("mode") == "remote":
+        print("            模式：远程（setting.json 的 remote_kg.enabled=true）")
     if recovered:
         print(f"  已处理 {recovered} 个因上次退出而中断的任务")
     print("=" * 72)
@@ -150,10 +166,20 @@ async def _session_error(request: Request, exc: SessionError):
 def health() -> Dict[str, Any]:
     state = backend_state()
     data = state.runtime.health()
+    web = state.web
     data.update(
         {
             "version": __version__,
             "session_count": len(state.store.list_sessions()),
+            # 监听配置：默认来自 setting.json，命令行 --host 可覆盖
+            "remote_access": web["allow_remote"],
+            "configured_remote": web.get("configured_remote", web["allow_remote"]),
+            "bind_host": web["host"],
+            "host_source": web.get("host_source", "config"),
+            "port": web["port"],
+            "local_url": web["local_url"],
+            "remote_urls": web["remote_urls"],
+            "config_path": web["config_path"],
         }
     )
     return data

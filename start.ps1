@@ -12,10 +12,15 @@
         .\start.ps1 help            查看帮助
 
     可选参数：
-        -Port 9000                  指定端口（默认 8000，也可用环境变量 DOC_AGENT_PORT）
-        -BindHost 0.0.0.0           指定监听地址（默认 127.0.0.1，也可用 DOC_AGENT_HOST）
+        -Port 9000                  临时覆盖端口（默认取 src/setting.json 的 web_port）
+        -BindHost 0.0.0.0           临时覆盖监听地址（默认按 setting.json 的 web_allow_remote）
         -NoBrowser                  启动后不自动打开浏览器
         -Python C:\path\python.exe  指定 Python 解释器（也可用环境变量 DOC_AGENT_PYTHON）
+
+    监听地址优先级：命令行 -BindHost > src/setting.json 的 web_allow_remote：
+        "web_allow_remote": false   仅本机访问（监听 127.0.0.1，默认）
+        "web_allow_remote": true    允许远程访问（监听 0.0.0.0，其他主机可用本机 IP 访问）
+        "web_port": 8000            默认端口
 
     运行状态保存在项目根目录的 .run 目录（server.pid / server.log）。
     检测到桌面环境时，启动成功后会自动打开前端页面。
@@ -23,6 +28,7 @@
 .EXAMPLE
     .\start.ps1
     .\start.ps1 start -Port 9000 -NoBrowser
+    .\start.ps1 start -BindHost 0.0.0.0
     .\start.ps1 status
     .\start.ps1 restart
     .\start.ps1 stop
@@ -51,6 +57,9 @@ $PidFile = Join-Path $RunDir 'server.pid'
 $LogFile = Join-Path $RunDir 'server.log'
 $ErrFile = Join-Path $RunDir 'server.err.log'
 
+# 缓存从 setting.json 解析出的监听配置
+$script:WebConfig = $null
+
 # --------------------------------------------------------------------------- 基础工具
 function Write-Info([string]$Message) {
     Write-Host "[文档智能体] $Message" -ForegroundColor Cyan
@@ -60,25 +69,83 @@ function Write-Warn([string]$Message) {
     Write-Host "[文档智能体] $Message" -ForegroundColor Yellow
 }
 
-function Get-ServerPort {
-    if ($Port -gt 0) { return $Port }
-    if ($env:DOC_AGENT_PORT) {
-        return [int]$env:DOC_AGENT_PORT
+function Get-WebConfig {
+    if ($null -ne $script:WebConfig) { return $script:WebConfig }
+
+    # 先给出兜底值：命令行指定了 -BindHost 时以它为准，否则仅本机
+    $fallbackHost = if ($BindHost) { $BindHost } else { '127.0.0.1' }
+    $fallbackVisitHost = if ($fallbackHost -eq '0.0.0.0' -or $fallbackHost -eq '::') { '127.0.0.1' } else { $fallbackHost }
+    $fallbackSource = if ($BindHost) { 'command-line' } else { 'config' }
+    $fallbackRemote = ($fallbackHost -ne '127.0.0.1' -and $fallbackHost -ne 'localhost' -and $fallbackHost -ne '::1')
+    $fallbackPort = if ($Port -gt 0) { $Port } else { 8000 }
+    $fallback = [pscustomobject]@{
+        allow_remote = $fallbackRemote
+        host         = $fallbackHost
+        host_source  = $fallbackSource
+        port         = $fallbackPort
+        local_url    = "http://${fallbackVisitHost}:${fallbackPort}/"
+        remote_urls  = @()
     }
-    return 8000
+
+    $pythonPath = Resolve-Python
+    $arguments = @('-m', 'document_agent.backend', '--show-config')
+    if ($Port -gt 0) { $arguments += @('--port', "$Port") }
+    if ($BindHost) { $arguments += @('--host', $BindHost) }
+
+    $raw = ''
+    try {
+        Push-Location -LiteralPath $SrcDir
+        $raw = & $pythonPath @arguments 2>$null
+    } catch {
+        $raw = ''
+    } finally {
+        Pop-Location
+    }
+
+    $config = $null
+    if ($raw) {
+        try { $config = ("$raw".Trim() | ConvertFrom-Json) } catch { $config = $null }
+    }
+    if ($null -eq $config -or -not $config.port) {
+        Write-Warn '读取 setting.json 失败，按默认监听配置处理。'
+        $script:WebConfig = $fallback
+    } else {
+        $script:WebConfig = $config
+    }
+    return $script:WebConfig
 }
 
-function Get-ServerHost {
-    if ($BindHost) { return $BindHost }
-    if ($env:DOC_AGENT_HOST) { return $env:DOC_AGENT_HOST }
-    return '127.0.0.1'
+function Get-ServerPort {
+    return [int]((Get-WebConfig).port)
 }
 
 function Get-ServerUrl {
-    $hostName = Get-ServerHost
-    if ($hostName -eq '0.0.0.0' -or $hostName -eq '::') { $hostName = '127.0.0.1' }
-    $portNumber = Get-ServerPort
-    return "http://${hostName}:${portNumber}/"
+    return [string]((Get-WebConfig).local_url)
+}
+
+function Get-ProbeHost {
+    $config = Get-WebConfig
+    $hostName = [string]$config.host
+    if ($hostName -eq '0.0.0.0' -or $hostName -eq '::' -or -not $hostName) { return '127.0.0.1' }
+    return $hostName
+}
+
+function Show-RemoteAccess([object]$Health) {
+    if ($null -eq $Health) { return }
+    $source = if ($Health.host_source -eq 'command-line') { '命令行 -BindHost 覆盖' } else { 'setting.json 配置' }
+    if ($Health.remote_access) {
+        Write-Info "远程访问：已允许（监听 $($Health.bind_host):$($Health.port)，来源：$source）"
+        $urls = @($Health.remote_urls)
+        if ($urls.Count -gt 0) {
+            foreach ($item in $urls) {
+                Write-Info "  其他主机访问：$item"
+            }
+        } else {
+            Write-Info "  其他主机访问：http://<本机局域网IP>:$($Health.port)/"
+        }
+    } else {
+        Write-Info "远程访问：未允许（仅本机，来源：$source）"
+    }
 }
 
 function Test-PythonUsable([string]$Path) {
@@ -214,10 +281,15 @@ function Show-Usage {
     .\start.ps1 status             查看运行状态
 
 可选参数：
-    -Port <端口>                   默认 8000（环境变量 DOC_AGENT_PORT）
-    -BindHost <监听地址>           默认 127.0.0.1（环境变量 DOC_AGENT_HOST）
+    -Port <端口>                   临时覆盖 src/setting.json 中的 web_port
+    -BindHost <监听地址>           临时覆盖监听地址（例如 0.0.0.0；优先级高于配置）
     -NoBrowser                     启动后不自动打开浏览器
     -Python <python.exe 路径>      指定解释器（环境变量 DOC_AGENT_PYTHON）
+
+监听地址默认由 src/setting.json 决定（修改后需重启）：
+    "web_allow_remote": false      仅本机访问（监听 127.0.0.1，默认）
+    "web_allow_remote": true       允许远程访问（监听 0.0.0.0）
+    "web_port": 8000               默认端口
 
 首次运行前请设置大模型密钥：
     $env:MODEL_API_KEY = "你的密钥"
@@ -228,7 +300,6 @@ function Show-Usage {
 function Start-Server {
     $pythonPath = Resolve-Python
     $portNumber = Get-ServerPort
-    $hostName = Get-ServerHost
     $url = Get-ServerUrl
 
     $running = Get-ServerProcess
@@ -238,7 +309,7 @@ function Start-Server {
         return
     }
 
-    if (Test-PortBusy $hostName $portNumber) {
+    if (Test-PortBusy (Get-ProbeHost) $portNumber) {
         throw "端口 $portNumber 已被其它程序占用，请用 -Port 指定其它端口。"
     }
 
@@ -252,7 +323,9 @@ function Start-Server {
         if (Test-Path -LiteralPath $file) { Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue }
     }
 
-    $arguments = @('-m', 'document_agent.backend', '--host', $hostName, '--port', "$portNumber")
+    # 监听地址：未指定 -BindHost 时由 setting.json 决定，指定时优先使用命令行
+    $arguments = @('-m', 'document_agent.backend', '--port', "$portNumber")
+    if ($BindHost) { $arguments += @('--host', $BindHost) }
     # 让服务端日志固定为 UTF-8，Start-Process 启动的子进程会继承该变量
     $env:PYTHONIOENCODING = 'utf-8'
     $process = Start-Process -FilePath $pythonPath `
@@ -280,6 +353,7 @@ function Start-Server {
     }
 
     Write-Info "启动成功：$url"
+    Show-RemoteAccess $health
     if (-not $health.llm_configured) {
         Write-Warn '未检测到 MODEL_API_KEY，界面可以打开，但生成文档会失败。'
         Write-Warn '请先设置：$env:MODEL_API_KEY = "你的密钥"，然后 .\start.ps1 restart'
@@ -305,10 +379,9 @@ function Stop-Server {
         Write-Warn "停止进程失败：$($_.Exception.Message)"
     }
 
-    $hostName = Get-ServerHost
     $portNumber = Get-ServerPort
     $deadline = (Get-Date).AddSeconds(10)
-    while ((Get-Date) -lt $deadline -and (Test-PortBusy $hostName $portNumber)) {
+    while ((Get-Date) -lt $deadline -and (Test-PortBusy (Get-ProbeHost) $portNumber)) {
         Start-Sleep -Milliseconds 300
     }
     if (Test-Path -LiteralPath $PidFile) { Remove-Item -LiteralPath $PidFile -Force -ErrorAction SilentlyContinue }
@@ -328,6 +401,7 @@ function Show-Status {
         if ($null -ne $health) {
             $llm = if ($health.llm_configured) { '已配置' } else { '未配置' }
             Write-Info "健康检查：正常  大模型：$llm  （$($health.llm_model)）"
+            Show-RemoteAccess $health
             if ($health.knowledge) { Write-Info "知识库：$($health.knowledge.message)" }
             Write-Info "工作区：$($health.workspace)"
         } else {

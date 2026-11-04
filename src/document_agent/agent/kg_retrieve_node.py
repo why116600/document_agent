@@ -29,6 +29,16 @@
 唯一的例外是"实体/端点不存在"（图谱里没有这个名字），按"没检索到"处理并跳过，
 因为它不代表检索失败。
 
+引用必须是完整文档名
+------------------
+图谱里的 ``Document.title`` 常常是省略过的标题，分块的 ``document_title`` 甚至只是
+“附件1”这类章节名，拿它们当引用会把文档名写错。因此：
+
+* 文档一律按 ``path`` 里的**完整文件名（含扩展名）**渲染，分块/原文也按所属文档的完整名标注；
+* 结果里额外给一行 ``【可引用文档】``，把本次可引用的完整文档名一次列清；
+* 检索同时把 ``[{id, full_name, title, path}]`` 写进 ``state["document_citations"]``，
+  写作节点据此在保存前把模型写出的简称引用补全成完整名称（见 ``retrieved_context``）。
+
 用法
 ----
 .. code-block:: python
@@ -45,7 +55,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from pydantic import BaseModel, Field
 
@@ -72,6 +82,8 @@ MAX_ENTITIES = 12  # 结果里最多展示多少个实体
 MAX_CHUNKS = 10  # 结果里最多展示多少个分块
 MAX_DOCUMENTS = 3  # 结果里最多展示多少个文档
 MAX_BODY_CHUNKS = 6  # 最多读回几段原文（计划里的 max_chunks 也在此区间内）
+MAX_DOC_NAME_LOOKUPS = 8  # 最多回查几个文档节点以补全"完整文档名"
+MAX_CITATION_DOCS = 20  # 结果里最多列出几个可引用文档名
 BODY_CHARS_RANGE = (200, 3000)
 CONVERSATION_TURNS = 6  # 规划时回看最近几条消息
 CONVERSATION_CHARS = 2000
@@ -167,6 +179,14 @@ def _clip(text: Any, limit: int) -> str:
     if len(content) <= limit:
         return content
     return content[: limit - 1].rstrip() + "…"
+
+
+def _file_name_of(path: Any) -> str:
+    """从文档路径里取出完整文件名（含扩展名），兼容 ``/`` 与 ``\\`` 分隔。"""
+    text = str(path or "").strip().replace("\\", "/")
+    if not text:
+        return ""
+    return text.rsplit("/", 1)[-1].strip()
 
 
 def _clean_list(values: Optional[Sequence[Any]], limit: int) -> List[str]:
@@ -389,12 +409,52 @@ def _add_chunk(bucket: Dict[str, Dict[str, Any]], item: Any) -> None:
         bucket[node_id] = dict(item)
 
 
+def _clean_label(text: Any) -> str:
+    """清理标题类字段：远程图谱的 title 偶尔带 NUL/控制字符，直接塞进提示词会污染上下文。"""
+    raw = str(text or "")
+    cleaned = "".join(ch for ch in raw if ch.isprintable() or ch in "\t")
+    return " ".join(cleaned.split()).strip()
+
+
+def _title_hint(title: Any, full_name: str) -> str:
+    """文档标题（可能是简称）只在"像真的标题"时才给出，避免把脏数据喂给模型。
+
+    远程图谱里部分 Document 的 ``title`` 是损坏的（清掉控制字符后只剩拉丁字母碎片），
+    这类标题既不帮助识别、又可能诱使模型拿它当文档名引用，所以直接丢弃。
+    """
+    text = _clean_label(title)
+    if not text or text == full_name:
+        return ""
+    has_cjk = any("\u4e00" <= ch <= "\u9fff" for ch in text)
+    related = text in full_name or full_name in text
+    return text if (has_cjk or related) else ""
+
+
+def _document_full_name(record: Dict[str, Any]) -> str:
+    """文档的**完整名称**（含扩展名的文件名）；没有 path 时才退回图谱标题。
+
+    远程图谱里 ``Document.title`` 往往是省略过的标题（如“2024年…项目”），而真正的完整
+    名称在 ``path`` 的文件名里（如“…的通知（药监综械注〔2024〕27号）.docx”）。写作引用必须
+    用完整名称，所以这里统一以文件名为准。
+    """
+    return _file_name_of(record.get("path")) or _clean_label(record.get("title"))
+
+
 def _add_document(bucket: Dict[str, Dict[str, Any]], item: Any) -> None:
     if not isinstance(item, dict):
         return
     node_id = str(item.get("id") or "").strip()
-    if node_id and node_id not in bucket:
-        bucket[node_id] = dict(item)
+    if not node_id:
+        return
+    record = dict(item)
+    record["full_name"] = _document_full_name(record)
+    if node_id not in bucket:
+        bucket[node_id] = record
+        return
+    current = bucket[node_id]
+    for key in ("path", "title", "chunk_count", "full_name"):
+        if not current.get(key) and record.get(key):
+            current[key] = record[key]
 
 
 def _add_relation(bucket: Dict[str, Dict[str, Any]], rel: Dict[str, Any]) -> None:
@@ -533,7 +593,7 @@ def _entity_label(entity: Dict[str, Any]) -> str:
 
 def _fmt_entity(entity: Dict[str, Any]) -> str:
     """【实体】名称（类型｜提及次数｜别名｜相关度）：描述"""
-    name = _entity_label(entity)
+    name = _clean_label(_entity_label(entity))
     extras: List[str] = []
     entity_type = str(entity.get("type") or "").strip()
     if entity_type:
@@ -552,29 +612,46 @@ def _fmt_entity(entity: Dict[str, Any]) -> str:
     return f"{head}：{description}" if description else head
 
 
-def _fmt_chunk(chunk: Dict[str, Any]) -> str:
-    """【分块】《文档标题》第 N 段（id）：摘要或正文片段"""
-    title = str(chunk.get("document_title") or "").strip()
+def _fmt_chunk(chunk: Dict[str, Any], documents: Dict[str, Dict[str, Any]]) -> str:
+    """【分块】《完整文件名.docx》第 N 段（chunk-id）：摘要或正文片段
+
+    分块自带的 ``document_title`` 常常只是章节/附件标题（如“附件1”），不能当文档名用，
+    所以这里按 ``document_id`` 取完整文件名。
+    """
+    doc_id = str(chunk.get("document_id") or "").strip()
+    full_name = str((documents.get(doc_id) or {}).get("full_name") or "").strip()
     index = chunk.get("chunk_index", chunk.get("index"))
-    location = f"《{title}》" if title else ""
+    if full_name:
+        location = f"《{full_name}》"
+    elif doc_id:
+        location = f"文档 {doc_id} "
+    else:
+        location = ""
     if isinstance(index, int) and not isinstance(index, bool):
         location += f"第 {index} 段"
-    location = location or "分块"
+    location = location.strip() or "分块"
     text = _clip(chunk.get("snippet") or chunk.get("text") or "", 300)
     head = f"【分块】{location}（{chunk.get('id')}）"
     return f"{head}：{text}" if text else head
 
 
 def _fmt_document(document: Dict[str, Any]) -> str:
-    """【文档】《标题》 路径（id，N 个分块）"""
-    title = str(document.get("title") or document.get("id") or "").strip()
-    path = str(document.get("path") or "").strip()
+    """【文档】《完整文件名.docx》（doc-id，17 个分块；图谱标题：简称；路径：…）"""
+    full_name = str(document.get("full_name") or _document_full_name(document)).strip()
+    title = _title_hint(document.get("title"), full_name)
+    path = _clean_label(document.get("path"))
     count = document.get("chunk_count")
     count_text = ""
     if isinstance(count, int) and not isinstance(count, bool):
         count_text = f"，{count} 个分块"
-    location = f" {path}" if path else ""
-    return f"【文档】《{title}》{location}（{document.get('id')}{count_text}）"
+    extras: List[str] = []
+    if title and title != full_name:
+        extras.append(f"图谱标题：{title}（仅供识别，引用时用完整名称）")
+    if path:
+        extras.append(f"路径：{path}")
+    head = f"《{full_name}》" if full_name else "（文档名未知）"
+    body = f"{document.get('id')}{count_text}" + (f"；{'；'.join(extras)}" if extras else "")
+    return f"【文档】{head}（{body}）"
 
 
 def _fmt_relation(relation: Dict[str, Any], name_map: Dict[str, str]) -> str:
@@ -601,8 +678,12 @@ def _fmt_relation(relation: Dict[str, Any], name_map: Dict[str, str]) -> str:
     return f"{head}：{description}{weight_text}" if description else f"{head}{weight_text}"
 
 
-def _fmt_body(payload: Dict[str, Any], name_map: Dict[str, str]) -> str:
-    """【原文】《文档标题》第 N 段（id）：分块正文"""
+def _fmt_body(
+    payload: Dict[str, Any],
+    name_map: Dict[str, str],
+    documents: Dict[str, Dict[str, Any]],
+) -> str:
+    """【原文】《完整文件名.docx》第 N 段（chunk-id）：分块正文"""
     node = payload.get("node") or {}
     body = payload.get("body") or {}
     text = str(body.get("text") or "").strip()
@@ -610,12 +691,18 @@ def _fmt_body(payload: Dict[str, Any], name_map: Dict[str, str]) -> str:
         return ""
     node_id = str(node.get("id") or "").strip()
     properties = node.get("properties") or {}
-    title = str(properties.get("document_title") or "").strip()
+    doc_id = str(properties.get("document_id") or "").strip()
+    full_name = str((documents.get(doc_id) or {}).get("full_name") or "").strip()
     index = properties.get("index")
-    location = f"《{title}》" if title else str(name_map.get(node_id) or "")
+    if full_name:
+        location = f"《{full_name}》"
+    elif doc_id:
+        location = f"文档 {doc_id} "
+    else:
+        location = str(name_map.get(node_id) or "")
     if isinstance(index, int) and not isinstance(index, bool):
         location += f"第 {index} 段"
-    location = location or "分块"
+    location = location.strip() or "分块"
     truncated = "（已截断）" if body.get("truncated") else ""
     head = f"【原文】{location}（{node_id}）{truncated}"
     return f"{head}：{text}"
@@ -686,10 +773,12 @@ async def _run_kg_search(
     conversation: str,
     user_text: str,
     user_intent: str,
-) -> List[str]:
-    """执行一次完整检索，返回待写入 retrieved_content 的文本行。
+) -> Tuple[List[str], List[Dict[str, Any]]]:
+    """执行一次完整检索，返回 ``(待写入 retrieved_content 的文本行, 可引用文档清单)``。
 
-    正常情况下返回结果行；任何真正的失败都以异常抛出，由节点统一转成 error 字段。
+    正常情况下返回结果；任何真正的失败都以异常抛出，由节点统一转成 error 字段。
+    可引用文档清单里每项含 ``full_name``（完整文件名，含扩展名）、``title``（图谱标题，
+    可能只是简称）与 ``path``，写作节点据此把简称引用补全成完整文档名。
     """
     lines: List[str] = []
     try:
@@ -808,7 +897,12 @@ async def _run_kg_search(
             except RemoteKGNotFoundError:
                 print("【知识图谱检索】两个实体之间无可用端点，跳过路径查找")
 
-        # 7. 批量读回分块原文作为证据
+        # 7. 分块只带 document_id 与章节标题（常是“附件1”这类片段名），先回查文档节点补全完整文件名
+        await _resolve_document_names(
+            kg, documents, [chunk.get("document_id") for chunk in chunks.values()]
+        )
+
+        # 8. 批量读回分块原文作为证据
         chunk_ids = [str(item.get("id")) for item in chunks.values() if item.get("id")]
         if plan.max_chunks > 0 and chunk_ids:
             bodies = await kg.get_nodes_bodies(
@@ -816,18 +910,18 @@ async def _run_kg_search(
             )
             for payload in bodies.get("nodes") or []:
                 if isinstance(payload, dict):
-                    body_line = _fmt_body(payload, name_map)
+                    body_line = _fmt_body(payload, name_map, documents)
                     if body_line:
                         lines.append(body_line)
 
-        # 8. 渲染实体/关系/分块/文档（原文之前，便于写作模型先看结论再看证据）
+        # 9. 渲染实体/关系/分块/文档（原文之前，便于写作模型先看结论再看证据）
         document_lines = [_fmt_document(item) for item in list(documents.values())[:MAX_DOCUMENTS]]
         entity_lines = [_fmt_entity(item) for item in list(entities.values())[:MAX_ENTITIES]]
         relation_lines = [
             _fmt_relation(item, name_map)
             for item in list(relations.values())[:MAX_ENTITIES]
         ]
-        chunk_lines = [_fmt_chunk(item) for item in list(chunks.values())[:MAX_CHUNKS]]
+        chunk_lines = [_fmt_chunk(item, documents) for item in list(chunks.values())[:MAX_CHUNKS]]
         lines = document_lines + entity_lines + relation_lines + chunk_lines + [line for line in lines if line]
 
         semantic_mode = "-"
@@ -841,11 +935,17 @@ async def _run_kg_search(
         )
         lines.insert(0, header)
 
+        # 引用清单：把完整文档名一次性列清楚，写作时照抄，避免用"附件1"这类简称引用
+        citations = _collect_citations(documents)
+        if citations:
+            names = [item["full_name"] for item in citations[:MAX_CITATION_DOCS]]
+            lines.insert(1, "【可引用文档】" + "｜".join(f"《{name}》" for name in names))
+
         # 三路召回全空时明确告诉上层"图里没有"，避免写作模型把空结果当成"没查"
         if not (entities or chunks or documents or relations):
             lines.append(f"【知识图谱】未在知识图谱中检索到与“{target}”相关的内容。")
 
-        # 9. 按总字符预算裁剪，避免把写作提示词撑爆
+        # 10. 按总字符预算裁剪，避免把写作提示词撑爆
         budgeted: List[str] = []
         used = 0
         for line in lines:
@@ -854,7 +954,7 @@ async def _run_kg_search(
                 break
             budgeted.append(line)
             used += len(line)
-        return budgeted
+        return budgeted, citations
     finally:
         # 节点每次执行都会新建连接池（事件循环隔离），退出时务必释放
         closer = getattr(kg, "aclose", None)
@@ -891,6 +991,79 @@ def _merge_content(existing: Sequence[str], incoming: Sequence[str]) -> List[str
     return merged
 
 
+def _collect_citations(documents: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """整理"可引用文档"清单：完整名称 + 图谱标题（可能只是简称）+ 路径。"""
+    citations: List[Dict[str, Any]] = []
+    seen = set()
+    for doc_id, item in documents.items():
+        full_name = str(item.get("full_name") or "").strip()
+        if not full_name or full_name in seen:
+            continue
+        seen.add(full_name)
+        citations.append(
+            {
+                "id": str(doc_id),
+                "full_name": full_name,
+                "title": _title_hint(item.get("title"), full_name),
+                "path": _clean_label(item.get("path")),
+            }
+        )
+    return citations
+
+
+def _merge_citations(
+    existing: Sequence[Any], incoming: Sequence[Any]
+) -> List[Dict[str, Any]]:
+    """把本次的引用清单并入 state，按完整文件名去重。"""
+    merged = [dict(item) for item in (existing or []) if isinstance(item, dict)]
+    seen = {str(item.get("full_name") or "").strip() for item in merged}
+    for item in incoming or []:
+        if not isinstance(item, dict):
+            continue
+        full_name = str(item.get("full_name") or "").strip()
+        if full_name and full_name not in seen:
+            merged.append(dict(item))
+            seen.add(full_name)
+    return merged
+
+
+async def _resolve_document_names(
+    kg: RemoteKGTool,
+    documents: Dict[str, Dict[str, Any]],
+    doc_ids: Sequence[Any],
+) -> None:
+    """为只带 document_id 的分块补查所属文档，拿到完整文件名（并发、失败即跳过）。"""
+    pending: List[str] = []
+    for raw in doc_ids:
+        doc_id = str(raw or "").strip()
+        if not doc_id or doc_id in documents or doc_id in pending:
+            continue
+        pending.append(doc_id)
+    pending = pending[:MAX_DOC_NAME_LOOKUPS]
+    if not pending:
+        return
+    payloads = await asyncio.gather(
+        *(kg.get_node(doc_id, max_chars=200, include_related=False) for doc_id in pending),
+        return_exceptions=True,
+    )
+    for doc_id, payload in zip(pending, payloads):
+        if isinstance(payload, BaseException):
+            if not isinstance(payload, RemoteKGNotFoundError):
+                print(f"【知识图谱检索】补查文档 {doc_id} 失败：{payload}")
+            continue
+        node = payload.get("node") or {}
+        properties = node.get("properties") or {}
+        _add_document(
+            documents,
+            {
+                "id": doc_id,
+                "title": properties.get("title") or node.get("name") or "",
+                "path": properties.get("path") or "",
+                "chunk_count": properties.get("chunk_count"),
+            },
+        )
+
+
 def create_kg_retrieve_node(llm: Any, kg_tool: Optional[RemoteKGTool]):
     """创建知识图谱检索节点。
 
@@ -924,7 +1097,7 @@ def create_kg_retrieve_node(llm: Any, kg_tool: Optional[RemoteKGTool]):
         print("=" * 20, "开始知识图谱检索，目标：", target, "=" * 20)
         conversation = _conversation_text(messages)
         try:
-            lines = _run_sync(
+            lines, citations = _run_sync(
                 _run_kg_search(
                     kg_tool,
                     llm,
@@ -947,7 +1120,16 @@ def create_kg_retrieve_node(llm: Any, kg_tool: Optional[RemoteKGTool]):
             lines = [f"【知识图谱】未在知识图谱中检索到与“{target}”相关的内容。"]
 
         merged = _merge_content(state.get("retrieved_content") or [], lines)
-        print(f"【知识图谱检索】新增 {len(lines)} 条结果，累计 {len(merged)} 条")
-        return {**state, "retrieved_content": merged}
+        merged_citations = _merge_citations(state.get("document_citations") or [], citations)
+        existing_count = len(state.get("retrieved_content") or [])
+        print(
+            f"【知识图谱检索】新增 {len(merged) - existing_count} 条结果，累计 {len(merged)} 条；"
+            f"可引用文档 {len(merged_citations)} 篇"
+        )
+        return {
+            **state,
+            "retrieved_content": merged,
+            "document_citations": merged_citations,
+        }
 
     return kg_retrive

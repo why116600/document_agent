@@ -12,3 +12,5 @@ sentence-transformers==5.7.0
 fastapi==0.116.1
 uvicorn==0.35.0
 python-multipart==0.0.22
+# 远程知识图谱检索客户端（document_agent.retrieve_tool.remote_kg_tool）
+httpx==0.28.1

@@ -10,11 +10,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib
+import os
 import shutil
 import threading
 import time
 import traceback
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -85,11 +88,173 @@ class _KnowledgeGraphProxy:
                 pass
 
 
+class RemoteKGMonitor:
+    """后台定期探测远程知识图谱的连通性，结果供 ``/api/health`` 与前端展示。
+
+    远程模式下知识库的"就绪"含义变成"远程服务能不能连上、图是否可读"，所以用独立线程
+    每隔 ``DOC_AGENT_REMOTE_KG_PROBE_SECONDS``（默认 20 秒）探测一次，缓存最近一次结果；
+    ``snapshot()`` 只读缓存，不会阻塞请求。
+    """
+
+    def __init__(self, settings: Any) -> None:
+        self.settings = settings
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._first_probe = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+        self._snapshot: Dict[str, Any] = {
+            "enabled": True,
+            "url": settings.base_url,
+            "auth_enabled": bool(settings.auth_token),
+            "connected": None,  # None=还没探测完
+            "ok": False,
+            "message": "正在连接远程知识图谱…",
+            "checked_at": "",
+            "checked_ts": 0.0,
+            "latency_ms": None,
+            "version": "",
+            "graph": {},
+            "error": "",
+            "stale": True,
+        }
+
+    # ------------------------------------------------------------------ 生命周期
+    def start(self) -> None:
+        if self._thread is not None and self._thread.is_alive():
+            return
+        self._stop.clear()
+        self._thread = threading.Thread(
+            target=self._loop, name="remote-kg-monitor", daemon=True
+        )
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+        thread, self._thread = self._thread, None
+        if thread is not None:
+            thread.join(timeout=3)
+
+    def wait_first_probe(self, timeout: float = 5.0) -> None:
+        self._first_probe.wait(timeout)
+
+    def _loop(self) -> None:
+        interval = 20.0
+        raw = (os.getenv("DOC_AGENT_REMOTE_KG_PROBE_SECONDS") or "").strip()
+        try:
+            interval = max(5.0, float(raw)) if raw else 20.0
+        except ValueError:
+            interval = 20.0
+        while not self._stop.is_set():
+            try:
+                snapshot = self._probe()
+            except Exception as exc:  # 探测本身异常也要反映到状态里
+                snapshot = self._error_snapshot(f"探测异常：{exc}")
+            self._store(snapshot)
+            self._stop.wait(interval)
+
+    # ------------------------------------------------------------------ 探测
+    def _probe(self) -> Dict[str, Any]:
+        from document_agent.retrieve_tool.remote_kg_tool import RemoteKGTool
+
+        settings = self.settings
+        timeout = min(max(settings.timeout, 3.0), 15.0)
+        tool = RemoteKGTool(
+            settings.base_url,
+            auth_token=settings.auth_token or None,
+            timeout=timeout,
+            max_retries=0,
+        )
+        started = time.time()
+
+        async def _run() -> Dict[str, Any]:
+            try:
+                return await tool.get_status(probe_llm=False)
+            finally:
+                await tool.aclose()
+
+        try:
+            status = asyncio.run(_run())
+        except Exception as exc:
+            return self._error_snapshot(f"连接失败：{exc}")
+
+        latency = round((time.time() - started) * 1000, 1)
+        components = status.get("components") or {}
+        graph = components.get("graph") if isinstance(components, dict) else None
+        graph = graph if isinstance(graph, dict) else {}
+        ok = bool(status.get("ok"))
+        if ok:
+            message = "连接正常"
+        else:
+            failures = [
+                f"{name}: {item.get('error') or '异常'}"
+                for name, item in (components or {}).items()
+                if isinstance(item, dict) and not item.get("ok")
+            ]
+            message = "已连接，但服务未就绪：" + ("；".join(failures) or "未知原因")
+        return {
+            "enabled": True,
+            "url": settings.base_url,
+            "auth_enabled": bool(settings.auth_token),
+            "connected": True,
+            "ok": ok,
+            "message": message,
+            "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "checked_ts": time.time(),
+            "latency_ms": latency,
+            "version": str(status.get("version") or ""),
+            "graph": {
+                "documents": graph.get("documents"),
+                "chunks": graph.get("chunks"),
+                "entities": graph.get("entities"),
+                "relations": graph.get("relations"),
+                "empty": bool(graph.get("empty")),
+            },
+            "error": "" if ok else message,
+            "stale": False,
+        }
+
+    def _error_snapshot(self, message: str) -> Dict[str, Any]:
+        return {
+            "enabled": True,
+            "url": self.settings.base_url,
+            "auth_enabled": bool(self.settings.auth_token),
+            "connected": False,
+            "ok": False,
+            "message": message,
+            "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "checked_ts": time.time(),
+            "latency_ms": None,
+            "version": "",
+            "graph": {},
+            "error": message,
+            "stale": False,
+        }
+
+    def _store(self, snapshot: Dict[str, Any]) -> None:
+        with self._lock:
+            self._snapshot = snapshot
+        self._first_probe.set()
+
+    # ------------------------------------------------------------------ 读取
+    def snapshot(self) -> Dict[str, Any]:
+        with self._lock:
+            data = dict(self._snapshot)
+        age = time.time() - float(data.get("checked_ts") or 0)
+        data["age_seconds"] = round(age, 1) if data.get("checked_ts") else None
+        data["stale"] = bool(data.get("checked_ts")) and age > 90
+        return data
+
+
 class KnowledgeRuntime:
-    """在后台加载 Memgraph 连接与知识图谱记忆，并对外提供代理对象。"""
+    """按配置准备知识库：本地模式加载 Memgraph/知识图谱，远程模式只监控远程服务。"""
 
     def __init__(self) -> None:
         self._settings = config.load_settings()
+        self.remote_settings = config.remote_kg_settings()
+        self.mode = self.remote_settings.mode
+        self.remote: Optional[RemoteKGMonitor] = (
+            RemoteKGMonitor(self.remote_settings) if self.remote_settings.enabled else None
+        )
         self._state = "pending"
         self._message = "知识库尚未初始化"
         self._ready = threading.Event()
@@ -106,10 +271,21 @@ class KnowledgeRuntime:
             if self._started:
                 return
             self._started = True
+            if self.mode == "remote":
+                # 远程模式：不初始化本地图数据库，只启动连通性监控
+                self._state = "initializing"
+                self._message = f"远程知识图谱模式：{self.remote_settings.base_url}"
+                if self.remote is not None:
+                    self.remote.start()
+                self._ready.set()
+                print(f"[知识图谱] {self.remote_settings.describe()}")
+                return
             thread = threading.Thread(target=self._initialize, name="knowledge-init", daemon=True)
             thread.start()
 
     def _initialize(self) -> None:
+        if self.mode == "remote":  # 远程模式不走本地初始化
+            return
         self._state = "initializing"
         self._message = "正在连接知识库…"
         settings = self._settings
@@ -157,6 +333,8 @@ class KnowledgeRuntime:
 
     # ------------------------------------------------------------------ 访问器
     def graph_instance(self, timeout: float = 0) -> Optional[Any]:
+        if self.mode == "remote":
+            return None
         if not self._started:
             self.start()
         if timeout > 0:
@@ -164,6 +342,8 @@ class KnowledgeRuntime:
         return self._gdb
 
     def kg_instance(self, timeout: float = 0) -> Optional[Any]:
+        if self.mode == "remote":
+            return None
         if not self._started:
             self.start()
         if timeout > 0:
@@ -171,13 +351,35 @@ class KnowledgeRuntime:
         return self._kg
 
     def status(self) -> Dict[str, Any]:
+        """知识库状态：远程模式看监控快照，本地模式看初始化结果。"""
+        if self.mode == "remote":
+            snapshot = self.remote.snapshot() if self.remote is not None else {}
+            connected = snapshot.get("connected")
+            if connected is None:
+                state = "initializing"
+            elif connected:
+                state = "ready" if snapshot.get("ok") else "degraded"
+            else:
+                state = "unavailable"
+            detail = snapshot.get("message") or "远程知识图谱"
+            return {
+                "mode": "remote",
+                "state": state,
+                "message": f"远程知识图谱 {self.remote_settings.base_url}：{detail}",
+                "ready": bool(connected),
+                "remote_kg": snapshot,
+            }
         return {
+            "mode": "local",
             "state": self._state,
             "message": self._message,
             "ready": self._state in ("ready", "degraded"),
+            "remote_kg": None,
         }
 
     def close(self) -> None:
+        if self.remote is not None:
+            self.remote.stop()
         for client in (self._gdb, self._kg):
             if client is not None:
                 try:
@@ -228,6 +430,9 @@ class GenerationRuntime:
                 "rewrite_node",
                 "file_retrieve_node",
                 "gdb_retrieve_node",
+                "kg_retrieve_node",
+                "retrieved_context",
+                "remote_kg_config",
             ):
                 importlib.import_module(module_name)
             print(f"[预热] 写作智能体依赖已加载（{time.time() - started:.1f}s）")
@@ -243,13 +448,31 @@ class GenerationRuntime:
     def health(self) -> Dict[str, Any]:
         knowledge = self.knowledge.status()
         llm_ready = config.llm_configured()
-        message = "服务已就绪" if llm_ready else "未配置大模型 API Key（MODEL_API_KEY），无法执行写作任务"
+        mode = knowledge.get("mode") or "local"
+        remote = knowledge.get("remote_kg") or {}
+
+        if mode == "remote":
+            connected = remote.get("connected") is True
+            if not llm_ready:
+                status = "degraded"
+                message = "未配置大模型 API Key（MODEL_API_KEY），无法执行写作任务"
+            elif not connected:
+                status = "degraded"
+                message = f"远程知识图谱未连接：{remote.get('message') or '未知原因'}"
+            else:
+                status = "ok"
+                message = "服务已就绪 · 远程知识图谱已连接"
+        else:
+            status = "ok" if llm_ready else "degraded"
+            message = "服务已就绪" if llm_ready else "未配置大模型 API Key（MODEL_API_KEY），无法执行写作任务"
+
         return {
-            "status": "ok" if llm_ready else "degraded",
+            "status": status,
             "message": message,
             "llm_configured": llm_ready,
             "llm_model": config.llm_model_name(),
             "llm_base_url": config.llm_base_url(),
+            "knowledge_mode": mode,
             "knowledge": knowledge,
             "workspace": str(self.store.root),
         }
@@ -285,7 +508,13 @@ class GenerationRuntime:
         from document_agent.agent import agent_core as agent_core_module
 
         core = agent_core_module.AgentCore()
-        core.build_graph(self.knowledge.gdb, self.knowledge.kg)
+        # 远程模式下本地 Memgraph 与本地知识图谱都不参与，传 None 让图里只装远程检索节点
+        if self.knowledge.mode == "remote":
+            core.build_graph(
+                None, None, self.knowledge.remote_settings
+            )
+        else:
+            core.build_graph(self.knowledge.gdb, self.knowledge.kg)
         with self._guard:
             existing = self._cores.get(session_id)
             if existing is not None:
