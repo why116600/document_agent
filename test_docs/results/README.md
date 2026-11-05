@@ -1,12 +1,12 @@
 # results：实际测试成果
 
-更新日期：2026-11-04。入口说明v1.0.25。[返回测试入口](../README.md)。
+更新日期：2026-11-05。入口说明v1.0.26。[返回测试入口](../README.md)。
 
-先看[本轮报告与真实Word](latest_run/README.md)，分清旧发现、a83回归/定向补验与本次b6原例复测；成果保留实际错误，不用正确示例替代。
+先看[本轮报告与真实Word](latest_run/README.md)，分清旧发现、a83回归/定向补验、b6原例复测及本次最新develop知识图谱联调；成果保留实际错误，不用正确示例替代。
 
 | 入口 | 用途 |
 | --- | --- |
-| [latest_run](latest_run/README.md) | 六项缺陷的历史及当前核对；MD/JSON/DOCX/必要原页 |
+| [latest_run](latest_run/README.md) | 已有及新增缺陷的历史与当前核对；MD/JSON/DOCX/必要原页 |
 | [outputs](outputs/README.md) | 两项历史探索实际Word |
 | [inputs](inputs/README.md) | 对应历史探索的TXT和旧Word |
 | [reports](reports/README.md) | 探索对比与限制 |

@@ -1,0 +1,3249 @@
+{
+  "version": "1.0.26",
+  "reviewed_at": "2026-11-05T01:06:35.521976+08:00",
+  "pins": {
+    "document_agent": "2fef201079a63881bfeabf3bb5685632c5fdfd1c",
+    "graph_rag": "4be13b955c4c91a4a74b91a4912e861ef024cbf6"
+  },
+  "remote_update": {
+    "HEAD": "4849d2507be654946494838927bf872284af426f",
+    "origin/develop": "2fef201079a63881bfeabf3bb5685632c5fdfd1c",
+    "origin/feature/add-rewrite-function": "b6b5f2bb675fb59794147713f39eb41ea5f9a8b9",
+    "backend_head": "4be13b955c4c91a4a74b91a4912e861ef024cbf6",
+    "checked_at": "2026-11-05T00:38:29.813957+08:00",
+    "previous_develop": "fe7b174ceff1c43060b355aab6cf37bf6b339fb0",
+    "feature_updated": false,
+    "backend_updated": false,
+    "develop_updated": true
+  },
+  "scope": "latest develop, not an update to the b6 repair branch",
+  "cases": {
+    "CP-003": {
+      "case": "CP-003",
+      "attempt": "001",
+      "candidate_commit": "2fef201079a63881bfeabf3bb5685632c5fdfd1c",
+      "model_requested": "hy3",
+      "started": "2026-11-05T00:38:28.364034+08:00",
+      "finished": "2026-11-05T00:49:19.458500+08:00",
+      "elapsed_seconds": 651.09,
+      "exit_code": 0,
+      "source_copies_preserved": true,
+      "candidate_unchanged": true,
+      "request_sha256": "a6e7d53f6a1e826454ecb7d8b32bf19047925fd364a5a810804601b2292d5850",
+      "expected_sha256": "f7625ba32f65139dd8dd90fe58cbd37f91781e480227d27357dfba2778c64d0a",
+      "harness_timed_out": false,
+      "request": "同时提供了旧版和新版，但本次只允许依据《沐川会议设备新规则_v1.0.15.txt》，旧版只是干扰材料。请写《沐川会议设备借用说明 v1.0.15》，说明新版借用期限、预约、审批和归还要求，不能混用旧版9天、1个工作日或演示管理员。正文最多180个非空白字符，不含文档标题、含章节标题；不用表格，不检索知识库，不补充收费押金，全部文字黑色、中文宋体，另存为CP-003_结果_v1.0.15.docx。",
+      "input_manifest": [
+        {
+          "name": "沐川会议设备旧规则_v1.0.14.txt",
+          "sha256": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10",
+          "bytes": 245
+        },
+        {
+          "name": "沐川会议设备新规则_v1.0.15.txt",
+          "sha256": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d",
+          "bytes": 287
+        }
+      ],
+      "state": "succeeded",
+      "error": null,
+      "private_execution_receipt_sha256": "8b9cfbc87a04a796a646b82007c1bc962cdc95ff5478044fc53a43a9c5357dfe",
+      "private_content_review_sha256": "ed9bcd598cb91c68474f1d8c68a7601afd7cdaba1b992799864a6351b6b0da59",
+      "observed": "DEF-004仍存在：768个非空白字符>180、4张表、缺指定总标题、18处中文Run为微软雅黑。新版4天/3工作日/资料员审批/归还检查与登记写对，未混旧规则；另出现无来源的“逾期将影响后续设备申请权限”，关联DEF-003事实边界观察。",
+      "outputs": [
+        {
+          "file": "2fef201_A001_CP-003_结果_v1.0.15.docx",
+          "sha256": "278c6bfa27b1ab9981048090b1742d5337366c2915fc87215f8bc46b79d896c3",
+          "bytes": 38439
+        }
+      ]
+    },
+    "CP-009": {
+      "case": "CP-009",
+      "attempt": "001",
+      "candidate_commit": "2fef201079a63881bfeabf3bb5685632c5fdfd1c",
+      "model_requested": "hy3",
+      "started": "2026-11-05T00:50:05.164191+08:00",
+      "finished": "2026-11-05T00:55:09.954840+08:00",
+      "elapsed_seconds": 304.8,
+      "exit_code": 0,
+      "source_copies_preserved": true,
+      "candidate_unchanged": true,
+      "request_sha256": "f24bfaeaf0fe3240b3e213c0b8fedb06a1655ae869f4eedb98372e192c2c3aa8",
+      "expected_sha256": "fd176604b36087c4cfa91f9ded24a88a28ab238eab8727e59da86f76656b19ba",
+      "harness_timed_out": false,
+      "request": "只修改《巡检清单_v1.0.15.docx》中“二、巡检表”的第1张表格：设备标识为“设备A”的行、列标题为“检查频率”的单元格，改为“每月检查一次”。设备B、数量列、正文、表头和表格行列结构全部保留。其他文字格式不变，中文宋体、全部文字黑色，不检索知识库，不覆盖原稿，另存为CP-009_结果_v1.0.15.docx。",
+      "input_manifest": [
+        {
+          "name": "巡检清单_v1.0.15.docx",
+          "sha256": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
+          "bytes": 37363
+        }
+      ],
+      "state": "succeeded",
+      "error": "file工具反馈：文件路径不存在：巡检清单_v1.0.15.docx",
+      "private_execution_receipt_sha256": "49dd88c3edb5cb9f7564fa821c5aab3e7c3b1ec5bf5617ed428ec2a4df471ab0",
+      "private_content_review_sha256": "5ecda5b4a0188901b7e5f636d5d3591ab06b049dc95f801b9bb5cc4826ab6bd4",
+      "observed": "DEF-005仍存在：目标格改对，其他8格、正文、数量和3×3结构保持；9格段后4→6磅、3个表头丢粗体、tcW3061→3211。tblGrid未变，不据tcW单独声称页面变宽。",
+      "outputs": [
+        {
+          "file": "2fef201_A001_CP-009_结果_v1.0.15.docx",
+          "sha256": "7eef5b3ebec24c65a5043cc5146f0f45fd547acaf7b5219d4d4a43b73738378b",
+          "bytes": 37345
+        }
+      ]
+    },
+    "CP-010": {
+      "case": "CP-010",
+      "attempt": "001",
+      "candidate_commit": "2fef201079a63881bfeabf3bb5685632c5fdfd1c",
+      "model_requested": "hy3",
+      "started": "2026-11-05T00:55:18.258702+08:00",
+      "finished": "2026-11-05T00:59:39.216584+08:00",
+      "elapsed_seconds": 260.97,
+      "exit_code": 0,
+      "source_copies_preserved": true,
+      "candidate_unchanged": true,
+      "request_sha256": "1f1897a772741b16cef32dd0087f913672d21afaef54eeea8e061c13ad2d7e5e",
+      "expected_sha256": "a6e9d167fa51679b6aa7ea86355025ffdcea6aac8e3c8059d8df3e29338fac49",
+      "harness_timed_out": false,
+      "request": "只调整《记录排版样例_v1.0.15.docx》的格式，所有文字一字不改。文档标题18磅居中，一级标题16磅，其他正文和表格文字12磅；所有段落段前0磅、段后6磅、1.5倍行距；全部文字黑色、中文宋体。保留段落顺序、表格文字和3行3列结构，不检索知识库，不覆盖原稿，另存为CP-010_结果_v1.0.15.docx。",
+      "input_manifest": [
+        {
+          "name": "记录排版样例_v1.0.15.docx",
+          "sha256": "6f571cdbb6ecf9090c142aa4657aeeeae7ed8ed235bd98624fe22274c9768a8f",
+          "bytes": 37424
+        }
+      ],
+      "state": "succeeded",
+      "error": "file工具反馈：文件路径不存在：./记录排版样例_v1.0.15.docx",
+      "private_execution_receipt_sha256": "8dbbdf924a4d7f0eb5cd97a5556ed129a1a0b642e3318029d338cc23a5f7014d",
+      "private_content_review_sha256": "62f4771a3de21d62e2e03626aed81f8ac0ea400b3907fb512e3b2031b68c9acf",
+      "observed": "DEF-006仍存在：全文、顺序、3×3表格和原稿保持；正文18/16/12磅及0/6磅、1.5倍正确。表格5格10磅、9/1磅、单倍，另外4格12磅但段后4磅/1.3倍残留，未统一为用户要求。",
+      "outputs": [
+        {
+          "file": "2fef201_A001_CP-010_结果_v1.0.15.docx",
+          "sha256": "adf4bca2e7c2adf7662305c2396b6303ac404e4ddcba333130ee86434fcf6a18",
+          "bytes": 37453
+        }
+      ]
+    },
+    "KG-WORD": {
+      "case": "KG-WORD",
+      "attempt": "001",
+      "candidate_commit": "2fef201079a63881bfeabf3bb5685632c5fdfd1c",
+      "model_requested": "hy3",
+      "started": "2026-11-05T00:44:19.747534+08:00",
+      "finished": "2026-11-05T00:51:26.381326+08:00",
+      "elapsed_seconds": 426.64,
+      "exit_code": 0,
+      "source_copies_preserved": true,
+      "candidate_unchanged": true,
+      "request_sha256": "a627a5e875bc31334f2a2eb747545a18b336a726110d7768058105d7d6354a5b",
+      "expected_sha256": "5cff7af273d29bac9a4af3b1acccfe11214593a09cbbbc8d6f9ddc191f0c681c",
+      "harness_timed_out": false,
+      "request": "请只检索远程知识图谱中测试标识KG-DEMO-20261102的虚构资料，写一份《星桥知识图谱借用说明 v1.0.0》。正文不超过200字，不使用表格，说明星桥项目由哪个团队负责、该团队负责人是谁、设备每次最多借用几天。押金金额和联系电话若资料未提供请明确写未提供，不得补造。必须在正文用《完整来源文件名（含扩展名）》注明资料来源。全部文字黑色、中文宋体，另存为星桥知识图谱借用说明_v1.0.0.docx。",
+      "input_manifest": [],
+      "state": "succeeded",
+      "error": null,
+      "private_execution_receipt_sha256": "1e3dd05ee660e249a209412ceacdc63b8e958457bc33a5f70581dceaed92b898",
+      "private_content_review_sha256": "1667e3ab66ca107761b850b9f2b0238d77ac0568a31ce2ecc47fc1144cdfea04",
+      "observed": "实际knowledge→远程协议→原文→Word已跑通：团队/负责人/每次最多3天、未知项及完整来源正确，宋体黑色，无表，184字符≤200；但标题和正文完整重复2遍，整例不通过，关联DEF-004。",
+      "outputs": [
+        {
+          "file": "2fef201_A001_KG-WORD_结果_v1.0.0.docx",
+          "sha256": "b452f7e61ae0ec90568bec17c0568167911d6b76e5a3b4a05cea6d9a2961e68d",
+          "bytes": 38120
+        }
+      ],
+      "actual_knowledge_dispatch_seen": true,
+      "real_local_kg_http_metadata": [
+        {
+          "event": "request",
+          "method": "GET",
+          "path": "/retrieval/status",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "GET",
+          "path": "/retrieval/status",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "GET",
+          "path": "/retrieval/status",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "GET",
+          "path": "/retrieval/status",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "GET",
+          "path": "/retrieval/schema",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "GET",
+          "path": "/retrieval/schema",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "POST",
+          "path": "/retrieval/semantic",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "GET",
+          "path": "/retrieval/keywords",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "GET",
+          "path": "/retrieval/keywords",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "GET",
+          "path": "/retrieval/keywords",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "POST",
+          "path": "/retrieval/semantic",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "GET",
+          "path": "/retrieval/keywords",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "GET",
+          "path": "/retrieval/keywords",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "GET",
+          "path": "/retrieval/keywords",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "POST",
+          "path": "/retrieval/entities/resolve",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "POST",
+          "path": "/retrieval/entities/resolve",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "POST",
+          "path": "/retrieval/traverse",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "POST",
+          "path": "/retrieval/traverse",
+          "port": 18000,
+          "status": 404,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "POST",
+          "path": "/retrieval/traverse",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "POST",
+          "path": "/retrieval/traverse",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "POST",
+          "path": "/retrieval/traverse",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "POST",
+          "path": "/retrieval/traverse",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "POST",
+          "path": "/retrieval/paths",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "POST",
+          "path": "/retrieval/paths",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "POST",
+          "path": "/retrieval/nodes/bodies",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "POST",
+          "path": "/retrieval/nodes/bodies",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        }
+      ],
+      "retrieved_content_entries": 14,
+      "document_citations_entries": 1
+    },
+    "KG-UNKNOWN": {
+      "case": "KG-UNKNOWN",
+      "attempt": "001",
+      "candidate_commit": "2fef201079a63881bfeabf3bb5685632c5fdfd1c",
+      "model_requested": "hy3",
+      "started": "2026-11-05T00:52:15.346396+08:00",
+      "finished": "2026-11-05T00:56:57.382255+08:00",
+      "elapsed_seconds": 282.03,
+      "exit_code": 0,
+      "source_copies_preserved": true,
+      "candidate_unchanged": true,
+      "request_sha256": "010bab74d6f56ec9b453521c1605272e485673a55c1aca13ccc2250c0a5568da",
+      "expected_sha256": "b75c82be51f310906cf07da591f73795a6a78bc92f588cb4df80c6d658c90827",
+      "harness_timed_out": false,
+      "request": "请只检索远程知识图谱中测试标识KG-DEMO-20261102的资料，核实星桥项目设备借用押金金额和演示人员甲的联系电话。资料没有提供时必须明确写未提供，不得猜测金额、电话号码或姓名。写成不超过100字的《星桥资料缺项核对 v1.0.0》，必须在正文用《完整来源文件名（含扩展名）》注明依据，全部文字黑色、中文宋体，不用表格，另存为星桥资料缺项核对_v1.0.0.docx。",
+      "input_manifest": [],
+      "state": "succeeded",
+      "error": null,
+      "private_execution_receipt_sha256": "e08d53f81b8b0d9642c1613be0c38a4ae6c015fd4b5c17bf37dc6d107a50e448",
+      "private_content_review_sha256": "e1ffedfce4b35f0ff762f3209b8d94c3a8cd987af45cbbe66361debd71e06f11",
+      "observed": "押金金额和联系电话均明确未提供，未编造；完整来源正确。但292字符>100、1表违反无表、1个标题Run为微软雅黑，整例不通过，关联DEF-004；不冒充DEF-006格式专用复测。",
+      "outputs": [
+        {
+          "file": "2fef201_A001_KG-UNKNOWN_结果_v1.0.0.docx",
+          "sha256": "b311196a3a4ea5e3548ab959f383bbc8eb255d68c0c2f0a4b0c64b2c2cf8a632",
+          "bytes": 38505
+        }
+      ],
+      "actual_knowledge_dispatch_seen": true,
+      "real_local_kg_http_metadata": [
+        {
+          "event": "request",
+          "method": "GET",
+          "path": "/retrieval/status",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "GET",
+          "path": "/retrieval/status",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "GET",
+          "path": "/retrieval/status",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "GET",
+          "path": "/retrieval/status",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "GET",
+          "path": "/retrieval/schema",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "GET",
+          "path": "/retrieval/schema",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "POST",
+          "path": "/retrieval/semantic",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "GET",
+          "path": "/retrieval/keywords",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "GET",
+          "path": "/retrieval/keywords",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "GET",
+          "path": "/retrieval/keywords",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "POST",
+          "path": "/retrieval/semantic",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "GET",
+          "path": "/retrieval/keywords",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "GET",
+          "path": "/retrieval/keywords",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "GET",
+          "path": "/retrieval/keywords",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "POST",
+          "path": "/retrieval/entities/resolve",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "POST",
+          "path": "/retrieval/entities/resolve",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "POST",
+          "path": "/retrieval/traverse",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "POST",
+          "path": "/retrieval/traverse",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "POST",
+          "path": "/retrieval/traverse",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "POST",
+          "path": "/retrieval/traverse",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "POST",
+          "path": "/retrieval/traverse",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "POST",
+          "path": "/retrieval/traverse",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "POST",
+          "path": "/retrieval/paths",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "POST",
+          "path": "/retrieval/paths",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "GET",
+          "path": "/retrieval/nodes/7373ab654fb8b2dd",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "GET",
+          "path": "/retrieval/nodes/7373ab654fb8b2dd",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "POST",
+          "path": "/retrieval/nodes/bodies",
+          "port": 18000,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "response_headers",
+          "method": "POST",
+          "path": "/retrieval/nodes/bodies",
+          "port": 18000,
+          "status": 200,
+          "transport": "real_local_remote_kg"
+        }
+      ],
+      "retrieved_content_entries": 15,
+      "document_citations_entries": 1
+    },
+    "KG-UNAVAILABLE": {
+      "case": "KG-UNAVAILABLE",
+      "attempt": "001",
+      "candidate_commit": "2fef201079a63881bfeabf3bb5685632c5fdfd1c",
+      "model_requested": "hy3",
+      "started": "2026-11-05T00:57:06.703245+08:00",
+      "finished": "2026-11-05T01:03:32.963684+08:00",
+      "elapsed_seconds": 386.27,
+      "exit_code": 0,
+      "source_copies_preserved": true,
+      "candidate_unchanged": true,
+      "request_sha256": "79755d5ef801890a414314532567972c6963b7d15aff5bd192556dd9965eef54",
+      "expected_sha256": "821c688014f138e2df00d63b5636728ea26dfceb7d67f3c879f6a005b2307424",
+      "harness_timed_out": false,
+      "request": "请只检索远程知识图谱中测试标识KG-DEMO-20261102的资料，写一份《星桥知识图谱故障检查 v1.0.0》，说明负责团队、团队负责人和设备借用期限，不要使用模型常识或自行补充。若知识图谱服务不可用，请明确报告连接故障，不得在没有资料的情况下生成成功的业务说明。另存为星桥知识图谱故障检查_v1.0.0.docx。",
+      "input_manifest": [],
+      "state": "succeeded",
+      "error": "知识图谱检索失败：GET /retrieval/status 连接失败：All connection attempts failed",
+      "private_execution_receipt_sha256": "b8d1322544d3782312b2109f1cd9a7312d9de7ee89c1277545ccaeadfad67b1c",
+      "private_content_review_sha256": "62687056d1a32ce5b486b90ea07b7de765a73abb8c371abb37beea6e782434dc",
+      "observed": "未监听18009的真实ConnectError出现3次后，流程仍继续写Word并报succeeded，error保留连接失败。实际Word编造了故障时段、影响1243次、7687握手/503、连接池200、连接泄漏根因和已恢复等没有来源的内容，登记DEF-008；不是只有故障说明，也不是后端DEF-007的同一问题。",
+      "outputs": [
+        {
+          "file": "2fef201_A001_KG-UNAVAILABLE_结果_v1.0.0.docx",
+          "sha256": "96986bf022c9ad8788f58ee15fd9bae4cbb63492245ff61947834d07a4ca34b3",
+          "bytes": 38877
+        }
+      ],
+      "actual_knowledge_dispatch_seen": true,
+      "real_local_kg_http_metadata": [
+        {
+          "event": "request",
+          "method": "GET",
+          "path": "/retrieval/status",
+          "port": 18009,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "transport_error",
+          "method": "GET",
+          "path": "/retrieval/status",
+          "port": 18009,
+          "type": "ConnectError",
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "GET",
+          "path": "/retrieval/status",
+          "port": 18009,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "transport_error",
+          "method": "GET",
+          "path": "/retrieval/status",
+          "port": 18009,
+          "type": "ConnectError",
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "GET",
+          "path": "/retrieval/status",
+          "port": 18009,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "transport_error",
+          "method": "GET",
+          "path": "/retrieval/status",
+          "port": 18009,
+          "type": "ConnectError",
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "request",
+          "method": "GET",
+          "path": "/retrieval/status",
+          "port": 18009,
+          "transport": "real_local_remote_kg"
+        },
+        {
+          "event": "transport_error",
+          "method": "GET",
+          "path": "/retrieval/status",
+          "port": 18009,
+          "type": "ConnectError",
+          "transport": "real_local_remote_kg"
+        }
+      ],
+      "retrieved_content_entries": 0,
+      "document_citations_entries": 0
+    }
+  },
+  "api_receipts": {
+    "01_empty_status": {
+      "test": "01_empty_status",
+      "started": "2026-11-05T00:42:10.762395+08:00",
+      "finished": "2026-11-05T00:42:10.801031+08:00",
+      "elapsed_seconds": 0.05,
+      "method": "GET",
+      "path": "/retrieval/status?probe_llm=false",
+      "request": null,
+      "http_status": 200,
+      "response": {
+        "ok": true,
+        "version": "0.1.0",
+        "checked_at": "2026-11-04T16:42:10+00:00",
+        "components": {
+          "graph": {
+            "ok": true,
+            "documents": 0,
+            "chunks": 0,
+            "entities": 0,
+            "relations": 0,
+            "mentions": 0,
+            "empty": true,
+            "error": ""
+          },
+          "neo4j": {
+            "ok": true,
+            "uri": "bolt://127.0.0.1:17687",
+            "database": "neo4j",
+            "latency_ms": 4.97,
+            "server_version": "5.26.32",
+            "edition": "community",
+            "error": ""
+          },
+          "llm": {
+            "ok": true,
+            "configured": true,
+            "probed": false,
+            "model": "hy3",
+            "latency_ms": null,
+            "reply": "",
+            "error": ""
+          }
+        }
+      }
+    },
+    "02_ingest_submit": {
+      "test": "02_ingest_submit",
+      "started": "2026-11-05T00:42:10.803049+08:00",
+      "finished": "2026-11-05T00:42:10.808850+08:00",
+      "elapsed_seconds": 0.0,
+      "method": "POST",
+      "path": "/ingest",
+      "request": {
+        "paths": [
+          "PRIVATE_PROJECT\\.runtime\\test_runs\\20261105_kg_regression_2fef201_v1.0.26\\kg\\minimal_sample_v1.0.0.txt"
+        ],
+        "wait": false,
+        "force": false,
+        "reset": false,
+        "prune": false,
+        "merge_duplicates": false,
+        "concurrency": 1
+      },
+      "http_status": 202,
+      "response": {
+        "job_id": "775874301dce",
+        "status": "running",
+        "paths": [
+          "minimal_sample_v1.0.0.txt"
+        ],
+        "saved_paths": [],
+        "created_at": "2026-11-05T00:42:10+08:00",
+        "detail_url": "http://127.0.0.1:18000/ingest/jobs/775874301dce"
+      }
+    },
+    "03_populated_status": {
+      "test": "03_populated_status",
+      "started": "2026-11-05T00:43:57.655316+08:00",
+      "finished": "2026-11-05T00:43:57.793412+08:00",
+      "elapsed_seconds": 0.12,
+      "method": "GET",
+      "path": "/retrieval/status?probe_llm=false",
+      "request": null,
+      "http_status": 200,
+      "response": {
+        "ok": true,
+        "version": "0.1.0",
+        "checked_at": "2026-11-04T16:43:57+00:00",
+        "components": {
+          "graph": {
+            "ok": true,
+            "documents": 1,
+            "chunks": 1,
+            "entities": 3,
+            "relations": 2,
+            "mentions": 3,
+            "empty": false,
+            "error": ""
+          },
+          "neo4j": {
+            "ok": true,
+            "uri": "bolt://127.0.0.1:17687",
+            "database": "neo4j",
+            "latency_ms": 9.79,
+            "server_version": "5.26.32",
+            "edition": "community",
+            "error": ""
+          },
+          "llm": {
+            "ok": true,
+            "configured": true,
+            "probed": false,
+            "model": "hy3",
+            "latency_ms": null,
+            "reply": "",
+            "error": ""
+          }
+        }
+      }
+    },
+    "04_schema": {
+      "test": "04_schema",
+      "started": "2026-11-05T00:43:57.795434+08:00",
+      "finished": "2026-11-05T00:43:58.079397+08:00",
+      "elapsed_seconds": 0.3,
+      "method": "GET",
+      "path": "/retrieval/schema",
+      "request": null,
+      "http_status": 200,
+      "response": {
+        "labels": [
+          {
+            "label": "Chunk",
+            "count": 1
+          },
+          {
+            "label": "Document",
+            "count": 1
+          },
+          {
+            "label": "Entity",
+            "count": 3
+          }
+        ],
+        "relationship_types": [
+          {
+            "type": "HAS_CHUNK",
+            "count": 1
+          },
+          {
+            "type": "MENTIONS",
+            "count": 3
+          },
+          {
+            "type": "RELATES",
+            "count": 2
+          }
+        ],
+        "property_keys": [
+          "alias_text",
+          "aliases",
+          "char_count",
+          "chunk_count",
+          "chunk_keys",
+          "content_key",
+          "count",
+          "created_at",
+          "description",
+          "document_id",
+          "document_path",
+          "document_title",
+          "evidence",
+          "fingerprint",
+          "heading",
+          "id",
+          "index",
+          "mention_count",
+          "name",
+          "name_norm",
+          "path",
+          "text",
+          "title",
+          "type",
+          "updated_at",
+          "weight"
+        ],
+        "indexes": [
+          {
+            "name": "chunk_document",
+            "type": "RANGE",
+            "entity_type": "NODE",
+            "labels_or_types": [
+              "Chunk"
+            ],
+            "properties": [
+              "document_id"
+            ],
+            "state": "ONLINE"
+          },
+          {
+            "name": "chunk_fulltext",
+            "type": "FULLTEXT",
+            "entity_type": "NODE",
+            "labels_or_types": [
+              "Chunk"
+            ],
+            "properties": [
+              "text"
+            ],
+            "state": "ONLINE"
+          },
+          {
+            "name": "chunk_id",
+            "type": "RANGE",
+            "entity_type": "NODE",
+            "labels_or_types": [
+              "Chunk"
+            ],
+            "properties": [
+              "id"
+            ],
+            "state": "ONLINE"
+          },
+          {
+            "name": "document_content_key",
+            "type": "RANGE",
+            "entity_type": "NODE",
+            "labels_or_types": [
+              "Document"
+            ],
+            "properties": [
+              "content_key"
+            ],
+            "state": "ONLINE"
+          },
+          {
+            "name": "document_id",
+            "type": "RANGE",
+            "entity_type": "NODE",
+            "labels_or_types": [
+              "Document"
+            ],
+            "properties": [
+              "id"
+            ],
+            "state": "ONLINE"
+          },
+          {
+            "name": "document_path",
+            "type": "RANGE",
+            "entity_type": "NODE",
+            "labels_or_types": [
+              "Document"
+            ],
+            "properties": [
+              "path"
+            ],
+            "state": "ONLINE"
+          },
+          {
+            "name": "entity_fulltext",
+            "type": "FULLTEXT",
+            "entity_type": "NODE",
+            "labels_or_types": [
+              "Entity"
+            ],
+            "properties": [
+              "name",
+              "alias_text"
+            ],
+            "state": "ONLINE"
+          },
+          {
+            "name": "entity_id",
+            "type": "RANGE",
+            "entity_type": "NODE",
+            "labels_or_types": [
+              "Entity"
+            ],
+            "properties": [
+              "id"
+            ],
+            "state": "ONLINE"
+          },
+          {
+            "name": "entity_name",
+            "type": "RANGE",
+            "entity_type": "NODE",
+            "labels_or_types": [
+              "Entity"
+            ],
+            "properties": [
+              "name"
+            ],
+            "state": "ONLINE"
+          },
+          {
+            "name": "entity_name_norm",
+            "type": "RANGE",
+            "entity_type": "NODE",
+            "labels_or_types": [
+              "Entity"
+            ],
+            "properties": [
+              "name_norm"
+            ],
+            "state": "ONLINE"
+          },
+          {
+            "name": "entity_type",
+            "type": "RANGE",
+            "entity_type": "NODE",
+            "labels_or_types": [
+              "Entity"
+            ],
+            "properties": [
+              "type"
+            ],
+            "state": "ONLINE"
+          },
+          {
+            "name": "index_343aff4e",
+            "type": "LOOKUP",
+            "entity_type": "NODE",
+            "labels_or_types": null,
+            "properties": null,
+            "state": "ONLINE"
+          },
+          {
+            "name": "index_f7700477",
+            "type": "LOOKUP",
+            "entity_type": "RELATIONSHIP",
+            "labels_or_types": null,
+            "properties": null,
+            "state": "ONLINE"
+          }
+        ],
+        "constraints": [
+          {
+            "name": "chunk_id",
+            "type": "UNIQUENESS",
+            "entity_type": "NODE",
+            "labels_or_types": [
+              "Chunk"
+            ],
+            "properties": [
+              "id"
+            ]
+          },
+          {
+            "name": "document_id",
+            "type": "UNIQUENESS",
+            "entity_type": "NODE",
+            "labels_or_types": [
+              "Document"
+            ],
+            "properties": [
+              "id"
+            ]
+          },
+          {
+            "name": "entity_id",
+            "type": "UNIQUENESS",
+            "entity_type": "NODE",
+            "labels_or_types": [
+              "Entity"
+            ],
+            "properties": [
+              "id"
+            ]
+          }
+        ],
+        "node_properties": [
+          {
+            "nodeLabels": [
+              "Chunk"
+            ],
+            "propertyName": "id",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Chunk"
+            ],
+            "propertyName": "document_id",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Chunk"
+            ],
+            "propertyName": "text",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Chunk"
+            ],
+            "propertyName": "char_count",
+            "propertyTypes": [
+              "Long"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Chunk"
+            ],
+            "propertyName": "updated_at",
+            "propertyTypes": [
+              "DateTime"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Chunk"
+            ],
+            "propertyName": "document_path",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Chunk"
+            ],
+            "propertyName": "index",
+            "propertyTypes": [
+              "Long"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Chunk"
+            ],
+            "propertyName": "heading",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Chunk"
+            ],
+            "propertyName": "document_title",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Entity"
+            ],
+            "propertyName": "id",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Entity"
+            ],
+            "propertyName": "name",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Entity"
+            ],
+            "propertyName": "name_norm",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Entity"
+            ],
+            "propertyName": "type",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Entity"
+            ],
+            "propertyName": "alias_text",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Entity"
+            ],
+            "propertyName": "created_at",
+            "propertyTypes": [
+              "DateTime"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Entity"
+            ],
+            "propertyName": "updated_at",
+            "propertyTypes": [
+              "DateTime"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Entity"
+            ],
+            "propertyName": "mention_count",
+            "propertyTypes": [
+              "Long"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Entity"
+            ],
+            "propertyName": "aliases",
+            "propertyTypes": [
+              "StringArray"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Entity"
+            ],
+            "propertyName": "description",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Document"
+            ],
+            "propertyName": "id",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Document"
+            ],
+            "propertyName": "path",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Document"
+            ],
+            "propertyName": "content_key",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Document"
+            ],
+            "propertyName": "created_at",
+            "propertyTypes": [
+              "DateTime"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Document"
+            ],
+            "propertyName": "title",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Document"
+            ],
+            "propertyName": "fingerprint",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Document"
+            ],
+            "propertyName": "chunk_keys",
+            "propertyTypes": [
+              "StringArray"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Document"
+            ],
+            "propertyName": "chunk_count",
+            "propertyTypes": [
+              "Long"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Document"
+            ],
+            "propertyName": "char_count",
+            "propertyTypes": [
+              "Long"
+            ],
+            "mandatory": true
+          },
+          {
+            "nodeLabels": [
+              "Document"
+            ],
+            "propertyName": "updated_at",
+            "propertyTypes": [
+              "DateTime"
+            ],
+            "mandatory": true
+          }
+        ],
+        "relationship_properties": [
+          {
+            "relType": ":`HAS_CHUNK`",
+            "propertyName": null,
+            "propertyTypes": null,
+            "mandatory": false
+          },
+          {
+            "relType": ":`MENTIONS`",
+            "propertyName": "count",
+            "propertyTypes": [
+              "Long"
+            ],
+            "mandatory": true
+          },
+          {
+            "relType": ":`RELATES`",
+            "propertyName": "type",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          },
+          {
+            "relType": ":`RELATES`",
+            "propertyName": "created_at",
+            "propertyTypes": [
+              "DateTime"
+            ],
+            "mandatory": true
+          },
+          {
+            "relType": ":`RELATES`",
+            "propertyName": "updated_at",
+            "propertyTypes": [
+              "DateTime"
+            ],
+            "mandatory": true
+          },
+          {
+            "relType": ":`RELATES`",
+            "propertyName": "evidence",
+            "propertyTypes": [
+              "StringArray"
+            ],
+            "mandatory": true
+          },
+          {
+            "relType": ":`RELATES`",
+            "propertyName": "weight",
+            "propertyTypes": [
+              "Double"
+            ],
+            "mandatory": true
+          },
+          {
+            "relType": ":`RELATES`",
+            "propertyName": "description",
+            "propertyTypes": [
+              "String"
+            ],
+            "mandatory": true
+          }
+        ],
+        "entity_types": [
+          "人物",
+          "组织",
+          "地点",
+          "事件",
+          "概念",
+          "时间",
+          "产品",
+          "其他"
+        ],
+        "relation_hint": "",
+        "graph_model": {
+          "nodes": {
+            "Document": {
+              "description": "一篇导入的文档",
+              "properties": [
+                "id",
+                "path",
+                "title",
+                "fingerprint",
+                "content_key",
+                "chunk_keys",
+                "alias_paths",
+                "chunk_count",
+                "char_count"
+              ]
+            },
+            "Chunk": {
+              "description": "文档的一个分块（检索/回答的基本单位）",
+              "properties": [
+                "id",
+                "text",
+                "index",
+                "char_count",
+                "heading",
+                "document_id",
+                "document_title",
+                "document_path"
+              ]
+            },
+            "Entity": {
+              "description": "抽取出的实体（人去重后同一实体只有一个节点）",
+              "properties": [
+                "id",
+                "name",
+                "name_norm",
+                "type",
+                "description",
+                "aliases",
+                "alias_text",
+                "mention_count"
+              ]
+            }
+          },
+          "relationships": {
+            "HAS_CHUNK": {
+              "pattern": "(Document)-[:HAS_CHUNK]->(Chunk)",
+              "description": "文档包含分块"
+            },
+            "NEXT": {
+              "pattern": "(Chunk)-[:NEXT]->(Chunk)",
+              "description": "相邻分块（阅读顺序）"
+            },
+            "MENTIONS": {
+              "pattern": "(Chunk)-[:MENTIONS {count}]->(Entity)",
+              "description": "分块提到了实体，count 是提及次数"
+            },
+            "RELATES": {
+              "pattern": "(Entity)-[:RELATES {type, description, weight, evidence}]->(Entity)",
+              "description": "实体间关系；具体关系类型在 type 属性里"
+            }
+          }
+        },
+        "search": {
+          "fulltext_indexes": [
+            "chunk_fulltext",
+            "entity_fulltext"
+          ],
+          "vector_indexes": [],
+          "embedding_enabled": false,
+          "embedding_model": ""
+        }
+      }
+    },
+    "05_keywords": {
+      "test": "05_keywords",
+      "started": "2026-11-05T00:43:58.079905+08:00",
+      "finished": "2026-11-05T00:43:58.433125+08:00",
+      "elapsed_seconds": 0.34,
+      "method": "POST",
+      "path": "/retrieval/keywords",
+      "request": {
+        "query": "星桥项目",
+        "limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "query": "星桥项目",
+        "terms": [
+          "星桥项目"
+        ],
+        "entities": [
+          {
+            "id": "eb2f329c2b789d9d",
+            "name": "星桥项目",
+            "type": "其他",
+            "description": "虚构的测试项目，由演示一组负责",
+            "mentions": 2,
+            "score": 1.0
+          }
+        ],
+        "chunks": [
+          {
+            "id": "4d6d9d4c92d821ee",
+            "text": "知识图谱最小测试资料 v1.0.0\n测试标识：KG-DEMO-20261102\n\n本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。",
+            "snippet": "…本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。",
+            "document_id": "7373ab654fb8b2dd",
+            "document_title": "知识图谱最小测试资料 v1.0.0",
+            "chunk_index": 0,
+            "score": 1.0
+          }
+        ],
+        "documents": [],
+        "elapsed_ms": 340.02
+      }
+    },
+    "06_semantic_lexical": {
+      "test": "06_semantic_lexical",
+      "started": "2026-11-05T00:43:58.434131+08:00",
+      "finished": "2026-11-05T00:43:58.537420+08:00",
+      "elapsed_seconds": 0.11,
+      "method": "POST",
+      "path": "/retrieval/semantic",
+      "request": {
+        "query": "星桥项目",
+        "entity_limit": 10,
+        "relation_limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "query": "星桥项目",
+        "mode": "lexical",
+        "embedding_enabled": false,
+        "entities": [
+          {
+            "id": "eb2f329c2b789d9d",
+            "name": "星桥项目",
+            "type": "其他",
+            "description": "虚构的测试项目，由演示一组负责",
+            "aliases": [],
+            "mentions": 2,
+            "score": 0.88,
+            "match": "lexical"
+          },
+          {
+            "id": "48f0ebba0d365c36",
+            "name": "演示一组",
+            "type": "组织",
+            "description": "虚构的测试团队，负责星桥项目",
+            "aliases": [],
+            "mentions": 2,
+            "score": 0.88,
+            "match": "lexical"
+          }
+        ],
+        "relations": [
+          {
+            "id": "48f0ebba0d365c36|RELATES|eb2f329c2b789d9d",
+            "source_id": "48f0ebba0d365c36",
+            "source_name": "演示一组",
+            "target_id": "eb2f329c2b789d9d",
+            "target_name": "星桥项目",
+            "type": "RELATES",
+            "description": "演示一组负责星桥项目",
+            "weight": 0.8,
+            "score": 0.88,
+            "match": "lexical"
+          }
+        ],
+        "elapsed_ms": 99.49
+      }
+    },
+    "07_two_hop_traverse": {
+      "test": "07_two_hop_traverse",
+      "started": "2026-11-05T00:43:58.539435+08:00",
+      "finished": "2026-11-05T00:43:58.777934+08:00",
+      "elapsed_seconds": 0.23,
+      "method": "POST",
+      "path": "/retrieval/traverse",
+      "request": {
+        "start": "星桥项目",
+        "start_kind": "auto",
+        "depth": 2,
+        "direction": "both"
+      },
+      "http_status": 200,
+      "response": {
+        "start": "eb2f329c2b789d9d",
+        "depth": 2,
+        "direction": "both",
+        "nodes": [
+          {
+            "id": "eb2f329c2b789d9d",
+            "kind": "entity",
+            "labels": [
+              "Entity"
+            ],
+            "name": "星桥项目",
+            "type": "其他",
+            "properties": {
+              "aliases": [],
+              "description": "虚构的测试项目，由演示一组负责",
+              "mention_count": 2,
+              "type": "其他",
+              "name": "星桥项目"
+            }
+          },
+          {
+            "id": "4d6d9d4c92d821ee",
+            "kind": "chunk",
+            "labels": [
+              "Chunk"
+            ],
+            "name": "4d6d9d4c92d821ee",
+            "type": "",
+            "properties": {
+              "document_title": "知识图谱最小测试资料 v1.0.0",
+              "aliases": [],
+              "heading": "知识图谱最小测试资料 v1.0.0",
+              "char_count": 158,
+              "index": 0,
+              "document_id": "7373ab654fb8b2dd"
+            }
+          },
+          {
+            "id": "48f0ebba0d365c36",
+            "kind": "entity",
+            "labels": [
+              "Entity"
+            ],
+            "name": "演示一组",
+            "type": "组织",
+            "properties": {
+              "aliases": [],
+              "description": "虚构的测试团队，负责星桥项目",
+              "mention_count": 2,
+              "type": "组织",
+              "name": "演示一组"
+            }
+          },
+          {
+            "id": "7373ab654fb8b2dd",
+            "kind": "document",
+            "labels": [
+              "Document"
+            ],
+            "name": "知识图谱最小测试资料 v1.0.0",
+            "type": "",
+            "properties": {
+              "aliases": [],
+              "char_count": 159,
+              "title": "知识图谱最小测试资料 v1.0.0",
+              "chunk_count": 1,
+              "path": "PRIVATE_PROJECT\\.runtime\\test_runs\\20261105_kg_regression_2fef201_v1.0.26\\kg\\minimal_sample_v1.0.0.txt"
+            }
+          },
+          {
+            "id": "0e865e2d011f04e4",
+            "kind": "entity",
+            "labels": [
+              "Entity"
+            ],
+            "name": "演示人员甲",
+            "type": "人物",
+            "properties": {
+              "aliases": [],
+              "description": "虚构的测试人员，演示一组的负责人",
+              "mention_count": 2,
+              "type": "人物",
+              "name": "演示人员甲"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "5:34c10142-7557-4102-9339-f431a5862ed3:1",
+            "type": "MENTIONS",
+            "source": "4d6d9d4c92d821ee",
+            "target": "eb2f329c2b789d9d",
+            "properties": {
+              "count": 2
+            }
+          },
+          {
+            "id": "5:34c10142-7557-4102-9339-f431a5862ed3:4",
+            "type": "RELATES",
+            "source": "48f0ebba0d365c36",
+            "target": "eb2f329c2b789d9d",
+            "properties": {
+              "updated_at": "2026-11-04T16:43:16.990000000+00:00",
+              "evidence": [
+                "4d6d9d4c92d821ee"
+              ],
+              "created_at": "2026-11-04T16:43:16.990000000+00:00",
+              "weight": 0.8,
+              "description": "演示一组负责星桥项目",
+              "type": "负责"
+            }
+          },
+          {
+            "id": "5:34c10142-7557-4102-9339-f431a5862ed3:0",
+            "type": "HAS_CHUNK",
+            "source": "7373ab654fb8b2dd",
+            "target": "4d6d9d4c92d821ee",
+            "properties": {}
+          },
+          {
+            "id": "5:34c10142-7557-4102-9339-f431a5862ed3:2",
+            "type": "MENTIONS",
+            "source": "4d6d9d4c92d821ee",
+            "target": "48f0ebba0d365c36",
+            "properties": {
+              "count": 2
+            }
+          },
+          {
+            "id": "5:34c10142-7557-4102-9339-f431a5862ed3:3",
+            "type": "MENTIONS",
+            "source": "4d6d9d4c92d821ee",
+            "target": "0e865e2d011f04e4",
+            "properties": {
+              "count": 2
+            }
+          },
+          {
+            "id": "5:34c10142-7557-4102-9339-f431a5862ed3:5",
+            "type": "RELATES",
+            "source": "0e865e2d011f04e4",
+            "target": "48f0ebba0d365c36",
+            "properties": {
+              "updated_at": "2026-11-04T16:43:16.990000000+00:00",
+              "evidence": [
+                "4d6d9d4c92d821ee"
+              ],
+              "created_at": "2026-11-04T16:43:16.990000000+00:00",
+              "weight": 0.8,
+              "description": "演示人员甲是演示一组的负责人",
+              "type": "任职于"
+            }
+          }
+        ],
+        "truncated": false,
+        "elapsed_ms": 218.91
+      }
+    },
+    "08_relationship_path": {
+      "test": "08_relationship_path",
+      "started": "2026-11-05T00:43:58.777934+08:00",
+      "finished": "2026-11-05T00:43:58.893272+08:00",
+      "elapsed_seconds": 0.12,
+      "method": "POST",
+      "path": "/retrieval/paths",
+      "request": {
+        "source": "星桥项目",
+        "target": "演示人员甲",
+        "max_depth": 4,
+        "limit": 3
+      },
+      "http_status": 200,
+      "response": {
+        "found": true,
+        "source": "eb2f329c2b789d9d",
+        "target": "0e865e2d011f04e4",
+        "paths": [
+          {
+            "length": 2,
+            "nodes": [
+              {
+                "id": "eb2f329c2b789d9d",
+                "kind": "entity",
+                "labels": [
+                  "Entity"
+                ],
+                "name": "星桥项目",
+                "type": "其他"
+              },
+              {
+                "id": "4d6d9d4c92d821ee",
+                "kind": "chunk",
+                "labels": [
+                  "Chunk"
+                ],
+                "name": "4d6d9d4c92d821ee",
+                "type": ""
+              },
+              {
+                "id": "0e865e2d011f04e4",
+                "kind": "entity",
+                "labels": [
+                  "Entity"
+                ],
+                "name": "演示人员甲",
+                "type": "人物"
+              }
+            ],
+            "edges": [
+              {
+                "type": "MENTIONS",
+                "source": "4d6d9d4c92d821ee",
+                "target": "eb2f329c2b789d9d",
+                "properties": {}
+              },
+              {
+                "type": "MENTIONS",
+                "source": "4d6d9d4c92d821ee",
+                "target": "0e865e2d011f04e4",
+                "properties": {}
+              }
+            ]
+          },
+          {
+            "length": 2,
+            "nodes": [
+              {
+                "id": "eb2f329c2b789d9d",
+                "kind": "entity",
+                "labels": [
+                  "Entity"
+                ],
+                "name": "星桥项目",
+                "type": "其他"
+              },
+              {
+                "id": "48f0ebba0d365c36",
+                "kind": "entity",
+                "labels": [
+                  "Entity"
+                ],
+                "name": "演示一组",
+                "type": "组织"
+              },
+              {
+                "id": "0e865e2d011f04e4",
+                "kind": "entity",
+                "labels": [
+                  "Entity"
+                ],
+                "name": "演示人员甲",
+                "type": "人物"
+              }
+            ],
+            "edges": [
+              {
+                "type": "RELATES",
+                "source": "48f0ebba0d365c36",
+                "target": "eb2f329c2b789d9d",
+                "properties": {
+                  "description": "演示一组负责星桥项目",
+                  "weight": 0.8
+                }
+              },
+              {
+                "type": "RELATES",
+                "source": "0e865e2d011f04e4",
+                "target": "48f0ebba0d365c36",
+                "properties": {
+                  "description": "演示人员甲是演示一组的负责人",
+                  "weight": 0.8
+                }
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 109.33
+      }
+    },
+    "09_source_bodies": {
+      "test": "09_source_bodies",
+      "started": "2026-11-05T00:43:58.895265+08:00",
+      "finished": "2026-11-05T00:43:58.934381+08:00",
+      "elapsed_seconds": 0.03,
+      "method": "POST",
+      "path": "/retrieval/nodes/bodies",
+      "request": {
+        "ids": [
+          "4d6d9d4c92d821ee"
+        ],
+        "max_chars": 4000
+      },
+      "http_status": 200,
+      "response": {
+        "nodes": [
+          {
+            "node": {
+              "id": "4d6d9d4c92d821ee",
+              "kind": "chunk",
+              "labels": [
+                "Chunk"
+              ],
+              "name": "4d6d9d4c92d821ee",
+              "type": "",
+              "properties": {
+                "document_title": "知识图谱最小测试资料 v1.0.0",
+                "aliases": [],
+                "heading": "知识图谱最小测试资料 v1.0.0",
+                "char_count": 158,
+                "index": 0,
+                "document_id": "7373ab654fb8b2dd"
+              }
+            },
+            "body": {
+              "kind": "chunk",
+              "text": "知识图谱最小测试资料 v1.0.0\n测试标识：KG-DEMO-20261102\n\n本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。",
+              "char_count": 158,
+              "truncated": false
+            },
+            "related": []
+          }
+        ],
+        "missing": []
+      }
+    },
+    "10_unknown_keyword": {
+      "test": "10_unknown_keyword",
+      "started": "2026-11-05T00:43:58.937670+08:00",
+      "finished": "2026-11-05T00:43:59.014343+08:00",
+      "elapsed_seconds": 0.06,
+      "method": "POST",
+      "path": "/retrieval/keywords",
+      "request": {
+        "query": "不存在的项目KG-NONE-20261105",
+        "limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "query": "不存在的项目KG-NONE-20261105",
+        "terms": [
+          "不存在的项目kg-none-20261105"
+        ],
+        "entities": [],
+        "chunks": [],
+        "documents": [],
+        "elapsed_ms": 73.63
+      }
+    },
+    "11_invalid_depth": {
+      "test": "11_invalid_depth",
+      "started": "2026-11-05T00:43:59.015854+08:00",
+      "finished": "2026-11-05T00:43:59.019865+08:00",
+      "elapsed_seconds": 0.0,
+      "method": "POST",
+      "path": "/retrieval/traverse",
+      "request": {
+        "start": "星桥项目",
+        "depth": 0
+      },
+      "http_status": 422,
+      "response": {
+        "detail": [
+          {
+            "type": "greater_than_equal",
+            "loc": [
+              "body",
+              "depth"
+            ],
+            "msg": "Input should be greater than or equal to 1",
+            "input": 0,
+            "ctx": {
+              "ge": 1
+            }
+          }
+        ]
+      }
+    },
+    "12_missing_node": {
+      "test": "12_missing_node",
+      "started": "2026-11-05T00:43:59.022611+08:00",
+      "finished": "2026-11-05T00:43:59.029174+08:00",
+      "elapsed_seconds": 0.0,
+      "method": "GET",
+      "path": "/retrieval/nodes/KG-NODE-NOT-PRESENT",
+      "request": null,
+      "http_status": 404,
+      "response": {
+        "detail": "节点不存在：KG-NODE-NOT-PRESENT"
+      }
+    },
+    "13_entities_resolve": {
+      "test": "13_entities_resolve",
+      "started": "2026-11-05T00:43:59.030180+08:00",
+      "finished": "2026-11-05T00:43:59.034394+08:00",
+      "elapsed_seconds": 0.0,
+      "method": "POST",
+      "path": "/retrieval/entities/resolve",
+      "request": {
+        "text": "星桥项目与演示人员甲",
+        "use_llm": false,
+        "top_k": 3
+      },
+      "http_status": 200,
+      "response": {
+        "text_length": 10,
+        "extractor": "dictionary",
+        "mentions": [
+          {
+            "text": "星桥项目",
+            "start": 0,
+            "end": 4,
+            "type": "其他",
+            "resolved": {
+              "id": "eb2f329c2b789d9d",
+              "name": "星桥项目",
+              "type": "其他",
+              "score": 1.0,
+              "match": "exact"
+            },
+            "candidates": [
+              {
+                "id": "eb2f329c2b789d9d",
+                "name": "星桥项目",
+                "type": "其他",
+                "score": 1.0,
+                "match": "exact"
+              }
+            ]
+          },
+          {
+            "text": "演示人员甲",
+            "start": 5,
+            "end": 10,
+            "type": "人物",
+            "resolved": {
+              "id": "0e865e2d011f04e4",
+              "name": "演示人员甲",
+              "type": "人物",
+              "score": 1.0,
+              "match": "exact"
+            },
+            "candidates": [
+              {
+                "id": "0e865e2d011f04e4",
+                "name": "演示人员甲",
+                "type": "人物",
+                "score": 1.0,
+                "match": "exact"
+              },
+              {
+                "id": "48f0ebba0d365c36",
+                "name": "演示一组",
+                "type": "组织",
+                "score": 0.4444,
+                "match": "fuzzy"
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 0.17
+      }
+    },
+    "14_repeat_ingest": {
+      "test": "14_repeat_ingest",
+      "started": "2026-11-05T00:43:59.036523+08:00",
+      "finished": "2026-11-05T00:43:59.128701+08:00",
+      "elapsed_seconds": 0.09,
+      "method": "POST",
+      "path": "/ingest",
+      "request": {
+        "paths": [
+          "PRIVATE_PROJECT\\.runtime\\test_runs\\20261105_kg_regression_2fef201_v1.0.26\\kg\\minimal_sample_v1.0.0.txt"
+        ],
+        "wait": true,
+        "force": false,
+        "reset": false,
+        "prune": false,
+        "merge_duplicates": false,
+        "concurrency": 1
+      },
+      "http_status": 200,
+      "response": {
+        "job_id": "6b794935cce0",
+        "status": "succeeded",
+        "paths": [
+          "minimal_sample_v1.0.0.txt"
+        ],
+        "saved_paths": [],
+        "created_at": "2026-11-05T00:43:59+08:00",
+        "started_at": "2026-11-05T00:43:59+08:00",
+        "finished_at": "2026-11-05T00:43:59+08:00",
+        "elapsed_seconds": 0.088,
+        "error": "",
+        "totals": {
+          "documents": 1,
+          "skipped": 1,
+          "failed": 0,
+          "chunks": 1,
+          "entities": 0,
+          "relations": 0,
+          "mentions": 0,
+          "extraction_errors": 0,
+          "semantic_duplicates": 0,
+          "entity_variants_merged": 0,
+          "entity_nodes_merged": 0
+        },
+        "options": {
+          "reset": false,
+          "force": false,
+          "prune": false,
+          "merge_duplicates": false,
+          "dry_run": false,
+          "dump_dir": null,
+          "concurrency": 1,
+          "chunk_size": null
+        },
+        "summary": "导入完成，耗时 0.1s\n  文档：1 篇（跳过 1，失败 0）\n  分块：1 个\n  实体：0 个（含提及关系 0 条）\n  关系：0 条",
+        "report": {
+          "dry_run": false,
+          "elapsed_seconds": 0.087,
+          "totals": {
+            "documents": 1,
+            "skipped": 1,
+            "failed": 0,
+            "chunks": 1,
+            "entities": 0,
+            "relations": 0,
+            "mentions": 0,
+            "extraction_errors": 0,
+            "semantic_duplicates": 0,
+            "entity_variants_merged": 0,
+            "entity_nodes_merged": 0
+          },
+          "load_errors": [],
+          "documents": [
+            {
+              "document_id": "7373ab654fb8b2dd",
+              "path": "minimal_sample_v1.0.0.txt",
+              "title": "知识图谱最小测试资料 v1.0.0",
+              "chunks": 1,
+              "entities": 0,
+              "relations": 0,
+              "mentions": 0,
+              "extraction_errors": 0,
+              "skipped": true,
+              "skip_reason": "fingerprint",
+              "duplicate_of": "",
+              "duplicate_score": 0.0,
+              "duplicate_detail": "",
+              "entities_merged": 0,
+              "entity_nodes_merged": 0,
+              "error": ""
+            }
+          ]
+        }
+      }
+    },
+    "15_repeat_status": {
+      "test": "15_repeat_status",
+      "started": "2026-11-05T00:43:59.130416+08:00",
+      "finished": "2026-11-05T00:43:59.141578+08:00",
+      "elapsed_seconds": 0.02,
+      "method": "GET",
+      "path": "/retrieval/status?probe_llm=false",
+      "request": null,
+      "http_status": 200,
+      "response": {
+        "ok": true,
+        "version": "0.1.0",
+        "checked_at": "2026-11-04T16:43:59+00:00",
+        "components": {
+          "graph": {
+            "ok": true,
+            "documents": 1,
+            "chunks": 1,
+            "entities": 3,
+            "relations": 2,
+            "mentions": 3,
+            "empty": false,
+            "error": ""
+          },
+          "neo4j": {
+            "ok": true,
+            "uri": "bolt://127.0.0.1:17687",
+            "database": "neo4j",
+            "latency_ms": 2.35,
+            "server_version": "5.26.32",
+            "edition": "community",
+            "error": ""
+          },
+          "llm": {
+            "ok": true,
+            "configured": true,
+            "probed": false,
+            "model": "hy3",
+            "latency_ms": null,
+            "reply": "",
+            "error": ""
+          }
+        }
+      }
+    },
+    "16_ask_team": {
+      "test": "16_ask_team",
+      "started": "2026-11-05T00:44:31.498994+08:00",
+      "finished": "2026-11-05T00:45:47.071671+08:00",
+      "elapsed_seconds": 75.56,
+      "method": "POST",
+      "path": "/ask",
+      "request": {
+        "question": "只依据测试标识KG-DEMO-20261102的资料，星桥项目由哪个团队负责？",
+        "include_graph_rows": true,
+        "include_chunks": true,
+        "include_trace": true,
+        "include_cypher": true
+      },
+      "http_status": 200,
+      "response": {
+        "question": "只依据测试标识KG-DEMO-20261102的资料，星桥项目由哪个团队负责？",
+        "answer": "**结论**：星桥项目由演示一组负责。\n\n**细节**：测试标识 KG-DEMO-20261102 的资料《知识图谱最小测试资料 v1.0.0》中明确记载：“星桥项目由演示一组负责。”[1]",
+        "confidence": 1.0,
+        "citations": [
+          {
+            "index": 1,
+            "chunk_id": "4d6d9d4c92d821ee",
+            "document_title": "知识图谱最小测试资料 v1.0.0",
+            "document_id": "7373ab654fb8b2dd",
+            "chunk_index": 0,
+            "source": "graph",
+            "snippet": "知识图谱最小测试资料 v1.0.0\n测试标识：KG-DEMO-20261102\n\n本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。"
+          }
+        ],
+        "keywords": [
+          "KG-DEMO-20261102",
+          "星桥项目",
+          "团队",
+          "项目",
+          "资料"
+        ],
+        "entities": [
+          {
+            "id": "eb2f329c2b789d9d",
+            "name": "星桥项目",
+            "type": "其他",
+            "mentions": 2,
+            "score": 2
+          }
+        ],
+        "needs_graph": true,
+        "short_circuit": false,
+        "rounds": 1,
+        "verdict": {
+          "sufficient": true,
+          "missing": "",
+          "suggestion": ""
+        },
+        "cypher": "MATCH (d:Document) WHERE toLower(d.fingerprint) CONTAINS toLower('KG-DEMO-20261102') OR toLower(d.id) CONTAINS toLower('KG-DEMO-20261102') OR toLower(d.title) CONTAINS toLower('KG-DEMO-20261102') MATCH (d)-[:HAS_CHUNK]->(:Chunk)-[:MENTIONS]->(proj:Entity) WHERE toLower(proj.name) CONTAINS toLower('星桥项目') OR any(alias IN coalesce(proj.aliases, []) WHERE toLower(alias) CONTAINS toLower('星桥项目')) MATCH (proj)-[rel:RELATES]-(team:Entity) WHERE team <> proj RETURN team.name AS 团队, rel.type AS 关系类型, proj.name AS 项目 LIMIT 20",
+        "cypher_reason": "通过测试标识限定文档范围，找到星桥项目实体后遍历其RELATES关系得到负责团队的名称。",
+        "cypher_error": "",
+        "cypher_attempts": 1,
+        "graph_rows": [
+          {
+            "团队": "演示一组",
+            "关系类型": "负责",
+            "项目": "星桥项目"
+          },
+          {
+            "团队": "演示人员甲",
+            "关系类型": "任职于",
+            "项目": "演示一组"
+          },
+          {
+            "团队": "星桥项目",
+            "关系类型": "负责",
+            "项目": "演示一组"
+          },
+          {
+            "团队": "演示一组",
+            "关系类型": "任职于",
+            "项目": "演示人员甲"
+          }
+        ],
+        "chunks": [
+          {
+            "id": "4d6d9d4c92d821ee",
+            "text": "知识图谱最小测试资料 v1.0.0\n测试标识：KG-DEMO-20261102\n\n本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。",
+            "document_id": "7373ab654fb8b2dd",
+            "document_title": "知识图谱最小测试资料 v1.0.0",
+            "chunk_index": 0,
+            "entities": [
+              "星桥项目"
+            ],
+            "score": 8.0,
+            "source": "graph"
+          }
+        ],
+        "trace": [
+          "analyze：走图谱，关键词=['KG-DEMO-20261102', '星桥项目', '团队', '项目', '资料']",
+          "link_entities：匹配到 1 个实体",
+          "plan_cypher（第 1 次）：MATCH (d:Document) WHERE toLower(d.fingerprint) CONTAINS toLower('KG-DEMO-20261102') OR toLower(d.id) CONTAINS toLower('KG-DEMO-20261102') OR toLower(d.title) …",
+          "validate_cypher：通过只读校验",
+          "execute_cypher：返回 4 行",
+          "retrieve：命中 graph=1, fulltext=0, vector=0, neighbor=0，共 1 个片段",
+          "synthesize：生成 95 字回答，引用 1 个来源",
+          "verify：回答充分"
+        ],
+        "session_id": null,
+        "turn": null,
+        "elapsed_seconds": 75.319
+      }
+    },
+    "17_ask_leader": {
+      "test": "17_ask_leader",
+      "started": "2026-11-05T00:44:31.502987+08:00",
+      "finished": "2026-11-05T00:47:00.803893+08:00",
+      "elapsed_seconds": 149.3,
+      "method": "POST",
+      "path": "/ask",
+      "request": {
+        "question": "只依据KG-DEMO-20261102资料，负责星桥项目的团队，其负责人是谁？请说明关系依据。",
+        "include_graph_rows": true,
+        "include_chunks": true,
+        "include_trace": true,
+        "include_cypher": true
+      },
+      "http_status": 200,
+      "response": {
+        "question": "只依据KG-DEMO-20261102资料，负责星桥项目的团队，其负责人是谁？请说明关系依据。",
+        "answer": "**结论**：负责星桥项目的团队是演示一组，其负责人是演示人员甲。\n\n**细节**：\n- 星桥项目由演示一组负责 [1]。\n- 演示一组的负责人是演示人员甲 [1]。\n- 关系依据：原文明确写明「星桥项目由演示一组负责」与「演示一组的负责人是演示人员甲」 [1]。",
+        "confidence": 1.0,
+        "citations": [
+          {
+            "index": 1,
+            "chunk_id": "4d6d9d4c92d821ee",
+            "document_title": "知识图谱最小测试资料 v1.0.0",
+            "document_id": "7373ab654fb8b2dd",
+            "chunk_index": 0,
+            "source": "graph",
+            "snippet": "知识图谱最小测试资料 v1.0.0\n测试标识：KG-DEMO-20261102\n\n本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。"
+          }
+        ],
+        "keywords": [
+          "KG-DEMO-20261102",
+          "星桥项目",
+          "星桥",
+          "团队",
+          "负责人"
+        ],
+        "entities": [
+          {
+            "id": "eb2f329c2b789d9d",
+            "name": "星桥项目",
+            "type": "其他",
+            "mentions": 2,
+            "score": 2
+          }
+        ],
+        "needs_graph": true,
+        "short_circuit": false,
+        "rounds": 1,
+        "verdict": {
+          "sufficient": true,
+          "missing": "",
+          "suggestion": ""
+        },
+        "cypher": "MATCH (d:Document) WHERE toLower(d.path) CONTAINS toLower('KG-DEMO-20261102') OR toLower(d.title) CONTAINS toLower('KG-DEMO-20261102') MATCH (d)-[:HAS_CHUNK]->(:Chunk)-[:MENTIONS]->(proj:Entity) WHERE toLower(proj.name) CONTAINS toLower('星桥项目') OR any(alias IN coalesce(proj.aliases, []) WHERE toLower(alias) CONTAINS toLower('星桥项目')) OPTIONAL MATCH (team:Entity)-[r1:RELATES]->(proj) WHERE toLower(r1.type) CONTAINS toLower('负责') OPTIONAL MATCH (team)-[r2:RELATES]->(leader:Entity) WHERE toLower(r2.type) CONTAINS toLower('负责人') OR toLower(r2.type) CONTAINS toLower('领导') RETURN proj.name AS 项目, team.name AS 团队, r1.type AS 团队关系, leader.name AS 负责人, r2.type AS 负责人关系, r2.description AS 关系依据 LIMIT 50",
+        "cypher_reason": "从KG-DEMO-20261102文档定位星桥项目实体，通过RELATES关系找出负责该项目的团队及该团队的负责人，并返回关系类型与描述作为依据。",
+        "cypher_error": "",
+        "cypher_attempts": 1,
+        "graph_rows": [
+          {
+            "项目": "星桥项目",
+            "团队": "演示一组",
+            "团队关系": "负责",
+            "负责人": "星桥项目",
+            "负责人关系": "负责",
+            "关系依据": "演示一组负责星桥项目"
+          },
+          {
+            "项目": "演示一组",
+            "团队": "演示人员甲",
+            "团队关系": "任职于",
+            "负责人": "演示一组",
+            "负责人关系": "任职于",
+            "关系依据": "演示人员甲是演示一组的负责人"
+          },
+          {
+            "项目": "演示人员甲",
+            "团队": null,
+            "团队关系": null,
+            "负责人": null,
+            "负责人关系": null,
+            "关系依据": null
+          }
+        ],
+        "chunks": [
+          {
+            "id": "4d6d9d4c92d821ee",
+            "text": "知识图谱最小测试资料 v1.0.0\n测试标识：KG-DEMO-20261102\n\n本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。",
+            "document_id": "7373ab654fb8b2dd",
+            "document_title": "知识图谱最小测试资料 v1.0.0",
+            "chunk_index": 0,
+            "entities": [
+              "星桥项目"
+            ],
+            "score": 8.0,
+            "source": "graph"
+          }
+        ],
+        "trace": [
+          "analyze：走图谱，关键词=['KG-DEMO-20261102', '星桥项目', '星桥', '团队', '负责人']",
+          "link_entities：匹配到 1 个实体",
+          "plan_cypher（第 1 次）：MATCH (d:Document) WHERE toLower(d.path) CONTAINS toLower('KG-DEMO-20261102') OR toLower(d.title) CONTAINS toLower('KG-DEMO-20261102') MATCH (d)-[:HAS_CHUNK]->…",
+          "validate_cypher：通过只读校验",
+          "execute_cypher：返回 3 行",
+          "retrieve：命中 graph=1, fulltext=0, vector=0, neighbor=0，共 1 个片段",
+          "synthesize：生成 132 字回答，引用 1 个来源",
+          "verify：回答充分"
+        ],
+        "session_id": null,
+        "turn": null,
+        "elapsed_seconds": 149.044
+      }
+    },
+    "18_ask_limit": {
+      "test": "18_ask_limit",
+      "started": "2026-11-05T00:45:47.074192+08:00",
+      "finished": "2026-11-05T00:48:39.753352+08:00",
+      "elapsed_seconds": 172.69,
+      "method": "POST",
+      "path": "/ask",
+      "request": {
+        "question": "只依据KG-DEMO-20261102资料，星桥项目的设备每次最多借用几天？请给出原文依据。",
+        "include_graph_rows": true,
+        "include_chunks": true,
+        "include_trace": true,
+        "include_cypher": true
+      },
+      "http_status": 200,
+      "response": {
+        "question": "只依据KG-DEMO-20261102资料，星桥项目的设备每次最多借用几天？请给出原文依据。",
+        "answer": "**结论**：星桥项目的设备每次最多借用 **3天**。\n\n**原文依据**：原文片段记载：“星桥项目的设备每次最多借用3天。”[1]",
+        "confidence": 1.0,
+        "citations": [
+          {
+            "index": 1,
+            "chunk_id": "4d6d9d4c92d821ee",
+            "document_title": "知识图谱最小测试资料 v1.0.0",
+            "document_id": "7373ab654fb8b2dd",
+            "chunk_index": 0,
+            "source": "graph",
+            "snippet": "知识图谱最小测试资料 v1.0.0\n测试标识：KG-DEMO-20261102\n\n本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。"
+          }
+        ],
+        "keywords": [
+          "KG-DEMO-20261102",
+          "星桥项目",
+          "设备",
+          "借用",
+          "最多天数"
+        ],
+        "entities": [
+          {
+            "id": "eb2f329c2b789d9d",
+            "name": "星桥项目",
+            "type": "其他",
+            "mentions": 2,
+            "score": 1
+          }
+        ],
+        "needs_graph": true,
+        "short_circuit": false,
+        "rounds": 1,
+        "verdict": {
+          "sufficient": true,
+          "missing": "",
+          "suggestion": ""
+        },
+        "cypher": "MATCH (d:Document) WHERE toLower(d.path) CONTAINS toLower('KG-DEMO-20261102') OR toLower(d.title) CONTAINS toLower('KG-DEMO-20261102') MATCH (d)-[:HAS_CHUNK]->(c:Chunk) WHERE toLower(c.text) CONTAINS '借用' OR toLower(c.text) CONTAINS '设备' OR toLower(c.text) CONTAINS '天' MATCH (c)-[:MENTIONS]->(e:Entity) WHERE toLower(e.name) CONTAINS toLower('星桥项目') OR any(alias IN coalesce(e.aliases, []) WHERE toLower(alias) CONTAINS toLower('星桥项目')) RETURN DISTINCT c.text AS 原文依据, c.document_title AS 文档标题 LIMIT 50",
+        "cypher_reason": "该查询在指定文档中定位提及星桥项目且文本包含借用或设备相关词的分块，返回原文依据以回答设备最多借用几天。",
+        "cypher_error": "",
+        "cypher_attempts": 1,
+        "graph_rows": [
+          {
+            "原文依据": "知识图谱最小测试资料 v1.0.0\n测试标识：KG-DEMO-20261102\n\n本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。",
+            "文档标题": "知识图谱最小测试资料 v1.0.0"
+          }
+        ],
+        "chunks": [
+          {
+            "id": "4d6d9d4c92d821ee",
+            "text": "知识图谱最小测试资料 v1.0.0\n测试标识：KG-DEMO-20261102\n\n本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。",
+            "document_id": "7373ab654fb8b2dd",
+            "document_title": "知识图谱最小测试资料 v1.0.0",
+            "chunk_index": 0,
+            "entities": [
+              "星桥项目"
+            ],
+            "score": 7.0,
+            "source": "graph"
+          }
+        ],
+        "trace": [
+          "analyze：走图谱，关键词=['KG-DEMO-20261102', '星桥项目', '设备', '借用', '最多天数']",
+          "link_entities：匹配到 1 个实体",
+          "plan_cypher（第 1 次）：MATCH (d:Document) WHERE toLower(d.path) CONTAINS toLower('KG-DEMO-20261102') OR toLower(d.title) CONTAINS toLower('KG-DEMO-20261102') MATCH (d)-[:HAS_CHUNK]->…",
+          "validate_cypher：通过只读校验",
+          "execute_cypher：返回 1 行",
+          "retrieve：命中 graph=1, fulltext=0, vector=0, neighbor=0，共 1 个片段",
+          "synthesize：生成 67 字回答，引用 1 个来源",
+          "verify：回答充分"
+        ],
+        "session_id": null,
+        "turn": null,
+        "elapsed_seconds": 172.645
+      }
+    },
+    "19_ask_unknown_deposit": {
+      "test": "19_ask_unknown_deposit",
+      "started": "2026-11-05T00:47:00.804926+08:00",
+      "finished": "2026-11-05T00:48:38.423919+08:00",
+      "elapsed_seconds": 97.62,
+      "method": "POST",
+      "path": "/ask",
+      "request": {
+        "question": "只依据KG-DEMO-20261102资料，设备借用押金是多少钱？资料未提供时请明确说明，不要推测。",
+        "include_graph_rows": true,
+        "include_chunks": true,
+        "include_trace": true,
+        "include_cypher": true
+      },
+      "http_status": 200,
+      "response": {
+        "question": "只依据KG-DEMO-20261102资料，设备借用押金是多少钱？资料未提供时请明确说明，不要推测。",
+        "answer": "**结论：** 资料未提供设备借用押金金额。\n\n**细节：** 依据 KG-DEMO-20261102 资料（即《知识图谱最小测试资料 v1.0.0》）原文，明确记载：“本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。” [1]",
+        "confidence": 1.0,
+        "citations": [
+          {
+            "index": 1,
+            "chunk_id": "4d6d9d4c92d821ee",
+            "document_title": "知识图谱最小测试资料 v1.0.0",
+            "document_id": "7373ab654fb8b2dd",
+            "chunk_index": 0,
+            "source": "fulltext",
+            "snippet": "知识图谱最小测试资料 v1.0.0\n测试标识：KG-DEMO-20261102\n\n本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。"
+          }
+        ],
+        "keywords": [
+          "KG-DEMO-20261102",
+          "设备借用",
+          "押金",
+          "设备",
+          "借用",
+          "金额"
+        ],
+        "entities": [],
+        "needs_graph": true,
+        "short_circuit": false,
+        "rounds": 1,
+        "verdict": {
+          "sufficient": true,
+          "missing": "",
+          "suggestion": ""
+        },
+        "cypher": "MATCH (d:Document) WHERE toLower(d.id) CONTAINS toLower('KG-DEMO-20261102') OR toLower(d.path) CONTAINS toLower('KG-DEMO-20261102') OR toLower(d.title) CONTAINS toLower('KG-DEMO-20261102') WITH d OPTIONAL MATCH (d)-[:HAS_CHUNK]->(c:Chunk) WHERE toLower(c.text) CONTAINS toLower('押金') AND (toLower(c.text) CONTAINS toLower('设备') OR toLower(c.text) CONTAINS toLower('借用')) WITH collect(c.text) AS texts, count(c) AS cnt RETURN CASE WHEN cnt = 0 THEN '资料未提供' ELSE texts END AS 答案 LIMIT 50",
+        "cypher_reason": "该查询限定指定文档并搜索含押金与设备/借用的分块文本，若无匹配则明确返回资料未提供",
+        "cypher_error": "",
+        "cypher_attempts": 1,
+        "graph_rows": [
+          {
+            "答案": [
+              "知识图谱最小测试资料 v1.0.0\n测试标识：KG-DEMO-20261102\n\n本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。"
+            ]
+          }
+        ],
+        "chunks": [
+          {
+            "id": "4d6d9d4c92d821ee",
+            "text": "知识图谱最小测试资料 v1.0.0\n测试标识：KG-DEMO-20261102\n\n本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。",
+            "document_id": "7373ab654fb8b2dd",
+            "document_title": "知识图谱最小测试资料 v1.0.0",
+            "chunk_index": 0,
+            "score": 6.0,
+            "source": "fulltext"
+          }
+        ],
+        "trace": [
+          "analyze：走图谱，关键词=['KG-DEMO-20261102', '设备借用', '押金', '设备', '借用', '金额']",
+          "link_entities：匹配到 0 个实体",
+          "plan_cypher（第 1 次）：MATCH (d:Document) WHERE toLower(d.id) CONTAINS toLower('KG-DEMO-20261102') OR toLower(d.path) CONTAINS toLower('KG-DEMO-20261102') OR toLower(d.title) CONTAIN…",
+          "validate_cypher：通过只读校验",
+          "execute_cypher：返回 1 行",
+          "retrieve：命中 graph=0, fulltext=1, vector=0, neighbor=0，共 1 个片段",
+          "synthesize：生成 120 字回答，引用 1 个来源",
+          "verify：回答充分"
+        ],
+        "session_id": null,
+        "turn": null,
+        "elapsed_seconds": 97.597
+      }
+    },
+    "20_ask_unknown_phone": {
+      "test": "20_ask_unknown_phone",
+      "started": "2026-11-05T00:48:38.424936+08:00",
+      "finished": "2026-11-05T00:50:32.793979+08:00",
+      "elapsed_seconds": 114.38,
+      "method": "POST",
+      "path": "/ask",
+      "request": {
+        "question": "只依据KG-DEMO-20261102资料，演示人员甲的联系电话是什么？资料未提供时请明确说明，不要推测。",
+        "include_graph_rows": true,
+        "include_chunks": true,
+        "include_trace": true,
+        "include_cypher": true
+      },
+      "http_status": 200,
+      "response": {
+        "question": "只依据KG-DEMO-20261102资料，演示人员甲的联系电话是什么？资料未提供时请明确说明，不要推测。",
+        "answer": "**结论：** 演示人员甲的联系电话在资料中未提供，无法确定。\n\n**细节：**\n- 资料《知识图谱最小测试资料 v1.0.0》（测试标识：KG-DEMO-20261102）明确声明：“本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。”[1]\n- 因此，依据所给材料，不能推测或给出其联系电话。",
+        "confidence": 1.0,
+        "citations": [
+          {
+            "index": 1,
+            "chunk_id": "4d6d9d4c92d821ee",
+            "document_title": "知识图谱最小测试资料 v1.0.0",
+            "document_id": "7373ab654fb8b2dd",
+            "chunk_index": 0,
+            "source": "graph",
+            "snippet": "知识图谱最小测试资料 v1.0.0\n测试标识：KG-DEMO-20261102\n\n本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。"
+          }
+        ],
+        "keywords": [
+          "KG-DEMO-20261102",
+          "演示人员甲",
+          "联系电话",
+          "演示人员"
+        ],
+        "entities": [
+          {
+            "id": "0e865e2d011f04e4",
+            "name": "演示人员甲",
+            "type": "人物",
+            "mentions": 2,
+            "score": 2
+          }
+        ],
+        "needs_graph": true,
+        "short_circuit": false,
+        "rounds": 1,
+        "verdict": {
+          "sufficient": true,
+          "missing": "",
+          "suggestion": ""
+        },
+        "cypher": "MATCH (d:Document) WHERE toLower(coalesce(d.id, '')) CONTAINS 'kg-demo-20261102' OR toLower(coalesce(d.path, '')) CONTAINS 'kg-demo-20261102' OR toLower(coalesce(d.title, '')) CONTAINS 'kg-demo-20261102' MATCH (d)-[:HAS_CHUNK]->(c:Chunk)-[:MENTIONS]->(e:Entity) WHERE toLower(e.name) CONTAINS toLower('演示人员甲') OR any(alias IN coalesce(e.aliases, []) WHERE toLower(alias) CONTAINS toLower('演示人员甲')) RETURN e.name AS 实体名称, e.description AS 实体描述, c.text AS 分块文本 LIMIT 20",
+        "cypher_reason": "该查询限定KG-DEMO-20261102文档并模糊匹配“演示人员甲”实体，返回其描述与提及分块文本以便核实在资料中是否记载联系电话，若结果为空或文本中无电话信息则表明资料未提供。",
+        "cypher_error": "",
+        "cypher_attempts": 1,
+        "graph_rows": [
+          {
+            "实体名称": "星桥项目",
+            "实体描述": "虚构的测试项目，由演示一组负责",
+            "分块文本": "知识图谱最小测试资料 v1.0.0\n测试标识：KG-DEMO-20261102\n\n本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。"
+          },
+          {
+            "实体名称": "演示一组",
+            "实体描述": "虚构的测试团队，负责星桥项目",
+            "分块文本": "知识图谱最小测试资料 v1.0.0\n测试标识：KG-DEMO-20261102\n\n本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。"
+          },
+          {
+            "实体名称": "演示人员甲",
+            "实体描述": "虚构的测试人员，演示一组的负责人",
+            "分块文本": "知识图谱最小测试资料 v1.0.0\n测试标识：KG-DEMO-20261102\n\n本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。"
+          }
+        ],
+        "chunks": [
+          {
+            "id": "4d6d9d4c92d821ee",
+            "text": "知识图谱最小测试资料 v1.0.0\n测试标识：KG-DEMO-20261102\n\n本资料完全虚构，仅用于软件测试。文中项目、团队、人员均不对应真实组织或个人。\n\n星桥项目由演示一组负责。\n演示一组的负责人是演示人员甲。\n星桥项目的设备每次最多借用3天。\n\n本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。",
+            "document_id": "7373ab654fb8b2dd",
+            "document_title": "知识图谱最小测试资料 v1.0.0",
+            "chunk_index": 0,
+            "entities": [
+              "演示人员甲"
+            ],
+            "score": 7.0,
+            "source": "graph"
+          }
+        ],
+        "trace": [
+          "analyze：走图谱，关键词=['KG-DEMO-20261102', '演示人员甲', '联系电话', '演示人员']",
+          "link_entities：匹配到 1 个实体",
+          "plan_cypher（第 1 次）：MATCH (d:Document) WHERE toLower(coalesce(d.id, '')) CONTAINS 'kg-demo-20261102' OR toLower(coalesce(d.path, '')) CONTAINS 'kg-demo-20261102' OR toLower(coales…",
+          "validate_cypher：通过只读校验",
+          "execute_cypher：返回 3 行",
+          "retrieve：命中 graph=1, fulltext=0, vector=0, neighbor=0，共 1 个片段",
+          "synthesize：生成 153 字回答，引用 1 个来源",
+          "verify：回答充分"
+        ],
+        "session_id": null,
+        "turn": null,
+        "elapsed_seconds": 114.346
+      }
+    },
+    "02_ingest_terminal": {
+      "test": "02_ingest_poll_008",
+      "started": "2026-11-05T00:43:20.953926+08:00",
+      "finished": "2026-11-05T00:43:20.957390+08:00",
+      "elapsed_seconds": 0.0,
+      "method": "GET",
+      "path": "/ingest/jobs/775874301dce",
+      "request": null,
+      "http_status": 200,
+      "response": {
+        "job_id": "775874301dce",
+        "status": "succeeded",
+        "paths": [
+          "minimal_sample_v1.0.0.txt"
+        ],
+        "saved_paths": [],
+        "created_at": "2026-11-05T00:42:10+08:00",
+        "started_at": "2026-11-05T00:42:10+08:00",
+        "finished_at": "2026-11-05T00:43:17+08:00",
+        "elapsed_seconds": 66.311,
+        "error": "",
+        "totals": {
+          "documents": 1,
+          "skipped": 0,
+          "failed": 0,
+          "chunks": 1,
+          "entities": 3,
+          "relations": 2,
+          "mentions": 3,
+          "extraction_errors": 0,
+          "semantic_duplicates": 0,
+          "entity_variants_merged": 0,
+          "entity_nodes_merged": 0
+        },
+        "options": {
+          "reset": false,
+          "force": false,
+          "prune": false,
+          "merge_duplicates": false,
+          "dry_run": false,
+          "dump_dir": null,
+          "concurrency": 1,
+          "chunk_size": null
+        },
+        "summary": "导入完成，耗时 66.3s\n  文档：1 篇（跳过 0，失败 0）\n  分块：1 个\n  实体：3 个（含提及关系 3 条）\n  关系：2 条",
+        "report": {
+          "dry_run": false,
+          "elapsed_seconds": 66.309,
+          "totals": {
+            "documents": 1,
+            "skipped": 0,
+            "failed": 0,
+            "chunks": 1,
+            "entities": 3,
+            "relations": 2,
+            "mentions": 3,
+            "extraction_errors": 0,
+            "semantic_duplicates": 0,
+            "entity_variants_merged": 0,
+            "entity_nodes_merged": 0
+          },
+          "load_errors": [],
+          "documents": [
+            {
+              "document_id": "7373ab654fb8b2dd",
+              "path": "minimal_sample_v1.0.0.txt",
+              "title": "知识图谱最小测试资料 v1.0.0",
+              "chunks": 1,
+              "entities": 3,
+              "relations": 2,
+              "mentions": 3,
+              "extraction_errors": 0,
+              "skipped": false,
+              "skip_reason": "",
+              "duplicate_of": "",
+              "duplicate_score": 0.0,
+              "duplicate_detail": "",
+              "entities_merged": 0,
+              "entity_nodes_merged": 0,
+              "error": ""
+            }
+          ]
+        }
+      }
+    }
+  },
+  "api_independent_review": {
+    "version": "1.0.26",
+    "reviewed_at": "2026-11-05T00:51:44.929914+08:00",
+    "reviewer": "kg_current_contract",
+    "scope": "Independent read-only review of actual preserved API receipts; no model calls or service control by reviewer",
+    "pins": {
+      "document_agent": "2fef201079a63881bfeabf3bb5685632c5fdfd1c",
+      "graph_rag": "4be13b955c4c91a4a74b91a4912e861ef024cbf6"
+    },
+    "checks": [
+      {
+        "id": "empty_ready",
+        "verdict": "pass",
+        "evidence": [
+          "01_empty_status.json"
+        ],
+        "observed": "ok=true; documents/chunks/entities/relations=0; graph.empty=true; llm.probed=false is not a live LLM acceptance"
+      },
+      {
+        "id": "ingest",
+        "verdict": "pass",
+        "evidence": [
+          "02_ingest_poll_008.json",
+          "03_populated_status.json"
+        ],
+        "observed": {
+          "documents": 1,
+          "skipped": 0,
+          "failed": 0,
+          "chunks": 1,
+          "entities": 3,
+          "relations": 2,
+          "mentions": 3,
+          "extraction_errors": 0,
+          "semantic_duplicates": 0,
+          "entity_variants_merged": 0,
+          "entity_nodes_merged": 0
+        },
+        "details": "1 document, 1 chunk, 3 entities, 2 extracted relations, 0 failures/extraction_errors/load_errors; actual status confirms persisted graph"
+      },
+      {
+        "id": "schema",
+        "verdict": "pass",
+        "evidence": [
+          "04_schema.json"
+        ],
+        "observed": "Document=1 Chunk=1 Entity=3; HAS_CHUNK=1 MENTIONS=3 RELATES=2; shown indexes ONLINE, uniqueness constraints present"
+      },
+      {
+        "id": "keywords",
+        "verdict": "pass",
+        "evidence": [
+          "05_keywords.json"
+        ],
+        "observed": "Matched 星桥项目 entity and chunk with KG-DEMO-20261102 and every time at most 3 days; documents=[] does not invalidate returned chunk.document_id"
+      },
+      {
+        "id": "semantic_lexical",
+        "verdict": "pass_with_scope_limit",
+        "evidence": [
+          "06_semantic_lexical.json"
+        ],
+        "observed": "mode=lexical and embedding_enabled=false; relevant project/team and relationship found; vector semantics not tested"
+      },
+      {
+        "id": "two_hop_business_relation",
+        "verdict": "pass",
+        "evidence": [
+          "07_two_hop_traverse.json",
+          "08_relationship_path.json"
+        ],
+        "observed_relationships": [
+          {
+            "source": "演示一组",
+            "target": "星桥项目",
+            "relation_type": "负责",
+            "description": "演示一组负责星桥项目",
+            "evidence": [
+              "4d6d9d4c92d821ee"
+            ]
+          },
+          {
+            "source": "演示人员甲",
+            "target": "演示一组",
+            "relation_type": "任职于",
+            "description": "演示人员甲是演示一组的负责人",
+            "evidence": [
+              "4d6d9d4c92d821ee"
+            ]
+          }
+        ],
+        "details": "Returned actual entity-only project-team-person path length=2. Do not count first chunk-MENTIONS path alone as business relation. Raw edge direction team→project (负责), person→team (任职于/负责人); traversal both permits reverse navigation; endpoint order does not reverse stored edges"
+      },
+      {
+        "id": "source_bodies",
+        "verdict": "pass",
+        "evidence": [
+          "09_source_bodies.json"
+        ],
+        "observed": "Exact synthetic statements and marker present; body.truncated=false; missing=[]; matches returned document/chunk IDs"
+      },
+      {
+        "id": "unknown_keyword",
+        "verdict": "pass",
+        "evidence": [
+          "10_unknown_keyword.json"
+        ],
+        "observed": "No entities/chunks/documents, HTTP200; absence is normal and distinct from transport failure"
+      },
+      {
+        "id": "invalid_depth",
+        "verdict": "pass",
+        "evidence": [
+          "11_invalid_depth.json"
+        ],
+        "observed": "depth=0 rejected HTTP422 at body.depth ge1"
+      },
+      {
+        "id": "missing_node",
+        "verdict": "pass",
+        "evidence": [
+          "12_missing_node.json"
+        ],
+        "observed": "Unknown node returns HTTP404 with explicit missing node detail"
+      },
+      {
+        "id": "entity_resolve",
+        "verdict": "pass",
+        "evidence": [
+          "13_entities_resolve.json"
+        ],
+        "observed": "dictionary extraction resolves project/person by exact names score1.0. Fuzzy lower-ranked team candidate is not chosen"
+      },
+      {
+        "id": "repeat_ingest",
+        "verdict": "pass",
+        "evidence": [
+          "14_repeat_ingest.json",
+          "15_repeat_status.json"
+        ],
+        "observed": "Same document skipped=true skip_reason=fingerprint; no extraction errors; graph documents/chunks/entities/relations/mentions unchanged",
+        "counts_unchanged": true
+      }
+    ],
+    "ask_review": {
+      "state": "completed",
+      "files_reviewed": 5,
+      "answer_and_citation_passes": 5,
+      "items": [
+        {
+          "file": "16_ask_team.json",
+          "http_status": 200,
+          "answer": "**结论**：星桥项目由演示一组负责。\n\n**细节**：测试标识 KG-DEMO-20261102 的资料《知识图谱最小测试资料 v1.0.0》中明确记载：“星桥项目由演示一组负责。”[1]",
+          "answer_matches_frozen_expectation": true,
+          "citation_source_verified": true,
+          "trace_present": true,
+          "cypher_error": "",
+          "answer_verdict": "pass",
+          "intermediate_graph_verdict": "incorrect_or_overbroad_rows_due_to_literal_stripping"
+        },
+        {
+          "file": "17_ask_leader.json",
+          "http_status": 200,
+          "answer": "**结论**：负责星桥项目的团队是演示一组，其负责人是演示人员甲。\n\n**细节**：\n- 星桥项目由演示一组负责 [1]。\n- 演示一组的负责人是演示人员甲 [1]。\n- 关系依据：原文明确写明「星桥项目由演示一组负责」与「演示一组的负责人是演示人员甲」 [1]。",
+          "answer_matches_frozen_expectation": true,
+          "citation_source_verified": true,
+          "trace_present": true,
+          "cypher_error": "",
+          "answer_verdict": "pass",
+          "intermediate_graph_verdict": "incorrect_or_overbroad_rows_due_to_literal_stripping"
+        },
+        {
+          "file": "18_ask_limit.json",
+          "http_status": 200,
+          "answer": "**结论**：星桥项目的设备每次最多借用 **3天**。\n\n**原文依据**：原文片段记载：“星桥项目的设备每次最多借用3天。”[1]",
+          "answer_matches_frozen_expectation": true,
+          "citation_source_verified": true,
+          "trace_present": true,
+          "cypher_error": "",
+          "answer_verdict": "pass",
+          "intermediate_graph_verdict": "not_independently_accepted_due_to_shared_literal_stripping_defect"
+        },
+        {
+          "file": "19_ask_unknown_deposit.json",
+          "http_status": 200,
+          "answer": "**结论：** 资料未提供设备借用押金金额。\n\n**细节：** 依据 KG-DEMO-20261102 资料（即《知识图谱最小测试资料 v1.0.0》）原文，明确记载：“本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。” [1]",
+          "answer_matches_frozen_expectation": true,
+          "citation_source_verified": true,
+          "trace_present": true,
+          "cypher_error": "",
+          "answer_verdict": "pass",
+          "intermediate_graph_verdict": "not_independently_accepted_due_to_shared_literal_stripping_defect"
+        },
+        {
+          "file": "20_ask_unknown_phone.json",
+          "http_status": 200,
+          "answer": "**结论：** 演示人员甲的联系电话在资料中未提供，无法确定。\n\n**细节：**\n- 资料《知识图谱最小测试资料 v1.0.0》（测试标识：KG-DEMO-20261102）明确声明：“本资料未提供设备借用押金金额，也未提供演示人员甲的联系电话。”[1]\n- 因此，依据所给材料，不能推测或给出其联系电话。",
+          "answer_matches_frozen_expectation": true,
+          "citation_source_verified": true,
+          "trace_present": true,
+          "cypher_error": "",
+          "answer_verdict": "pass",
+          "intermediate_graph_verdict": "incorrect_or_overbroad_rows_due_to_literal_stripping"
+        }
+      ],
+      "missing_expected": [],
+      "qualification": "Correct final answers and real source citations in all 5 questions do not validate generated-query execution semantics. Low-level relation/path retrieval passes independently; ask intermediate graph rows fail filtering semantics."
+    },
+    "unverified": [
+      "Vector/embedding semantic retrieval",
+      "Changed-content update and stale-relation cleanup",
+      "Large/multiple-document collisions and ambiguity",
+      "Backend authentication enforcement (isolated auth disabled)",
+      "Document-agent→remote-KG→Word integration and service outage handling are separate root-run tests"
+    ],
+    "source_receipt_sha256": {
+      "01_empty_status.json": "046106c2ef8ee30941cfb09a56d4516a6f11efa034a4c17b83f4305ade312bc8",
+      "02_ingest_poll_008.json": "0b13bbecf9c2aecf68dc8fca9c3102214978fc1c8965a298c0a71b795bb1b748",
+      "03_populated_status.json": "f630ded8f05a5384c7f0abee5b0f1a54d399883a0aac01caf10e8392049b676e",
+      "04_schema.json": "e9af9112ee1adf80cd2e82aa229d5f2a39344158bcac38499c5171c812dc8b22",
+      "05_keywords.json": "a560e32ab1b19c9e370830af18ab019eb49d4f802b3c2fbe9d7dfb6c6ffd99fa",
+      "06_semantic_lexical.json": "2fc316fdebf388bdb3050394aa79c19a36527df9135db8b857d5591955b188da",
+      "07_two_hop_traverse.json": "de07601e45cc69e1c6e85e9899c2a938ff4671053f3e2c43be39896faae908e4",
+      "08_relationship_path.json": "f43a41c2faa6fa5b187fd8dc72024be90e8a666661c60c76a34527b7b4b6aeed",
+      "09_source_bodies.json": "68a1c5810db38a58d3c7df0f3a2de7c7d4bb583f10fc05054df5b31daaf94862",
+      "10_unknown_keyword.json": "2df15dba3c4c60dfb1e536f017a023385d7134cb0447ba7419ab592904d0e3e8",
+      "11_invalid_depth.json": "c4abbb22e0f83b9483994c57865d5d7a05cf03794ca33300bea453bdd941ef49",
+      "12_missing_node.json": "ac121fed84eaa5c4bfd4612bcd8a5894d94311e6a565458b50b0e83cbe1c2891",
+      "13_entities_resolve.json": "b51b6a968476063ba45901420c0d1a06eebd44ab37884736dc5f7bc4cbb7a2b7",
+      "14_repeat_ingest.json": "03c7980deeaeddb785cbec5251567fca8323b7b409e66b69e87c6f329850590a",
+      "15_repeat_status.json": "8a6098331a492df50bef72982c70c026d97c2af7735e99e0443845b103fe167e",
+      "16_ask_team.json": "498768d58b52a31a2a54e29fa57776a2356b960e93d11e592b17185f87962dd7",
+      "17_ask_leader.json": "478367b85780f9ce583f26092fb3142cef0112013627e8986986ea508174f748",
+      "18_ask_limit.json": "7c767b4b3e3026dfd31690472a06ebfb1259ea42afbf1f5c89cb1039102b3945",
+      "19_ask_unknown_deposit.json": "3eecae98cb845c6221e582a78e8e4048b37a2d763b8c4c85d3b57343235647b6",
+      "20_ask_unknown_phone.json": "a0391b3633fd818ce5afde62f20b02c2cfef7006ae43ff21244ca3e5d90f6015"
+    },
+    "new_confirmed_finding": {
+      "id": "DEF-007",
+      "defect_number": "DEF-007 (official register written by parent)",
+      "status": "confirmed_by_actual_API_and_native_vs_store_read_only_queries",
+      "trigger": "Ask the team or its responsible person with KG-DEMO-20261102 source restriction and include_cypher/include_graph_rows true",
+      "actual": [
+        "16 graph_rows includes 演示人员甲 under 团队 and 演示一组 under 项目 despite project filter",
+        "17 graph_rows has 负责人=星桥项目 or 演示一组, no correct responsible-person row",
+        "Final answer and citation are correct via returned source chunk; do not characterize final answer as incorrect",
+        "20 phone question graph_rows includes all three entities although displayed query filters 演示人员甲"
+      ],
+      "expected": "Read-only validation must preserve original query literal values; returned graph_rows must reflect filters/relationship semantics of displayed executed query; ungrounded/mislabeled rows must not be exposed as graph facts",
+      "cause": [
+        {
+          "file": "graph_rag/neo4j_store.py",
+          "line": 240,
+          "detail": "stripped = _strip_literals(cypher); all single/double quoted contents become empty string literals"
+        },
+        {
+          "file": "graph_rag/neo4j_store.py",
+          "line": 268,
+          "detail": "assert_read_only returns compact derived from stripped skeleton rather than validated original query"
+        },
+        {
+          "file": "graph_rag/neo4j_store.py",
+          "line": 1219,
+          "detail": "run_read uses with_limit(assert_read_only(cypher), limit) as actual statement, dropping nonempty filter literals; CONTAINS empty string matches broadly"
+        },
+        {
+          "file": "graph_rag/api/runtime.py",
+          "line": 594,
+          "detail": "API cypher field returns original state.cypher, not rewritten actual statement"
+        }
+      ],
+      "impact_limit": "Observed wrong intermediate rows and query/display mismatch in this single synthetic document. Cross-document leakage or final-answer hallucination is a risk, not yet observed. Not claiming auth/write safety bypass."
+    },
+    "literal_stripping_mechanism_receipt": {
+      "executed_at": "2026-11-05T00:50:06.751217+08:00",
+      "source_commit": "4be13b955c4c91a4a74b91a4912e861ef024cbf6",
+      "source_sha256": "a311651c73f86957171754bf3fade904e756af668f7c8097570f4caa931da7c4",
+      "database": "isolated loopback Bolt 17687",
+      "writes": 0,
+      "model_calls": 0,
+      "observer": "instance-only passthrough wrapper on session/begin_transaction/run records actual statement and delegates unchanged; original product source untouched",
+      "nodes_before": 5,
+      "nodes_after": 5,
+      "cases": [
+        {
+          "id": "eq_absent",
+          "requested_query": "MATCH (e:Entity) WHERE e.name = 'KG-NO-SUCH-ENTITY-20261105' RETURN e.name AS name LIMIT 5",
+          "expected_native_row_count": 0,
+          "native_rows": [],
+          "actual_store_statement": "MATCH (e:Entity) WHERE e.name = '' RETURN e.name AS name LIMIT 5",
+          "store_rows": [],
+          "native_expected": true,
+          "semantics_preserved": true,
+          "query_literal_preserved": false
+        },
+        {
+          "id": "eq_existing",
+          "requested_query": "MATCH (e:Entity) WHERE e.name = '星桥项目' RETURN e.name AS name LIMIT 5",
+          "expected_native_row_count": 1,
+          "native_rows": [
+            {
+              "name": "星桥项目"
+            }
+          ],
+          "actual_store_statement": "MATCH (e:Entity) WHERE e.name = '' RETURN e.name AS name LIMIT 5",
+          "store_rows": [],
+          "native_expected": true,
+          "semantics_preserved": false,
+          "query_literal_preserved": false
+        },
+        {
+          "id": "contains_absent",
+          "requested_query": "MATCH (e:Entity) WHERE e.name CONTAINS 'KG-NO-SUCH-ENTITY-20261105' RETURN e.name AS name LIMIT 5",
+          "expected_native_row_count": 0,
+          "native_rows": [],
+          "actual_store_statement": "MATCH (e:Entity) WHERE e.name CONTAINS '' RETURN e.name AS name LIMIT 5",
+          "store_rows": [
+            {
+              "name": "星桥项目"
+            },
+            {
+              "name": "演示一组"
+            },
+            {
+              "name": "演示人员甲"
+            }
+          ],
+          "native_expected": true,
+          "semantics_preserved": false,
+          "query_literal_preserved": false
+        }
+      ],
+      "verdict": "confirmed_backend_changes_query_literal_semantics"
+    }
+  },
+  "actual_page_reviews": [
+    {
+      "case": "CP-003",
+      "side": "after",
+      "file": "2fef201_CP-003_after_page-1_v1.0.26.png",
+      "sha256": "865bba9bc02b9d6781817531a04694afaf6eb262af374fc17647d0253fafe128",
+      "source_sha256": "278c6bfa27b1ab9981048090b1742d5337366c2915fc87215f8bc46b79d896c3",
+      "review": "root visually inspected actual WPS-rendered page"
+    },
+    {
+      "case": "CP-003",
+      "side": "after",
+      "file": "2fef201_CP-003_after_page-2_v1.0.26.png",
+      "sha256": "71965b7a7c569715ee4dfa44be001552090d381635f08e42d314ca5f23930ee1",
+      "source_sha256": "278c6bfa27b1ab9981048090b1742d5337366c2915fc87215f8bc46b79d896c3",
+      "review": "root visually inspected actual WPS-rendered page"
+    },
+    {
+      "case": "CP-009",
+      "side": "before",
+      "file": "2fef201_CP-009_before_page-1_v1.0.26.png",
+      "sha256": "5b1efb14d2d11f5a66b811942aa93fd32d7caa5ea5ebcfd07fc5692f17e326b4",
+      "source_sha256": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
+      "review": "root visually inspected actual WPS-rendered page"
+    },
+    {
+      "case": "CP-009",
+      "side": "after",
+      "file": "2fef201_CP-009_after_page-1_v1.0.26.png",
+      "sha256": "b46e31ec70df2978c59671bca86d6d0e712e434526daa2d43796748ea0f48595",
+      "source_sha256": "7eef5b3ebec24c65a5043cc5146f0f45fd547acaf7b5219d4d4a43b73738378b",
+      "review": "root visually inspected actual WPS-rendered page"
+    },
+    {
+      "case": "CP-010",
+      "side": "before",
+      "file": "2fef201_CP-010_before_page-1_v1.0.26.png",
+      "sha256": "4f97464fe438fb9d143006ab8c3ea681edef750a62d13100f9c70793e01def1d",
+      "source_sha256": "6f571cdbb6ecf9090c142aa4657aeeeae7ed8ed235bd98624fe22274c9768a8f",
+      "review": "root visually inspected actual WPS-rendered page"
+    },
+    {
+      "case": "CP-010",
+      "side": "after",
+      "file": "2fef201_CP-010_after_page-1_v1.0.26.png",
+      "sha256": "29b36234faa3fe7a0127fc8af7bdb6863ea9036fdc5b089c177876379454fbc2",
+      "source_sha256": "adf4bca2e7c2adf7662305c2396b6303ac404e4ddcba333130ee86434fcf6a18",
+      "review": "root visually inspected actual WPS-rendered page"
+    },
+    {
+      "case": "KG-WORD",
+      "side": "after",
+      "file": "2fef201_KG-WORD_after_page-1_v1.0.26.png",
+      "sha256": "ffeba64d8ec0739b42612b4601b6f287f6be3688382d4ed8d12d8a96433ef7c3",
+      "source_sha256": "b452f7e61ae0ec90568bec17c0568167911d6b76e5a3b4a05cea6d9a2961e68d",
+      "review": "root visually inspected actual WPS-rendered page"
+    },
+    {
+      "case": "KG-UNKNOWN",
+      "side": "after",
+      "file": "2fef201_KG-UNKNOWN_after_page-1_v1.0.26.png",
+      "sha256": "663dacc04a13aa423304cedc6cd96b8ee11fc2e879961cc540699d320df5077e",
+      "source_sha256": "b311196a3a4ea5e3548ab959f383bbc8eb255d68c0c2f0a4b0c64b2c2cf8a632",
+      "review": "root visually inspected actual WPS-rendered page"
+    },
+    {
+      "case": "KG-UNAVAILABLE",
+      "side": "after",
+      "file": "2fef201_KG-UNAVAILABLE_after_page-1_v1.0.26.png",
+      "sha256": "18956785978565e076826e2b563a38e3b23e505d13976f7c43503696a6f642fc",
+      "source_sha256": "96986bf022c9ad8788f58ee15fd9bae4cbb63492245ff61947834d07a4ca34b3",
+      "review": "root visually inspected actual WPS-rendered page"
+    },
+    {
+      "case": "KG-UNAVAILABLE",
+      "side": "after",
+      "file": "2fef201_KG-UNAVAILABLE_after_page-2_v1.0.26.png",
+      "sha256": "c620a19cf84c48a01ce9c9ac43fa3057b49e526bab7fa0923bc9dd92b04399ae",
+      "source_sha256": "96986bf022c9ad8788f58ee15fd9bae4cbb63492245ff61947834d07a4ca34b3",
+      "review": "root visually inspected actual WPS-rendered page"
+    }
+  ],
+  "product_code_modified": false,
+  "dependency_installations": 0,
+  "formal_defects_closed": [],
+  "limitations": [
+    "Hy3 request model, response identity not independently retained",
+    "Default embedding disabled; semantic API used lexical fallback",
+    "One execution per Word scenario; no stability claim",
+    "36 formal master cases remain unaccepted",
+    "No backend code repairs, no skill/Web UI acceptance",
+    "Incremental changed-document replacement, old-edge cleanup, multi-document conflicts, authentication and load not tested"
+  ],
+  "service_cleanup": {
+    "kg_status": "stopped",
+    "regression_database_status": "stopped",
+    "only_own_processes_stopped": true,
+    "test_data_retained": true
+  }
+}
