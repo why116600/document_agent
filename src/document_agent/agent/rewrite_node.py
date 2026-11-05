@@ -36,6 +36,17 @@ from document_agent.write_tool.word_replace import (
     replace_in_paragraph,
     replace_in_table,
 )
+from document_agent.skills.render import (
+    render_evidence_brief,
+    render_format_brief,
+    render_instructions,
+    render_references,
+    render_retrieval_gaps,
+    render_structure_brief,
+    render_task_brief,
+    render_verification_brief,
+)
+from document_agent.skills.schema import coerce_skill
 
 TOOL_DESCRIPTION = """你有以下工具可以使用：
 1. outline: 查看文档的大纲目录与章节结构。参数为空字典 {}。
@@ -2387,6 +2398,21 @@ def create_rewrite_node(llm, knowledge_mode: str = "local"):
         )
 
         dialog = f"{state['messages']}"
+        skill = coerce_skill(state.get("skill"))
+        if skill is not None:
+            skill_blocks = "\n\n".join(block for block in (
+                render_instructions(skill),
+                render_references(skill),
+                render_task_brief(skill),
+                render_structure_brief(skill),
+                render_format_brief(skill),
+                render_evidence_brief(skill),
+                render_verification_brief(skill),
+                render_retrieval_gaps(state.get("retrieval_report")),
+            ) if block)
+            if skill_blocks:
+                dialog = f"{dialog}\n\n{skill_blocks}"
+                print(f"【Skill】改写将同时遵循「{skill.name}」的写作规范")
         mode = (state.get("rewrite_mode") or "patch").lower()
 
         # 有序步骤清单：复合指令（改内容 + 规范排版 + 查找替换…）由大模型拆步，这里按依赖顺序逐步落地

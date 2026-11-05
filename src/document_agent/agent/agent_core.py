@@ -31,6 +31,17 @@ class AgentState(TypedDict):
     document_citations: List[Dict[str, Any]]#远程知识图谱检索到的可引用文档：[{id, full_name, title, path}]，full_name 为完整文件名
     file_roles: Optional[Dict[str, str]]#文件角色标签映射（如待修改目标文档、辅助参考/风格模板）
     error: Optional[str]#错误结果
+    skill_id: Optional[str]#命令行显式指定的 Skill id 或文件路径
+    skill_name: Optional[str]#意图识别从用户原话中提取的 Skill 名称
+    skill: Optional[Dict[str, Any]]#已校验的 Skill 配置（DocumentSkill 的纯字典形式）
+    evidence_records: List[Dict[str, Any]]#检索证据的来源与片段，供引用与验收使用
+    verification_report: Optional[Dict[str, Any]]#落盘后的验收报告
+    capabilities: Optional[Dict[str, Any]]#本次运行中来源/模板/权限的可用性预检结果
+    retrieval_plan: Optional[Dict[str, Any]]#计划驱动的检索队列（问题、来源、查询、预算）
+    retrieval_progress: Optional[Dict[str, Any]]#检索进度（已覆盖/缺失问题、尝试记录）
+    retrieval_report: Optional[Dict[str, Any]]#检索完成后的覆盖报告
+    citations: List[Dict[str, Any]]#整理后的可引用来源清单
+    unmet_requirements: List[str]#最终未满足的检索/验收要求
 
 
 def get_last_user_text(messages) -> str:
@@ -91,6 +102,8 @@ class AgentCore:
         from docx_node import create_new_docx_node
         from rewrite_node import create_rewrite_node
         from file_retrieve_node import create_file_retrieve_node
+        from skill_node import create_skill_node, route_after_skill
+        from verify_node import create_verify_node
 
         settings = remote_kg if isinstance(remote_kg, RemoteKGSettings) else load_remote_kg_settings()
         self.remote_kg_settings = settings
@@ -115,6 +128,10 @@ class AgentCore:
             self.remote_kg_tool = None
             knowledge_node = "retrieve_gdb"
             self.graph.add_node(knowledge_node, create_gdb_retrieve_node(self.llm, gdb, kg))
+        self.graph.add_node(
+            "skill", create_skill_node(self.llm, gdb, kg, remote_kg_tool=self.remote_kg_tool)
+        )
+        self.graph.add_node("verify", create_verify_node(self.llm))
         #两个写作节点要按同一模式渲染检索资料（远程结果带来源标记）
         self.graph.add_node("new_docx", create_new_docx_node(self.llm, knowledge_mode=self.knowledge_mode))
         self.graph.add_node("rewrite_docx", create_rewrite_node(self.llm, knowledge_mode=self.knowledge_mode))
@@ -123,25 +140,41 @@ class AgentCore:
         self.graph.add_conditional_edges(
             "intent",
             route_after_intent,
+            {"continue":"skill","end":END},
+        )
+        #Skill 不存在时原样放行，结构与未启用 Skill 时保持一致
+        self.graph.add_conditional_edges(
+            "skill",
+            route_after_skill,
             {"continue":"summary","end":END},
         )
         self.graph.add_edge("summary","retrieve")
         self.graph.add_edge("retrieve_file","retrieve")
-        self.graph.add_edge(knowledge_node,"retrieve")
+        if settings.enabled:
+            self.graph.add_conditional_edges(
+                knowledge_node,
+                lambda state: "end" if state.get("state") == "error" else "continue",
+                {"end": END, "continue": "retrieve"},
+            )
+        else:
+            self.graph.add_edge(knowledge_node,"retrieve")
         #按检索工具与用户意图决定流转（继续检索 / 改写 / 新建 / 结束）
         self.graph.add_conditional_edges(
             "retrieve",
             route_retrieve,
             {"rewrite":"rewrite_docx","new":"new_docx","file":"retrieve_file","knowledge":knowledge_node,"end":END},
         )
-        self.graph.add_edge("new_docx",END)
-        self.graph.add_edge("rewrite_docx",END)
+        #生成完成后统一进入验收：未配置 Skill 时直接放行，保持原有行为
+        self.graph.add_edge("new_docx","verify")
+        self.graph.add_edge("rewrite_docx","verify")
+        self.graph.add_edge("verify",END)
         self.agent_invoke=self.graph.compile(checkpointer=self.checkpointer)
         
     def invoke(self, user_input: str, input_file_path: Optional[List[str]] = None,
                session_id: str = "default_session",
                save_path: str = "",
-               output_dir: Optional[str] = None) -> AgentState:
+               output_dir: Optional[str] = None,
+               skill_id: Optional[str] = None) -> AgentState:
         """执行一次写作/改写任务。
 
         :param save_path: 显式指定的输出文件路径，为空时由意图节点自动推导；
@@ -174,6 +207,17 @@ class AgentCore:
                 "document_citations": [],
                 "file_roles": {},
                 "error": None,
+                "skill_id": skill_id,
+                "skill_name": None,
+                "skill": None,
+                "evidence_records": [],
+                "verification_report": None,
+                "capabilities": None,
+                "retrieval_plan": None,
+                "retrieval_progress": None,
+                "retrieval_report": None,
+                "citations": [],
+                "unmet_requirements": [],
             },
             config=config
         )

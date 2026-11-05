@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from agent_core import AgentState, get_last_user_text
 from llm_client import llm_model_invoke
 from document_agent.file_types import SUPPORTED_REFERENCE_SUFFIXES
+from document_agent.skills.store import list_skill_summaries
 
 
 
@@ -107,6 +108,13 @@ class DocumentTaskIntent(BaseModel):
     save_filename: Optional[str] = Field(
         default=None,
         description="兼容旧字段，与 suggested_filename 含义一致。"
+    )
+    skill: Optional[str] = Field(
+        default=None,
+        description=(
+            "用户明确要求使用的文档 Skill：从【可用 Skill 列表】中挑选最匹配的 id；"
+            "用户没有提到任何 Skill 时必须为 null，不要自行臆测。"
+        )
     )
     reasoning: str = Field(
         default="",
@@ -301,17 +309,28 @@ def validate_reference_paths(reference_paths: Optional[List[str]]) -> Tuple[List
     return valid, ""
 
 
-def build_full_intent_prompt(user_prompt: str, candidate_files: List[str]) -> str:
+def build_full_intent_prompt(user_prompt: str, candidate_files: List[str],
+                             available_skills: Optional[List[Tuple[str, str, str]]] = None) -> str:
     """构建用于全量意图与槽位分析的大模型提示词。"""
     if candidate_files:
         files_desc = "\n".join([f"- {Path(f).name} (完整路径: {f})" for f in candidate_files])
     else:
         files_desc = "(未提供任何候选文件)"
 
+    if available_skills:
+        lines = []
+        for skill_id, skill_name, triggers in available_skills:
+            suffix = f"｜触发词={triggers}" if triggers else ""
+            lines.append(f"- id={skill_id}｜名称={skill_name}{suffix}")
+        skills_desc = "\n".join(lines)
+    else:
+        skills_desc = "(当前没有已配置的 Skill)"
+
     return (
         "你是一个专业的智能文档写作与改写意图分析助手。用户提供了一组候选文件列表，并提出了一段自然语言指令。\n"
         "请根据用户指令和候选文件，深度理解用户的真实意图并提取关键槽位参数：\n\n"
         f"【候选文件列表】\n{files_desc}\n\n"
+        f"【可用 Skill 列表】\n{skills_desc}\n\n"
         f"【用户指令内容】\n{user_prompt}\n\n"
         "【分析与槽位抽取规范】\n"
         "1. task_type 判断：\n"
@@ -351,7 +370,11 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str]) -> st
         "     * 若为 rewrite 模式且为 new_file：根据待改写文件名、参考文件风格和改写意图智能拟定一个专业得体的新文件名"
         "（例如：原文件是'11_粗糙排版_各业务线自报数据与零散问题汇总.docx'，参考了'正式版2'，可智能拟定为'11_各业务线自报数据与零散问题汇总_正式版.docx'或'11_各业务线自报数据与零散问题汇总_规范排版版.docx'）；\n"
         "     * 若为 overwrite 模式：可填原文件名或保持为 null。\n"
-        "7. reasoning：简要阐述判断依据、是否为复合指令及步骤拆分理由，以及文件名推导理由。"
+        "7. skill 挑选：\n"
+        "   - 仅当用户明确提到要按某个 Skill／规范／模板撰写（例如'用行业研究报告 Skill 写'、'按公司公文规范写'）时，"
+        "从【可用 Skill 列表】中挑选 id 填入；\n"
+        "   - 用户没有提到 Skill，或列表为空时，必须为 null，绝不能自行臆测。\n"
+        "8. reasoning：简要阐述判断依据、是否为复合指令及步骤拆分理由、Skill 命中理由，以及文件名推导理由。"
     )
 
 
@@ -433,16 +456,25 @@ def create_intent_node(llm=None):
         rewrite_mode = None
         rewrite_steps: List[Dict[str, Any]] = []
         extracted_save_filename = None
+        skill_name = None
         user_intent = "new"
 
         # 2. 大模型全量分析指令与候选文件池
         if llm is not None and user_prompt:
             print("【意图分析】正在分析用户指令与候选文件...")
-            intent_prompt = build_full_intent_prompt(user_prompt, valid_input_files)
+            available_skills: List[Tuple[str, str, str]] = []
+            try:
+                available_skills = list_skill_summaries()
+            except Exception as exc:
+                print(f"【Skill】读取 Skill 目录失败，本次不提供可选 Skill：{exc}")
+            intent_prompt = build_full_intent_prompt(user_prompt, valid_input_files, available_skills)
             task_intent = llm_model_invoke(llm, intent_prompt, DocumentTaskIntent)
 
             if task_intent:
                 print(f"【智能意图分析结果】任务类型: {task_intent.task_type.upper()} | 依据: {task_intent.reasoning}")
+                skill_name = (task_intent.skill or "").strip() or None
+                if skill_name:
+                    print(f"【智能意图分析结果】命中 Skill：{skill_name}")
                 if task_intent.task_type == "rewrite":
                     user_intent = "rewrite"
                     target_candidate = task_intent.target_file
@@ -533,6 +565,7 @@ def create_intent_node(llm=None):
             "save_path": final_save_path,
             "input_file_path": valid_input_files,  # 保留全部文件
             "file_roles": file_roles,              # 各文件角色
+            "skill_name": skill_name,              # 意图识别命中的 Skill（未命中为 None）
         }
 
     return intent_node

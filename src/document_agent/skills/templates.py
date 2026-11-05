@@ -1,0 +1,168 @@
+"""Skill 模板、SKILL.md 正文模板与「自然语言生成 Skill」所需的提示词。"""
+
+from __future__ import annotations
+
+import json
+from typing import Optional
+
+from .schema import (
+    AVAILABLE_SOURCES,
+    DocumentSkill,
+    EvidenceSpec,
+    FormatSpec,
+    KnowledgeRetrievalSpec,
+    LengthTarget,
+    ResearchSpec,
+    SectionSpec,
+    SourcePolicy,
+    StructureSpec,
+    TaskSpec,
+    VerificationSpec,
+)
+
+TEMPLATE_BODY = """# 执行说明
+
+## 适用场景
+
+说明本 Skill 适用于哪类文档与哪类任务（新建 / 改写），以及用户通常会怎样描述需求。
+
+## 执行流程
+
+1. 先确认文档用途、读者与硬性章节；
+2. 按「检索规范」收集必需数据，并在正文标注来源；
+3. 逐章写作，遵守章节顺序、格式与术语要求；
+4. 输出前自检：章节齐全、要点覆盖、引用可追溯、无占位内容。
+
+## 主要指令
+
+- 结论先行，先给判断再给依据；
+- 所有关键数据必须带来源标记；
+- 没有检索到依据的内容必须显式标注，不得编造。
+"""
+
+
+def build_template_skill(skill_id: str, name: Optional[str] = None) -> DocumentSkill:
+    """生成一份可直接编辑的最小可用 Skill 模板。"""
+    return DocumentSkill(
+        id=skill_id,
+        name=name or skill_id,
+        description="示例模板：请按实际文档类型修改用途、章节、检索目标与验收要求",
+        task=TaskSpec(
+            doc_type="any",
+            triggers=["写一份文档", "起草规范文档"],
+            purpose="说明文档要达到的业务目的",
+            audience="说明文档给谁看",
+            tone="正式、客观、结论先行",
+            professionalism="专业严谨",
+            length_target=LengthTarget(min_chars=1500),
+            terminology=["统一使用文档中给出的术语写法"],
+            banned_expressions=["大概", "可能吧", "众所周知"],
+        ),
+        structure=StructureSpec(
+            order="strict",
+            numbering="一、",
+            output_format="以段落为主，关键数据用表格呈现",
+            format=FormatSpec(
+                body_font="宋体",
+                body_size=12,
+                heading_font="黑体",
+                heading_sizes={1: 16, 2: 14},
+                heading_bold=True,
+                line_spacing=1.5,
+            ),
+            sections=[
+                SectionSpec(
+                    key="overview",
+                    title="概述",
+                    level=1,
+                    guidance="说明文档背景、目的与适用范围",
+                    must_include=["背景", "目的"],
+                    evidence_types=["背景资料"],
+                ),
+                SectionSpec(
+                    key="body",
+                    title="主要内容",
+                    level=1,
+                    guidance="按主题展开论述，关键数据需给出处",
+                    evidence_required=True,
+                    min_citations=1,
+                    evidence_types=["数据指标"],
+                ),
+                SectionSpec(
+                    key="conclusion",
+                    title="结论与建议",
+                    level=1,
+                    guidance="给出可执行的结论与后续建议",
+                ),
+            ],
+        ),
+        research=ResearchSpec(
+            questions=["围绕文档主题需要回答的核心问题"],
+            data_fields=["关键指标名称"],
+            time_range="最近三年",
+            max_rounds=4,
+            per_question_attempts=2,
+            source=SourcePolicy(priority=["file", "knowledge"]),
+            knowledge=KnowledgeRetrievalSpec(top_k=8, min_similarity=0.2, max_expansions=5),
+            credibility_rule="优先采用正式发布、可追溯的资料",
+        ),
+        evidence=EvidenceSpec(
+            citation_template="【来源：{name}】",
+            min_sources_per_key_claim=1,
+            cross_validation=True,
+            conflict_policy="优先采用来源优先级更高的资料，并在文中标注冲突",
+        ),
+        verification=VerificationSpec(
+            checks=[
+                "required_sections",
+                "section_order",
+                "must_include",
+                "citations",
+                "citation_sources",
+                "banned_expressions",
+                "no_placeholder",
+                "min_length",
+            ],
+        ),
+    )
+
+
+def skill_example_json() -> str:
+    """给 LLM 生成 Skill 时参考的完整字段示例。"""
+    template = build_template_skill("example_skill", "示例 Skill")
+    return json.dumps(template.to_config_dict(), ensure_ascii=False, indent=2)
+
+
+def draft_skill_prompt(description: str, skill_id: Optional[str] = None) -> str:
+    """构造「用户自然语言描述 → Skill JSON」的提示词。"""
+    id_line = f"id 使用「{skill_id}」，" if skill_id else "id 依据主题取英文小写下划线或短横线，"
+    return (
+        "你是文档工作流配置助手。请把用户的文档需求转换成一份 Skill JSON 配置。\n"
+        "只输出一个 JSON 对象，不要输出任何解释、Markdown 代码块或多余文字。\n\n"
+        f"【用户需求】\n{description}\n\n"
+        "【字段约束】\n"
+        f"- {id_line}name 为中文展示名；version 固定为 1；\n"
+        "- task.doc_type 取 new / rewrite / any；task.purpose、audience、tone、professionalism 用中文描述；\n"
+        "- task.triggers 为触发词数组；task.terminology 为统一术语数组；task.banned_expressions 为禁用表达数组；\n"
+        "- task.length_target 可含 min_chars / max_chars，均为整数；\n"
+        "- structure.order 取 strict / flexible；sections 为章节数组，每项含 title（必填）、level(1~4)、"
+        "required、must_include、evidence_types、evidence_required、min_citations、guidance；\n"
+        "- structure.format 可含 body_font、body_size、heading_font、heading_sizes、heading_bold、"
+        "line_spacing、first_line_indent；\n"
+        "- research.questions 为必须回答的研究问题数组；research.data_fields 为必须收集的字段数组；\n"
+        "- research.time_range、region、credibility_rule 为自然语言描述；research.max_rounds 为 1~10 的整数；\n"
+        "- research.per_question_attempts 为 1~5 的整数，表示单个问题最多尝试几次；\n"
+        f"- research.source.priority 只能从 {AVAILABLE_SOURCES} 中取值，按优先级排列；\n"
+        "- research.knowledge 可含 top_k(1~50)、min_similarity(0~1)、expand_neighbors、max_expansions(1~50)；\n"
+        "- research.file 可含 max_chars（0 表示不限制）；research.query_expansion 为布尔值；\n"
+        "- research.on_empty 取 rewrite_query / fallback_source / mark_missing；\n"
+        "- evidence.citation_template 必须包含 {name} 占位符，默认「【来源：{name}】」；\n"
+        "- evidence.min_sources_per_key_claim 为 0~10 的整数；evidence.cross_validation 为布尔值；\n"
+        "- verification.checks 只能从 required_sections / section_order / must_include / required_data / "
+        "citations / citation_sources / unsupported_claims / terminology / banned_expressions / "
+        "no_placeholder / min_length 中取值；\n"
+        "- verification.semantic_review 为布尔值；verification.on_failure 固定为 report；\n"
+        "- 禁止出现上述字段之外的键名。\n\n"
+        "【字段示例（结构与取值方式可参考，内容需按用户需求重新生成）】\n"
+        f"{skill_example_json()}\n"
+    )

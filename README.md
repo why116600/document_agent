@@ -228,13 +228,211 @@ export MODEL_API_KEY="你的密钥"
   `--host` / `--port` 临时覆盖监听地址与端口，`--show-config` / `--print-endpoint` 用于查看最终监听配置。
 
 ## 工作流
-`intent`（参数校验与初始化）→ `summary`（参考文件摘要）→ `retrieve`（检索相关素材）→ 按意图分流：
+`intent`（参数校验与初始化）→ `skill`（加载用户自定义 Skill，未指定时直接放行）→ `summary`（参考文件摘要）
+→ `retrieve`（检索相关素材）→ 按意图分流：
 - `new_docx`：规划章节并逐章生成新文档
 - `rewrite_docx`：解析原文档结构，由模型给出"逐元素修改方案"并改写文档结构（保留未改动部分的原始格式、表格与页面设置），默认另存为新文件
+→ `verify`（按 Skill 验收，未配置 Skill 时直接放行）
 
 使用以下命令将文档录入知识库中（需先启动本地 Memgraph 图数据库，连接配置见 `src/setting.json`）：
 ```bash
 python -m document_agent.knowledge_base_record <file1> <file2> ...
+```
+
+## 用户自定义文档 Skill
+
+Skill 是一份声明式配置，用来描述一类文档的写作规范、检索目标与来源策略、证据要求和验收条件。
+启用后流程中会多出两个节点：`skill`（匹配、校验、能力预检与检索计划）与 `verify`（程序化验收 + 语义补充评估）。
+**未指定 Skill 时，行为与原来完全一致。**
+
+五类东西的职责边界：
+
+| 概念 | 在本系统中的载体 | 作用 |
+| --- | --- | --- |
+| Skill 指令 | `SKILL.md` 正文 | 告诉模型「应该怎样完成任务」，注入写作/改写提示词 |
+| Skill 配置 | `skill.yaml` | 结构化表达写作、检索与验收规则，加载时校验、运行时驱动编排 |
+| 检索工具 | `retrieve_file` / `retrieve_gdb` 节点 | 实际读取文件与知识库，返回证据与元数据 |
+| 工作流编排 | LangGraph 节点与 `retrieval_plan` | 决定匹配、预检、检索顺序、重试、缺失报告与异常处理 |
+| 验证器 | `verify_node` | 执行程序化检查，并调用模型做语义补充评估 |
+
+### 两种组织方式
+
+推荐使用 **Skill 包**（`src/skills/industry_report/` 即完整示例）：
+
+```
+skills/<id>/
+├── SKILL.md          # 必需：名称、用途、适用条件、执行流程、主要指令
+├── skill.yaml        # 必需：A~E 结构化配置（也支持 skill.yml / skill.json）
+├── references/       # 可选：术语表、详细规范、示例（.md/.txt/.markdown）
+└── assets/           # 可选：template.docx 作为新文档的版式基底
+```
+
+也兼容单文件 `skills/<id>.json|.yaml`，适合最小化试用。
+
+| 文件 | 是否必需 | 作用 | 是否影响实际执行 |
+| --- | --- | --- | --- |
+| `SKILL.md` | 包模式必需 | 人类可读的执行流程与主要指令；可选 YAML frontmatter（`id/name/version/description`，与 `skill.yaml` 冲突会报错） | 正文会作为【Skill 执行说明】注入写作与改写提示词 |
+| `skill.yaml` | 必需 | 机器可校验的结构化配置，加载时由 pydantic 校验 | 是，见下方映射表 |
+| `references/` | 可选 | 详细规范、术语表、示例；自动读取 `.md/.txt`，单文件最多 6000 字、总量最多 12000 字、最多 20 个 | 会作为【参考规范与术语】注入写作与改写提示词 |
+| `assets/template.docx` | 可选 | 新文档的版式基底（封面、页眉、样式） | 新建文档时以该文件为基底，再追加生成内容 |
+
+**为什么没有拆成 `retrieval.yaml` + `writing.yaml`**：现有执行链路一次性加载一个经过 pydantic 校验的配置对象，
+拆分会让跨文件的 id/版本/引用模板一致性需要额外校验，收益低于成本。检索相关字段已经集中在
+`research` / `evidence` 两节，语义边界清晰，因此采用单一 `skill.yaml`。
+
+### 结构化配置字段
+
+| 分组 | 字段 | 说明 |
+| --- | --- | --- |
+| A 基本信息 | `id` / `name` / `version` / `description` | 唯一标识、展示名、版本、适用场景；`id` 只能是小写字母、数字、下划线与短横线 |
+| A 基本信息 | `enabled` / `created_by` / `created_at` / `updated_at` | 启用状态与审计信息；禁用的 Skill 不会被列出或自动匹配 |
+| A 基本信息 | `task.doc_type` / `task.triggers` | 适用任务（`new`/`rewrite`/`any`）与触发词（意图识别时展示给模型） |
+| B 写作规范 | `task.purpose` / `audience` / `tone` / `professionalism` / `language` | 文档目标、读者、语气、专业程度、语言 |
+| B 写作规范 | `task.length_target` / `task.terminology` / `task.banned_expressions` / `task.extra_requirements` | 篇幅、统一术语写法、禁用表达、其它约束 |
+| B 写作规范 | `structure.order` / `numbering` / `output_format` | 章节顺序、编号体例、段落/表格等输出格式 |
+| B 写作规范 | `structure.sections` | 章节：`title`、`level`(1~4)、`required`、`must_include`、`evidence_types`、`evidence_required`、`min_citations`、`guidance` |
+| B 写作规范 | `structure.format` | 正文字体/字号、标题字体/各级字号、加粗、行距、首行缩进 |
+| C 检索目标 | `research.questions` / `data_fields` | 必须回答的问题、必须收集的数据字段 |
+| C 检索目标 | `research.time_range` / `region` | 时间范围、地域范围（仅提示词约束） |
+| D 检索策略 | `research.source.priority` | 允许使用的来源与优先级，仅支持 `knowledge`（知识库）与 `file`（用户文件） |
+| D 检索策略 | `research.knowledge` | 知识库召回数 `top_k`、最低相似度 `min_similarity`、是否展开邻居、展开轮次 `max_expansions` |
+| D 检索策略 | `research.file.max_chars` | 单个文件送入模型的最大字符数，0 表示不限制 |
+| D 检索策略 | `research.max_rounds` / `per_question_attempts` | 全局轮次上限 / 单个研究问题最多尝试几次 |
+| D 检索策略 | `research.query_expansion` / `on_empty` / `stop_when` | 查询改写、空结果处理、提前结束条件 |
+| D 检索策略 | `research.credibility_rule` | 来源可信度与时效性要求（仅提示词与语义评估） |
+| D 检索策略 | `evidence.citation_template` / `min_sources_per_key_claim` / `cross_validation` / `conflict_policy` | 引用格式、来源数量、交叉验证与冲突处理 |
+| E 验收规则 | `verification.checks` / `semantic_review` / `on_failure` | 程序化验收项列表、是否做语义补充评估；`on_failure` 当前固定为 `report` |
+
+### 配置与真实执行能力的对应
+
+只有下表中的「硬约束」会被代码强制执行；标为「提示词」的规则会写进模型提示词，但无法保证 100% 遵守。
+
+| 配置项 | 实际执行效果 | 类型 |
+| --- | --- | --- |
+| `structure.sections` / `order` | `new_docx` 直接按清单逐章生成，不再让模型自由规划；`verify` 校验标题与顺序 | 硬约束 |
+| `structure.format` | 设为 Normal 样式基础字体/字号/行距/缩进，并把格式要求写入提示词；验收不检查字体 | 半硬约束 |
+| `research.source.priority` | `retrieve` 只开放列出的工具，越权调用会被拒绝并反馈给模型 | 硬约束 |
+| `research.max_rounds` | 覆盖默认检索轮次预算（默认 3 次） | 硬约束 |
+| `research.knowledge.*` | 直接传给 `search_by_vector(top_k)`，按 `min_similarity` 过滤，按 id 去重，控制是否展开邻居与展开轮次 | 硬约束 |
+| `research.file.max_chars` | 文件内容超长时截断后再送入模型 | 硬约束 |
+| `research.questions` / `data_fields` | 并入检索目标与检索提示词；`required_data` 验收检查字段是否出现 | 提示词 + 验收 |
+| `time_range` / `region` / `credibility_rule` / `query_expansion` / `stop_when` / `on_empty` / `cross_validation` / `conflict_policy` | 写入检索/写作提示词，引导模型行为 | 提示词 |
+| `evidence.citation_template` | 写入写作提示词；`citations` / `citation_sources` 按模板解析并校验 | 提示词 + 验收 |
+| `verification.checks` | 落盘后逐项执行并输出报告 | 硬约束（只报告） |
+| `SKILL.md` / `references/` / `assets/template.docx` | 注入写作与改写提示词；模板作为文档基底 | 硬约束（注入） |
+
+**不在配置中暴露不存在的能力**：系统没有网页检索、BM25/关键词检索器、reranker，知识库节点也没有时间字段，
+因此不提供 `web_search`、`strategy: keyword|hybrid`、`date_filter` 这类字段；写了会直接校验失败或被忽略。
+`research.on_empty` 目前只有三种提示词级策略，没有真正的换源重试引擎。
+
+### 工作流编排
+
+1. **匹配**（`skill` 节点）：`--skill` 显式指定 > 用户原话出现 Skill id（完整词边界）>
+   用户原话出现最长的 Skill 名称 > 最长触发词唯一命中 > 意图识别建议 > 不启用。
+   同长度多命中视为歧义，提示改用 `--skill`；禁用 Skill 不参与自动匹配。
+2. **校验**：pydantic 校验配置；`doc_type` 与当前任务不匹配直接报错。
+3. **能力预检**：逐项检查 `file`（是否有可检索文件）、`knowledge`（图数据库连通性）、
+   `template`（文件是否存在）与权限（本地进程暂无权限模型）。部分不可用时跳过该来源并打印；
+   全部不可用且技能声明了研究目标时直接报错。
+4. **检索计划**：先由模型把研究问题改写成 1~3 条检索式（失败则退回问题原文），
+   再按「问题 → 来源优先级 → 文件」展开成有序队列；单题受 `per_question_attempts` 限制，
+   全局受 `max_rounds` 限制。
+5. **执行与覆盖判断**：每执行一步，下一轮判断新增证据是否回答了当前问题；
+   覆盖则跳过该问题剩余步骤，未覆盖则继续下一步；预算或步骤用尽时把未覆盖问题写入
+   `retrieval_report.missing`。检索工具返回的可恢复错误不会污染最终状态。
+6. **生成**：按 `structure.sections` 逐章生成，注入 SKILL.md、references 与检索证据。
+7. **验收**：程序化检查 + 语义补充评估，输出 `verification_report`、`citations` 与
+   `unmet_requirements`；控制台会打印验收摘要、可追溯来源数量、未覆盖问题与未满足要求。
+
+### 验收项
+
+| 检查项 | 判定方式 |
+| --- | --- |
+| `required_sections` | 必填章节标题是否出现在文档大纲中 |
+| `section_order` | 已匹配章节的实际出现顺序是否符合清单 |
+| `must_include` | 各章节范围内是否出现 `must_include` 要点 |
+| `required_data` | `research.data_fields` 是否全部出现在正文中 |
+| `citations` | 需引用章节的引用标记数量是否达标 |
+| `citation_sources` | 引用标记中的 `{name}` 是否能对应到已检索来源（含用户提供文件与知识库来源） |
+| `unsupported_claims` | 含「预计/预测/判断/可能」等措辞的段落是否带引用，或标注「未检索到依据」 |
+| `terminology` | `task.terminology` 中的主术语是否都出现在正文 |
+| `banned_expressions` | 是否出现 `task.banned_expressions` 中的表达 |
+| `no_placeholder` | 是否出现「待补充 / TODO / 此处省略」等占位内容 |
+| `min_length` | 正文字数是否落在 `min_chars`~`max_chars` 区间 |
+| `semantic_review`（独立开关，不在 `checks` 列表中） | 程序化检查之后，由模型评估术语口径、交叉验证、冲突处理、时间/地域一致性与专业程度；结果记录为 `executed/passed/issues`，不阻断保存 |
+
+### 创建与管理
+
+以下命令与 `console_app` 一致，需在 `src` 目录下运行（或先在仓库根目录执行 `pip install -e .`）。
+
+```bash
+# 列出 / 查看 / 校验（目录与单文件都支持）
+python -m document_agent.skill_cli list
+python -m document_agent.skill_cli show industry_report
+python -m document_agent.skill_cli validate industry_report
+python -m document_agent.skill_cli validate skills/industry_report
+
+# 生成 Skill 包（SKILL.md + skill.yaml）；--single 改为单文件
+python -m document_agent.skill_cli new my_standard
+python -m document_agent.skill_cli new my_standard --single --yaml
+
+# 用自然语言生成（需要 MODEL_API_KEY 等模型配置）
+python -m document_agent.skill_cli draft "写一份面向管理层的季度经营分析报告，要求数据可溯源" --id quarterly_report
+```
+
+### 在写作任务中使用
+
+```bash
+# 显式指定 Skill（id、名称、目录或文件路径均可）
+python -m document_agent.console_app --skill industry_report D:/docs/行业数据.pdf
+# 提示符输入：写一份 2026 年新能源行业研究报告，另存为 行业研究报告.docx
+
+# 也可以在自然语言中直接说明，由意图识别节点匹配（会参考 task.triggers）
+python -m document_agent.console_app D:/docs/行业数据.pdf
+# 提示符输入：用「行业研究报告」Skill 写一份……
+```
+
+### 示例说明：`industry_report` 如何影响执行
+
+`src/skills/industry_report/` 的配置会实际改变以下行为：
+
+1. **计划驱动检索**：3 个研究问题会先被改写成检索式，再按 `knowledge → file` 展开；
+   单题最多尝试 2 次、全局最多 6 步。每步结束后判断证据是否回答了该问题，覆盖则跳过剩余步骤，
+   未覆盖则继续；预算耗尽时把未覆盖问题写入 `retrieval_report.missing`。
+2. **只开放声明的来源**：`source.priority` 之外的检索工具会被拒绝；知识库召回 8 条、
+   相似度低于 0.15 丢弃、按 id 去重、最多展开 6 轮。
+3. **文件检索截断**：用户提供的 PDF/Excel 超过 30000 字时先截断，避免提示词超长。
+4. **章节不可自由发挥**：`structure.sections` 的 5 个章节与顺序会直接作为生成计划，
+   `evidence_types`、`must_include` 写入每章提示词。
+5. **写作口径统一**：`SKILL.md` 的执行说明与 `references/glossary.md`、`style_guide.md`
+   会注入写作提示词，约束结论先行、数据口径、禁用表达与引用写法。
+6. **验收 = 程序化 11 项 + 语义评估**：正文缺少「市场规模」触发 `required_data`；
+   引用「【来源：不存在的文件.pdf】」触发 `citation_sources`；
+   「预计未来增长」既无引用也无「未检索到依据」触发 `unsupported_claims`；
+   出现「大概」触发 `banned_expressions`。随后由模型补充评估术语口径、交叉验证、
+   数据时间一致性与专业程度。全部只报告、不阻断保存。
+7. **返回可追溯结果**：最终输出包含文档路径、`citations`（来源/标题/片段/查询/文件时间等可用元数据）、
+   检索覆盖报告与 `unmet_requirements` 清单。
+
+### 已知边界
+
+- 硬约束只有章节清单/顺序、来源工具白名单、检索参数、轮次上限、文件截断、模板与事后验收；
+  语气、术语、交叉验证、冲突处理等只能通过提示词引导，模型可能不完全遵守；
+- 知识库节点没有时间字段，`research.time_range` / `region` 无法真正过滤，只作为写作依据；
+- 系统没有网页检索、关键词/BM25 检索器与 reranker，来源只能是 `file` 与 `knowledge`；
+  因此配置里没有对应字段，声明不存在的工具会在加载期校验失败；
+- 字体/字号等排版只设置基础样式并写入提示词，验收不检查字体；
+- 能力预检只验证「来源是否可连接、文件是否存在」，不验证知识库是否真的存在所需数据；
+- 证据是否覆盖研究问题由模型逐轮判断，可能误判；该判断只影响是否继续检索，不改变已获得的证据；
+- 来源元数据只能保留系统真实拥有的字段：文件保留路径/标题/后缀/文件修改时间，
+  知识库保留节点 id 与来源文件；系统中没有网页链接与发布时间，因此不会伪造；
+- `semantic_review` 是补充评估，不参与硬判定以外的强制执行，也不会自动重写；
+- 验收默认只报告、不阻断，也不会自动重写未通过的章节。
+
+### 测试
+
+```bash
+python -m unittest discover -s tests -v
 ```
 
 ## 知识图谱记忆（`document_agent.memory.knowledge_graph`）

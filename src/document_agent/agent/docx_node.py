@@ -1,105 +1,130 @@
-from pydantic import BaseModel, Field
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any, Dict, List
+
 from docx import Document
 from docx.oxml.ns import qn
-import json
+from docx.shared import Pt
 
 from llm_client import llm_invoke, llm_model_invoke, extract_json_from_text
 from agent_core import AgentState
 from retrieved_context import build_retrieved_info, enforce_full_document_names
-from document_agent.write_tool.word_tool import replace_node_with_data,ParagraphItem,TableItem,DocxRoot,resolve_save_path,save_document
+from document_agent.write_tool.word_tool import replace_node_with_data, DocxRoot, resolve_save_path, save_document
+from document_agent.skills.render import render_full_brief, render_retrieval_gaps
+from document_agent.skills.schema import coerce_skill
 
-def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档的节点
-    """创建新建文档节点。
 
-    :param knowledge_mode: 检索资料模式，``remote`` 时按远程知识图谱的来源标记渲染；
-        ``local``（默认）保持原有格式
-    """
-    def docx_node(state : AgentState) -> AgentState:#写docx的节点
-        s=state["messages"]
-        # input_files=state['input_file_path']
-        # file_list_str="\n".join(input_files)
-        retrieved_info=build_retrieved_info(state["retrieved_content"], mode=knowledge_mode)
-        prompt=(
-            "你是文档写作助手，现在需要用户输入和已知信息列出整个文档的各个章节\n"
-            "如果某些内容可以按表格的形式输出，则按一个章节来输出\n"
-            f"用户输入：{s}\n"
-            f"{retrieved_info}\n"
-            "输出结果按照json的列表格式输出章节列表，仅输出json字符串结果，不要输出其它内容"
-        )
-        res=llm_invoke(llm,prompt)
-        # llm_invoke 失败时返回字典而非消息对象，必须给默认值避免 AttributeError
-        section_str=getattr(res,"content",None)
-        if section_str is None:
-            return {**state,"state":"error","error":"规划文档章节时，模型输出错误"}
-        matches = extract_json_from_text(section_str, return_all=True) or []
-        print("分解结果：",matches)
-        if len(matches)<=0:
-            print("章节内容输出不包含json格式的数据")
-        try:
-            sections=json.loads(matches[0])
-        except Exception as e:
-            print("解析分段json数据失败：",e)
-            return {**state,"state":"error","error":f"{e}"}
-            
-        doc=Document()
-        style = doc.styles['Normal']
+def _normalize_llm_sections(raw: Any) -> List[Dict[str, Any]]:
+    if not isinstance(raw, list):
+        return []
+    sections = []
+    for item in raw:
+        if isinstance(item, str) and item.strip():
+            sections.append({"title": item.strip(), "level": 1})
+        elif isinstance(item, dict):
+            title = str(item.get("title") or item.get("section") or "").strip()
+            if title:
+                sections.append({**item, "title": title})
+    return sections
+
+
+def _plan_from_skill(skill) -> List[Dict[str, Any]]:
+    return [section.model_dump() for section in skill.structure.sections]
+
+
+def _section_requirement(section: Dict[str, Any]) -> str:
+    return (
+        f"标题：{section['title']}；大纲级别：{section.get('level', 1)}\n"
+        f"必须包含：{'、'.join(section.get('must_include') or [])}\n"
+        f"需要证据类型：{'、'.join(section.get('evidence_types') or [])}\n"
+        f"写作要求：{section.get('guidance') or ''}\n"
+        f"必须引用：{section.get('evidence_required', False)}；最少引用：{section.get('min_citations', 0)}"
+    )
+
+
+def _base_document(skill):
+    template = str(skill.template_path or "") if skill else ""
+    if template and Path(template).is_file():
+        return Document(template)
+    return Document()
+
+
+def _apply_base_format(doc, skill):
+    style = doc.styles['Normal']
+    # 模板已有样式时保留；配置仅覆盖明确声明的属性。
+    if skill is None or not skill.template_path:
         style.font.name = 'Times New Roman'
-        style.element.rPr.rFonts.set(qn('w:eastAsia'), '宋体')
-        for section in sections:
-            print(f"编写{section}章节")
-            prompt=(
-                "你是一个写作系统的智能助手，需要根据章节主旨以及源信息进行文档生成，包括段落和表格\n"
-                "文档字体上，除了用户的特殊要求，正文不加粗，标题加粗\n"
-                "标题段落请设置 heading_level 字段写入真实大纲级别（章节主标题=1，其下小节标题=2，正文段落不设置）\n"
-                "字体字号：若用户指定了格式方案则以用户要求为准；否则请你根据文档类型与用途，"
-                "自行思考并设计一套最适合本文档的字体字号方案（标题与正文层级梯度清晰、同层级一致、"
-                "全文统一不混用），并通过 font_name/font_size 字段设置\n"
-                f"整个文档的大纲：\n{section_str}\n"
-                f"当前要编写的章节内容：{section}\n"
-                f"{retrieved_info}\n"
+        style.element.get_or_add_rPr().get_or_add_rFonts().set(qn('w:eastAsia'), '宋体')
+    if skill is None:
+        return
+    fmt = skill.structure.format
+    if fmt.body_font:
+        style.font.name = fmt.body_font
+        style.element.get_or_add_rPr().get_or_add_rFonts().set(qn('w:eastAsia'), fmt.body_font)
+    if fmt.body_size is not None:
+        style.font.size = Pt(fmt.body_size)
+    if fmt.line_spacing is not None:
+        style.paragraph_format.line_spacing = fmt.line_spacing
+    if fmt.first_line_indent is not None:
+        style.paragraph_format.first_line_indent = Pt(fmt.first_line_indent)
+
+
+def create_new_docx_node(llm, knowledge_mode: str = "local"):
+    """按 Skill 或模型规划逐章生成，保留远程引用全名补全与保存逻辑。"""
+    def docx_node(state: AgentState) -> AgentState:
+        messages = state["messages"]
+        retrieved_info = build_retrieved_info(state.get("retrieved_content") or [], mode=knowledge_mode)
+        skill = coerce_skill(state.get("skill"))
+        skill_blocks = "\n\n".join(block for block in (
+            render_full_brief(skill), render_retrieval_gaps(state.get("retrieval_report"))
+        ) if block)
+        if skill is not None and skill.structure.sections:
+            sections = _plan_from_skill(skill)
+            print(f"【Skill】按「{skill.name}」的章节清单生成")
+        else:
+            prompt = (
+                "你是文档写作助手，请按用户要求规划章节，输出 JSON 列表，元素为章节标题字符串。\n"
+                f"用户输入：{messages}\n{retrieved_info}\n{skill_blocks}"
             )
-            res=llm_model_invoke(llm,prompt,DocxRoot)
-            if res is None:
-                print("写作失败")
-                return {**state,"error":"写作失败","state":"error"}
-            for item in res.items:
-                if item.type=="paragraph":
-                    node=doc.add_paragraph("")
-                    replace_node_with_data(node,item.Paragraph)
-                elif item.type=="table":
-                    node=doc.add_table(rows=0,cols=0)
-                    replace_node_with_data(node,item.Table)
-        #远程知识图谱模式：引用必须是完整文档名，模型写成简称时按检索到的文档清单补全
+            response = llm_invoke(llm, prompt)
+            content = getattr(response, "content", None)
+            matches = extract_json_from_text(content, return_all=True) if content else []
+            try:
+                sections = _normalize_llm_sections(json.loads(matches[0])) if matches else []
+            except (ValueError, TypeError, IndexError):
+                sections = []
+            if not sections:
+                return {**state, "state": "error", "error": "规划文档章节时，模型未返回有效章节列表"}
+
+        outline = "\n".join(section["title"] for section in sections)
+        doc = _base_document(skill)
+        _apply_base_format(doc, skill)
+        for section in sections:
+            print(f"编写{section['title']}章节")
+            prompt = (
+                "你是一个文档写作助手，请根据用户需求、当前章节和来源证据生成段落与表格。\n"
+                "仅生成当前章节，不要重复生成其他章节；标题必须原样出现。\n"
+                "标题段落设置 heading_level 为指定大纲级别，正文不设置。正文默认不加粗，标题加粗。\n"
+                "优先遵循用户及 Skill 格式要求；未指定时按文档用途设计一致的字体字号。\n"
+                f"用户输入：{messages}\n整个文档的大纲：\n{outline}\n"
+                f"当前要编写的章节：\n{_section_requirement(section)}\n"
+                f"{retrieved_info}\n{skill_blocks}"
+            )
+            result = llm_model_invoke(llm, prompt, DocxRoot)
+            if result is None:
+                return {**state, "state": "error", "error": "写作失败"}
+            for item in result.items:
+                if item.type == "paragraph":
+                    replace_node_with_data(doc.add_paragraph(""), item.Paragraph)
+                elif item.type == "table":
+                    replace_node_with_data(doc.add_table(rows=0, cols=0), item.Table)
+
         if str(knowledge_mode).strip().lower() == "remote":
             for old, new, count in enforce_full_document_names(doc, state.get("document_citations") or []):
                 print(f"【引用规范】把简称引用 {old} 补全为 {new}（{count} 处）")
-        save_path=resolve_save_path(state.get("save_path"))
-        save_path=save_document(doc, save_path)  # 目标被占用时会避让另存，返回实际保存路径
-        print("保存到：",str(save_path))
-            
-        # if action is None:
-        #     print("识别用户写作意图失败")
-        #     return {**state,"error":"识别用户写作意图失败","state":"error"}
-        # if action.action_type=="new":
-        #     prompt=(
-        #         "你是一个写作系统的智能助手，需要根据用户的要求以及源信息进行文档生成，包括段落和表格\n"
-        #         "文档字体上，除了用户的特殊要求，正文不加粗，标题加粗\n"
-        #         f"用户的要求：{s}\n"
-        #         f"{retrieved_info}\n"
-        #     )
-        #     res=llm_model_invoke(llm,prompt,DocxRoot)
-        #     if res is None:
-        #         print("写作失败")
-        #         return {**state,"error":"写作失败","state":"error"}
-        #     doc = Document()
-        #     for item in res.items:
-        #         if item.type=="paragraph":
-        #             node=doc.add_paragraph("")
-        #             replace_node_with_data(node,item.Paragraph)
-        #         elif item.type=="table":
-        #             node=doc.add_table(rows=0,cols=0)
-        #             replace_node_with_data(node,item.Table)
-        #     doc.save(action.save_path)
-        return {**state,"state":"succeeded","save_path":str(save_path)}
+        save_path = save_document(doc, resolve_save_path(state.get("save_path")))
+        print("保存到：", str(save_path))
+        return {**state, "state": "succeeded", "save_path": str(save_path)}
     return docx_node
-            

@@ -1,3 +1,4 @@
+import argparse
 import os
 import sys
 import json
@@ -7,6 +8,15 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'retrieve_tool'))
 
 import document_agent.agent.agent_core as agent_core
 from remote_kg_config import find_setting_path, load_remote_kg_settings
+from document_agent.skills.store import list_skills, resolve_skill_dir
+
+
+def build_parser():
+    parser = argparse.ArgumentParser(description="文档写作与改写，可选使用用户定义的 Skill。")
+    parser.add_argument("files", nargs="*", help="参考文件或待改写文档")
+    parser.add_argument("-s", "--skill", default=None, help="Skill id、名称、目录或文件路径")
+    parser.add_argument("--list-skills", action="store_true", help="列出 Skill，不连接数据库或模型")
+    return parser
 
 
 def probe_remote_kg(settings):
@@ -41,6 +51,15 @@ def probe_remote_kg(settings):
 
 
 if __name__ == "__main__":
+    args = build_parser().parse_args()
+    if args.list_skills:
+        skills, errors = list_skills()
+        print(f"Skill 目录：{resolve_skill_dir()}")
+        for skill in skills:
+            print(f"- {skill.id}｜{skill.name}｜{skill.summary()}")
+        for error in errors:
+            print(f"[跳过] {error}")
+        sys.exit(0)
     setting_path = find_setting_path("setting.json" if os.path.exists("setting.json") else None)
     if not setting_path.is_file():
         print("没找到配置文件")
@@ -80,10 +99,25 @@ if __name__ == "__main__":
     user_input = input("请输入你的需求（自然语言）：")
     core = agent_core.AgentCore()
     core.build_graph(gdb, kg, remote_kg)
-    result = core.invoke(user_input, sys.argv[1:])
+    result = core.invoke(user_input, args.files, skill_id=args.skill)
     # print("检索出来的内容：\n","\n\n\n".join(result["retrieved_content"]))
     if result.get("state") == "succeeded":
         print("文档已保存到：", result.get("save_path") or "")
+        report = result.get("verification_report") or {}
+        if report:
+            print("验收结果：", report.get("summary") or "")
+        citations = result.get("citations") or []
+        if citations:
+            print(f"可追溯来源：{len(citations)} 条")
+        unmet = result.get("unmet_requirements") or []
+        if unmet:
+            print("未满足的要求：")
+            for item in unmet:
+                print("  -", item)
+        retrieval = result.get("retrieval_report") or {}
+        missing = retrieval.get("missing") or []
+        if missing:
+            print("检索未覆盖的问题：", "、".join(missing))
     else:
         print("运行结果：", result.get("state") or "", result.get("error") or "")
     if gdb is not None:

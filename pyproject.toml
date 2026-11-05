@@ -15,6 +15,8 @@ dependencies = [
     # 远程知识图谱检索客户端（document_agent.retrieve_tool.remote_kg_tool）
     "httpx>=0.24.0",
     "pydantic>=2.13.5",
+    # 用户自定义 Skill 支持 YAML 配置（JSON 无需额外依赖）
+    "pyyaml>=6.0",
     "python-docx>=1.2.0",
     "openpyxl>=3.1.5",
     "lxml>=5.2.1",

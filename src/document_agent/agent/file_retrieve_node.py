@@ -1,12 +1,14 @@
 
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
+from datetime import datetime
 from pathlib import Path
 import traceback
 
 from llm_client import llm_invoke, llm_model_invoke
 from agent_core import AgentState
 from document_agent.retrieve_tool.extract_document import extract_document_content
+from document_agent.skills.schema import coerce_skill
 
 # 文件检索节点
 
@@ -45,6 +47,12 @@ def create_file_retrieve_node(llm):
             tool_response=f"file工具反馈：不支持的文件类型：{path_obj.suffix}"
             retrieved_items.append(tool_response)
             return {**state,"state":"error","error":tool_response,"retrieved_content":retrieved_items}
+        # Skill 可限制单个文件送入模型的字符数，避免超长文件把提示词撑爆
+        skill=coerce_skill(state.get("skill"))
+        max_chars=int(skill.research.file.max_chars) if skill is not None else 0
+        if max_chars and len(content)>max_chars:
+            print(f"【文件检索】{path} 内容超过 {max_chars} 字符，已截断")
+            content=content[:max_chars]+"\n…（内容超长，已截断）"
         prompt_for_retrieval=(
             "你是一个文档检索助手，你的任务是根据用户提供的参考内容和用户对话检索出符合目标的内容。\n"
             f"用户提供的文件内容：{content}\n"
@@ -56,5 +64,23 @@ def create_file_retrieve_node(llm):
         if len(result)>0:
             retrieved_items.append(f"使用file工具以{query}为关键内容，对文件{path}的检索结果：{result}")
             file_retrieved_items[(path,query)]=result
+            evidence_records=list(state.get("evidence_records") or [])
+            path_obj=Path(path)
+            try:
+                file_mtime=datetime.fromtimestamp(path_obj.stat().st_mtime).isoformat()
+            except OSError:
+                file_mtime=""
+            evidence_records.append({
+                "source_type":"file",
+                "source":str(path),
+                "sources":[str(path)],
+                "title":path_obj.stem,
+                "suffix":path_obj.suffix.lower(),
+                "file_mtime":file_mtime,
+                "query":str(query),
+                "snippet":str(result)[:300],
+            })
+            return {**state,"file_retrived_items":file_retrieved_items,"retrieved_content":retrieved_items,
+                    "evidence_records":evidence_records}
         return {**state,"file_retrived_items":file_retrieved_items,"retrieved_content":retrieved_items}
     return file_retrive

@@ -1121,6 +1121,24 @@ def create_kg_retrieve_node(llm: Any, kg_tool: Optional[RemoteKGTool]):
 
         merged = _merge_content(state.get("retrieved_content") or [], lines)
         merged_citations = _merge_citations(state.get("document_citations") or [], citations)
+        # Skill 的覆盖评估与引用验收读取 evidence_records；保留远程检索已有的来源标记。
+        # 只记录新增的事实行，不把文档目录或“未找到”提示当成证据。
+        evidence_records = list(state.get("evidence_records") or [])
+        existing_lines = set(state.get("retrieved_content") or [])
+        for line in merged:
+            if line in existing_lines or not line.startswith(("【原文】", "【分块】", "【实体】", "【关系】", "【路径】")):
+                continue
+            sources = [
+                item["full_name"] for item in citations
+                if item.get("full_name") and f"《{item['full_name']}》" in line
+            ]
+            evidence_records.append({
+                "source_type": "knowledge",
+                "source": sources[0] if sources else "",
+                "sources": sources,
+                "query": target,
+                "snippet": line[:300],
+            })
         existing_count = len(state.get("retrieved_content") or [])
         print(
             f"【知识图谱检索】新增 {len(merged) - existing_count} 条结果，累计 {len(merged)} 条；"
@@ -1130,6 +1148,7 @@ def create_kg_retrieve_node(llm: Any, kg_tool: Optional[RemoteKGTool]):
             **state,
             "retrieved_content": merged,
             "document_citations": merged_citations,
+            "evidence_records": evidence_records,
         }
 
     return kg_retrive

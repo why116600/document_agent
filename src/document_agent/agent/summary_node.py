@@ -3,6 +3,25 @@ from pathlib import Path
 from llm_client import llm_invoke
 from agent_core import AgentState, get_last_user_text
 from document_agent.retrieve_tool.extract_document import extract_document_content
+from document_agent.skills.render import render_research_brief
+from document_agent.skills.schema import coerce_skill
+
+
+def build_skill_retrieve_target(skill, user_query: str) -> str:
+    """把 Skill 的研究问题、数据字段与用户要求合成一句话检索目标。
+
+    该字符串会作为图数据库向量检索的查询文本，保持单行、少换行可避免嵌入向量被格式文字稀释；
+    完整的研究问题清单由 render_research_brief 在检索提示词中单独提供。
+    """
+    parts = []
+    if skill.research.questions:
+        parts.append("；".join(skill.research.questions))
+    if skill.research.data_fields:
+        parts.append("数据字段：" + "、".join(skill.research.data_fields))
+    if skill.research.time_range:
+        parts.append("时间范围：" + skill.research.time_range)
+    parts.append("用户要求：" + user_query)
+    return "；".join(parts)
 
 
 def create_summary_node(llm):
@@ -17,15 +36,31 @@ def create_summary_node(llm):
             )
         ]
         user_query = get_last_user_text(s)
+        skill = coerce_skill(state.get("skill"))
+        skill_target = build_skill_retrieve_target(skill, user_query) if skill is not None else user_query
 
-        # 1. 没有参考文件时，直接跳过摘要阶段，将用户原始要求作为检索目标
-        if not files_to_summarize and not state.get("file_summaries"):
-            print("【参考资料】未提供参考文件，跳过摘要阶段")
+        # 0. 已有计划驱动检索时，检索目标由检索计划决定，不再额外做摘要提炼
+        plan = state.get("retrieval_plan") or {}
+        if plan.get("questions"):
+            first_question = plan["questions"][0]["question"]
+            print("【参考资料】已生成检索计划，跳过摘要提炼阶段")
             return {
                 **state,
                 "file_summaries": {},
                 "retrieved_content": [],
-                "retrieve_target": user_query,
+                "retrieve_target": first_question,
+            }
+
+        # 1. 没有参考文件时，直接跳过摘要阶段，将 Skill 研究问题与用户原始要求作为检索目标
+        if not files_to_summarize and not state.get("file_summaries"):
+            print("【参考资料】未提供参考文件，跳过摘要阶段")
+            if skill is not None:
+                print(f"【检索目标】按 Skill「{skill.name}」的研究问题检索：{skill_target}")
+            return {
+                **state,
+                "file_summaries": {},
+                "retrieved_content": [],
+                "retrieve_target": skill_target,
             }
 
         # 2. 逐一提取并生成文件摘要
@@ -56,7 +91,7 @@ def create_summary_node(llm):
                 **state,
                 "file_summaries": {},
                 "retrieved_content": [],
-                "retrieve_target": user_query,
+                "retrieve_target": skill_target,
             }
 
         # 3. 结合各文件角色、摘要与用户输入，智能提炼精准的待检索目标
@@ -74,16 +109,20 @@ def create_summary_node(llm):
         if rewrite_file:
             task_desc += f"，待修改目标文档为：{Path(rewrite_file).name}"
 
+        skill_research = render_research_brief(skill) if skill is not None else ""
+        if skill_research:
+            skill_research += "\n提炼出的检索目标必须覆盖上述研究问题与数据字段，并遵循来源优先级。"
         prompt = (
             "你是一个文档检索助手，你的任务是根据用户任务、用户指令和各文件摘要，提炼出需要在参考资料或目标文档中重点检索的核心目标。\n"
             f"【任务规划】{task_desc}\n"
             f"【文档清单与摘要】\n{summaries_prompt}\n"
+            f"{skill_research}\n"
             f"【用户对话内容】{user_query}\n"
             "请注意：若为改写任务，待修改文档内容后续将由改写引擎处理，检索重点通常应放在参考文档的排版规范、样式特征、补充数据或对照点上。\n"
             "仅输出提炼出的精准检索目标，不要输出其他客套内容。"
         )
         res = llm_invoke(llm, prompt)
-        retrieve_target = str(getattr(res, "content", "") or "").strip() or user_query
+        retrieve_target = str(getattr(res, "content", "") or "").strip() or skill_target
         print(f"【检索目标提炼】{retrieve_target}")
 
         return {

@@ -6,6 +6,7 @@ import traceback
 from llm_client import llm_invoke, llm_model_invoke
 from agent_core import AgentState
 from document_agent.memory.neo_graph_db import MemgraphNodeManager
+from document_agent.skills.schema import coerce_skill
 try:
     from document_agent.memory.knowledge_graph import KnowledgeGraphMemory
 except ImportError:
@@ -28,13 +29,29 @@ def create_gdb_retrieve_node(llm, gdb: MemgraphNodeManager, kg: Optional[Knowled
         print("="*20,"开始知识库混合检索，检索目标：",retrieve_target,"="*20)
         print("检索参数：",params)
 
-        # 篇章摘要树检索
+        # 篇章摘要树检索：Skill 可控制召回数量、相似度阈值、去重与展开开关
         tree_hit = False
-        res=gdb.search_by_vector(data_label,retrieve_target)
-        nroot=len(res)
+        skill=coerce_skill(state.get("skill"))
+        if skill is not None:
+            knowledge=skill.research.knowledge
+            raw_hits=list(gdb.search_by_vector(data_label,retrieve_target,top_k=knowledge.top_k))
+            # 向量索引与本地计算都会给出 _similarity，缺失时按 1.0 处理以免误删
+            filtered=[item for item in raw_hits
+                      if float(item.get("_similarity", 1.0)) >= knowledge.min_similarity]
+            deduped={}
+            for item in filtered:
+                deduped.setdefault(item.get("id"), item)
+            tree_hits=list(deduped.values())
+            expand_neighbors=knowledge.expand_neighbors
+            max_expansions=knowledge.max_expansions
+        else:
+            tree_hits=list(gdb.search_by_vector(data_label,retrieve_target))
+            expand_neighbors=True
+            max_expansions=10
+        nroot=len(tree_hits)
         if nroot>0:
             tree_hit = True
-            for item in res:
+            for item in tree_hits:
                 if not "id" in item.keys() or not "content" in item.keys():
                     continue
                 nid=item["id"]
@@ -46,8 +63,9 @@ def create_gdb_retrieve_node(llm, gdb: MemgraphNodeManager, kg: Optional[Knowled
                     retrieved_items.append(f"可展开的图数据库节点{nid}的内容：{item['summary']}")
                 else:
                     retrieved_items.append(f"不可展开的图数据库节点{nid}的内容：{item['content']}")
-            # 开始大模型摘要dag检索
-            for _ in range(10*nroot):
+            # 开始大模型摘要dag检索；Skill 配置了展开开关与轮次上限时以配置为准
+            expand_rounds = 10 * nroot if skill is None else max_expansions
+            for _ in range(expand_rounds if expand_neighbors else 0):
                 retrieved_str="\n".join(retrieved_items)
                 think_prompt=(
                     "你是图数据库检索工具，根据检索的目标判定当前已知信息是否满足检索目标\n"
@@ -120,5 +138,37 @@ def create_gdb_retrieve_node(llm, gdb: MemgraphNodeManager, kg: Optional[Knowled
             print(f"【知识库】{tool_response}")
             retrieved_items.append(tool_response)
 
-        return {**state,"retrieved_content":retrieved_items}
+        # 记录证据来源，供引用与验收使用（retrieved_content 仍保持原有字符串格式）
+        evidence_records = list(state.get("evidence_records") or [])
+        if tree_hit:
+            sources = []
+            for item in tree_hits:
+                source = item.get("source_file") or f"知识库节点{item.get('id')}"
+                sources.append(str(source))
+            snippet = ""
+            if tree_hits:
+                snippet = str(tree_hits[0].get("summary") or tree_hits[0].get("content") or "")[:300]
+            unique_sources = list(dict.fromkeys(sources))
+            node_ids = [str(item.get("id")) for item in tree_hits if item.get("id")]
+            evidence_records.append({
+                "source_type": "knowledge",
+                "source": "、".join(unique_sources),
+                "sources": unique_sources,
+                "title": f"知识库检索：{retrieve_target[:40]}",
+                "node_ids": node_ids,
+                "query": retrieve_target,
+                "snippet": snippet,
+            })
+        if kg_hit:
+            evidence_records.append({
+                "source_type": "knowledge",
+                "source": "知识图谱微观事实",
+                "sources": ["知识图谱微观事实"],
+                "title": "知识图谱微观事实",
+                "node_ids": [],
+                "query": retrieve_target,
+                "snippet": str(kg_res.get("answer", ""))[:300] if isinstance(kg_res, dict) else "",
+            })
+
+        return {**state,"retrieved_content":retrieved_items,"evidence_records":evidence_records}
     return gdb_retrieve
