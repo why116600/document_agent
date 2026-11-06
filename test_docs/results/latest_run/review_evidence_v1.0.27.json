@@ -1,0 +1,169 @@
+{
+  "version": "1.0.27",
+  "scope": "Original CP007 and CP008 on fixed skills branch, no Skill enabled; actual execution once each",
+  "candidate_commit": "f5bde52bdc450ab4125383531d40700be5ac42ee",
+  "cases": {
+    "CP-007": {
+      "case": "CP-007",
+      "attempt": "001",
+      "candidate_commit": "f5bde52bdc450ab4125383531d40700be5ac42ee",
+      "started": "2026-11-06T00:34:51.698144+08:00",
+      "finished": "2026-11-06T00:38:13.939659+08:00",
+      "elapsed_seconds": 202.23,
+      "exit_code": 0,
+      "harness_timed_out": false,
+      "source_copies_preserved": true,
+      "candidate_unchanged": true,
+      "model_requested": "hy3",
+      "request_sha256": "aef0483bf92b36d70cb1bf3e6aceb3fe3460589689bfda9cce98d5071d9dd941",
+      "expected_sha256": "e593cda2672d276ecd69bced78361a18297b38a1462bd6f0b3647847a94877b8",
+      "actual_request": "请对《借用替换样例_v1.0.15.docx》执行全文查找替换，将全部“7天”改为“3天”，将“1个工作日”改为“2个工作日”。范围包括正文、表格和页眉；不要把库存数量“7台”改掉，也不要修改“5天”。只做这些替换，其他文字、段落、表格结构和格式保持，中文仍宋体、全部文字黑色，不检索知识库，不覆盖原稿，另存为CP-007_结果_v1.0.15.docx。",
+      "expected_before_run": "# CP-007 预期检查清单 v1.0.15\n\n版本：v1.0.15。制定阶段：运行前。业务状态：未执行。用例：[查看操作](../cases/case_CP-007_v1.0.15.md)。\n\n## 逐项核对\n\n- [ ] 原“7天”共4处：普通正文1、相邻Run组成的词组1、设备表丙行1、页眉1；全部变为“3天”，无残留或重复字。\n- [ ] “1个工作日”恰好1处，变为“2个工作日”。\n- [ ] 库存数量12台和7台、丁设备期限5天保持原值。\n- [ ] 标题、章节、其他文字与源稿逐元素一致；表格为3行3列，不改变行列或单元格对应关系。\n- [ ] 除授权替词所必需的run变化外，原字体、颜色、字号等属性与页面设置核对；页眉必须独立打开核对。\n- [ ] 输入原件运行前后SHA-256一致；实际结果另存且可打开；日志命中数与固定位置清单对照，不能仅信日志。\n\n## 判定边界\n\n- 只覆盖跨Run、普通表格和单页眉这几个子例，不代表TC-12/13全部对象已覆盖。\n\n输入基准与哈希见[准备清单](../manifest_v1.0.15.json)及[Word结构基准](baselines_v1.0.15.json)。结构快照只描述输入，不是预期输出，更不是实际输出。\n\n未检查项保持未检查；生成式内容可用等义表达，但数字、对应关系和否定条件必须逐项对照。仅结构核对不能代替Word页面实看；字体和颜色也要检查实际继承。发现失败先保留完整材料，再确认是否为原产品缺陷、接入适配、环境问题或待确认需求。\n",
+      "input_manifest": [
+        {
+          "name": "借用替换样例_v1.0.15.docx",
+          "sha256": "5c4f1110b31e5952edec9d3dea65d2470a2ff845173b5319166ca031ad94e6d1",
+          "bytes": 38096
+        }
+      ],
+      "business_state": "error",
+      "business_error": "全局查找替换暂不支持指定局部范围（本步范围：全篇（正文、表格、页眉）），如需局部替换请改用局部修补模式",
+      "rewrite_mode": "replace",
+      "rewrite_targets": [
+        "全篇（正文、表格、页眉）"
+      ],
+      "skill_sample": null,
+      "skill_id_sample": null,
+      "skill_directory_empty": true,
+      "verification_report_sample": null,
+      "outputs": [],
+      "reported_save_file_exists": false,
+      "log_excerpts": [
+        {
+          "line": 8,
+          "text": "【智能意图分析结果】命中 Skill：null"
+        },
+        {
+          "line": 74,
+          "text": "【步骤编排】第1步（模式二：全局查找替换）失败：全局查找替换暂不支持指定局部范围（本步范围：全篇（正文、表格、页眉）），如需局部替换请改用局部修补模式"
+        },
+        {
+          "line": 75,
+          "text": "运行结果： error 全局查找替换暂不支持指定局部范围（本步范围：全篇（正文、表格、页眉）），如需局部替换请改用局部修补模式"
+        }
+      ],
+      "log_sha256": "8b40e695f7c5a6b42e83ab4bbcfcefe168179bda88d456a440fa6ba33a98c957",
+      "execution_receipt_sha256": "c37889192ab018e9be5e53e58079134ca9f7fca5fd2251a1ee5c2e92d3ff0215",
+      "independent_review_sha256": "9c33f183714fa035dece0e81607404a79f4727009eadb7081e5e8c30df6b3b91",
+      "structured_review_sha256": "1d185f80e2180fa0da9e0f01abd50e59e35de2a4149b8d67850283d7d79f566b",
+      "hy3_request_count": 5,
+      "response_header_statuses": [
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "verdict": "failed_original_defect_reproduced",
+      "observation": "原DEF-001复现：全篇（正文、表格、页眉）被全局替换guard误作局部范围拒绝；未进入替换引擎。",
+      "output_content_and_format_review": "not_applicable_no_output",
+      "input_visual_pages": [
+        {
+          "file": "f5bde52_CP-007_input_page-1_v1.0.27.png",
+          "sha256": "291f93344f148010c8bab31be9b1099199eb20f931307ab85c9afea4e8d83c74",
+          "kind": "original input only; root visually inspected"
+        }
+      ]
+    },
+    "CP-008": {
+      "case": "CP-008",
+      "attempt": "001",
+      "candidate_commit": "f5bde52bdc450ab4125383531d40700be5ac42ee",
+      "started": "2026-11-06T00:39:58.235806+08:00",
+      "finished": "2026-11-06T00:42:56.061413+08:00",
+      "elapsed_seconds": 177.83,
+      "exit_code": 0,
+      "harness_timed_out": false,
+      "source_copies_preserved": true,
+      "candidate_unchanged": true,
+      "model_requested": "hy3",
+      "request_sha256": "1b1437cc5f0376efbdceb6276f1ff334e4a8becc38e5c4898046c14be4c1dad9",
+      "expected_sha256": "35a70eee7667e316934c6985bb417378ebfc616da8cb97016a5456091db3b930",
+      "actual_request": "以《检查办法_v1.0.15.docx》为目标，只将“二、专项检查”章节正文中的“每季度检查一次”改为“每月检查一次”。不要修改该章表格，也不要修改第一章、第三章、标题或其他文字和格式。中文保持宋体、全部文字黑色，不检索知识库，不覆盖原稿，另存为CP-008_结果_v1.0.15.docx。",
+      "expected_before_run": "# CP-008 预期检查清单 v1.0.15\n\n版本：v1.0.15。制定阶段：运行前。业务状态：未执行。用例：[查看操作](../cases/case_CP-008_v1.0.15.md)。\n\n## 逐项核对\n\n- [ ] 第二章正文“振动传感器每季度检查一次”变为“振动传感器每月检查一次”。\n- [ ] 第一章“环境记录仪每季度检查一次”逐字保留。\n- [ ] 第二章表格备用温度计的“每季度检查一次”和4支逐字保留。\n- [ ] 第三章30天、否定条件“未完成复核不得归档”与标题保持原文。\n- [ ] 其他段落/表格文字、样式、行列、页设置逐项对照，不能以全文替换达成。\n- [ ] 原稿哈希不变，结果另存且可打开；记录程序实际定位到的范围。\n\n## 判定边界\n\n- 没有额外验收口径；尚未执行。\n\n输入基准与哈希见[准备清单](../manifest_v1.0.15.json)及[Word结构基准](baselines_v1.0.15.json)。结构快照只描述输入，不是预期输出，更不是实际输出。\n\n未检查项保持未检查；生成式内容可用等义表达，但数字、对应关系和否定条件必须逐项对照。仅结构核对不能代替Word页面实看；字体和颜色也要检查实际继承。发现失败先保留完整材料，再确认是否为原产品缺陷、接入适配、环境问题或待确认需求。\n",
+      "input_manifest": [
+        {
+          "name": "检查办法_v1.0.15.docx",
+          "sha256": "f33df397cd43628442a5518592ef0a2255d3a0816d7ce0ba3f9fa538d85a2f73",
+          "bytes": 37378
+        }
+      ],
+      "business_state": "error",
+      "business_error": "全局查找替换暂不支持指定局部范围（本步范围：二、专项检查章节正文），如需局部替换请改用局部修补模式",
+      "rewrite_mode": "replace",
+      "rewrite_targets": [
+        "二、专项检查章节正文"
+      ],
+      "skill_sample": null,
+      "skill_id_sample": null,
+      "skill_directory_empty": true,
+      "verification_report_sample": null,
+      "outputs": [],
+      "reported_save_file_exists": false,
+      "log_excerpts": [
+        {
+          "line": 15,
+          "text": "【智能意图分析结果】命中 Skill：null"
+        },
+        {
+          "line": 88,
+          "text": "【步骤编排】第1步（模式二：全局查找替换）失败：全局查找替换暂不支持指定局部范围（本步范围：二、专项检查章节正文），如需局部替换请改用局部修补模式"
+        },
+        {
+          "line": 89,
+          "text": "运行结果： error 全局查找替换暂不支持指定局部范围（本步范围：二、专项检查章节正文），如需局部替换请改用局部修补模式"
+        }
+      ],
+      "log_sha256": "4c24dea649ea47bb341bddd4c3dd6762710c6c1a3351ccee1f1f908a56bccee0",
+      "execution_receipt_sha256": "2e576af5b8e85ca1a318c94ec5fba0491d36ee835ce6e77f95b7852c7fabc3f4",
+      "independent_review_sha256": "513f4ed26cca27625c0987bd0d5e151efc83904ec76758b5aa207b3c9b5e226f",
+      "structured_review_sha256": "f1682e9b1336bb8e90b13ad91f620a8148cd4a60ac382ac2d0cd8f75667ed46a",
+      "hy3_request_count": 5,
+      "response_header_statuses": [
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "verdict": "failed_original_defect_reproduced",
+      "observation": "原DEF-002复现：指定章节正文修改被选为全局replace，随后因二、专项检查章节正文范围被guard拒绝。",
+      "output_content_and_format_review": "not_applicable_no_output",
+      "input_visual_pages": [
+        {
+          "file": "f5bde52_CP-008_input_page-1_v1.0.27.png",
+          "sha256": "c99ac7c588e1837d2e6e24e1b75c4f5206a0a5219f3d1efcbc112f5a403381aa",
+          "kind": "original input only; root visually inspected"
+        }
+      ]
+    }
+  },
+  "previous_evidence_preserved": [
+    "review_evidence_v1.0.23.json",
+    "review_evidence_v1.0.25.json",
+    "review_evidence_v1.0.26.json"
+  ],
+  "product_code_modified": false,
+  "dependency_installations": 0,
+  "formal_defects_closed": [],
+  "own_database_stopped": true,
+  "limitations": [
+    "Only sampled final skill/skill_id null; original dictionary key-presence not independently retained. Empty discovery directory and actual workflow logs corroborate no Skill loading.",
+    "Process exit0 is not business success: original console returned normally and explicitly printed error.",
+    "No output Word means output replacement/format/page checks not executed; input preservation does not count as editing success.",
+    "Requested Hy3 identity; response model identity not independently retained.",
+    "900 seconds is a harness bound, not a product performance SLA.",
+    "Two original scenarios, no variants, enabled-Skill writing or verification-report acceptance.",
+    "Legacy scope_flags in private harness receipts are environment guards, not evidence f5 contains the removed b6 contract mechanism."
+  ]
+}

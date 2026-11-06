@@ -1,0 +1,383 @@
+{
+  "version": "1.0.28",
+  "candidate_commit": "f5bde52bdc450ab4125383531d40700be5ac42ee",
+  "scope": "Two actual new-Word tasks, same frozen TXT and request, no Skill versus explicit minimal Skill; one execution each",
+  "request": "请只依据提供的《星桥演示设备借用规则_v1.0.0.txt》，新建《设备借用须知 v1.0.0》，用简短段落说明适用范围、借用期限、预约要求、审批角色及批准条件、归还要求，并注明资料为纯虚构演示材料。全文（包含总标题、章节标题及来源标记）不超过300个非空白字符，不要表格，不要检索知识库，不补充资料没有规定的收费、押金、处罚或真实人员姓名。所有中文（包括标题）使用宋体，全部文字黑色。正文至少一次原样标注【来源：星桥演示设备借用规则_v1.0.0.txt】。另存为SK-AB_借用须知_v1.0.0.docx。",
+  "request_sha256": "1a10cf985bee76aef8290f8a35fc6dab874bbe2f9672f0b2c52d7bb2e4555885",
+  "expected_sha256": "679bd821025e4e5232d03a6c36271b44c5bd80381d27549a40eddf50109ed94c",
+  "source": {
+    "file": "星桥演示设备借用规则_v1.0.0.txt",
+    "public_path": "../../results/inputs/EX-001/星桥演示设备借用规则_v1.0.0.txt",
+    "sha256": "ec34dfa3c39f8848c4aa1b096412c68535a2bbfdf4a6b45cbf9ce4ccbb65c74e"
+  },
+  "skill_config_sha256": "647f785c11eb1ba2f5c8a1626320969fcb304e21bcc9aff463a4bd3560536a37",
+  "skill_instructions_sha256": "9ddfb79200fa675aad9494c2e27a5d9e2ef9ddd844bff513a5379140469beab7",
+  "actual_runs": 2,
+  "cases": {
+    "SK-003": {
+      "attempt": "001",
+      "started": "2026-11-06T01:21:27.480262+08:00",
+      "finished": "2026-11-06T01:29:10.749364+08:00",
+      "elapsed_seconds": 463.27,
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "model_requested": "hy3",
+      "hy3_requests": 11,
+      "response_header_statuses": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "selected_skill_id": null,
+      "sampled_key_presence": {
+        "skill": true,
+        "skill_id": true,
+        "skill_selection": false,
+        "verification_report": true,
+        "unmet_requirements": true,
+        "state": true,
+        "error": true,
+        "save_path": true
+      },
+      "actual_result_keys": [
+        "capabilities",
+        "citations",
+        "document_citations",
+        "error",
+        "evidence_records",
+        "file_retrived_items",
+        "file_roles",
+        "file_summaries",
+        "gdb_label",
+        "input_file_path",
+        "messages",
+        "output_dir",
+        "replace_pairs",
+        "retrieval_plan",
+        "retrieval_progress",
+        "retrieval_report",
+        "retrieve_count_limit",
+        "retrieve_params",
+        "retrieve_target",
+        "retrieve_tool",
+        "retrieved_content",
+        "rewrite_file",
+        "rewrite_mode",
+        "rewrite_steps",
+        "save_path",
+        "skill",
+        "skill_id",
+        "skill_name",
+        "state",
+        "unmet_requirements",
+        "user_intent",
+        "verification_report"
+      ],
+      "request_sha256": "1a10cf985bee76aef8290f8a35fc6dab874bbe2f9672f0b2c52d7bb2e4555885",
+      "expected_sha256": "679bd821025e4e5232d03a6c36271b44c5bd80381d27549a40eddf50109ed94c",
+      "input_preserved": true,
+      "candidate_unchanged": true,
+      "skill_files_preserved": true,
+      "harness_timed_out": false,
+      "initial_database_counts": {
+        "nodes": 0,
+        "relationships": 0
+      },
+      "output": {
+        "file": "f5bde52_SK-003_借用须知_v1.0.0.docx",
+        "sha256": "31d5606268278f2f399bbe0ff8e072601bc7a4cb1cf2a3443af54a2e103e582d",
+        "bytes": 37154
+      },
+      "page": {
+        "file": "f5bde52_SK-003_actual_page-1_v1.0.28.png",
+        "sha256": "f5f3387756706cda8a3348b6c62d609eca2723e2ead9287cf7ca17a08c8b749e",
+        "kind": "actual unchanged generated Word page; root and independent reviewer visually inspected"
+      },
+      "whole_non_whitespace_characters": 251,
+      "tables": 0,
+      "title_present": false,
+      "headings": [
+        {
+          "location": "p[0]",
+          "text": "适用范围",
+          "style": "Heading1"
+        },
+        {
+          "location": "p[2]",
+          "text": "借用期限",
+          "style": "Heading1"
+        },
+        {
+          "location": "p[4]",
+          "text": "预约要求",
+          "style": "Heading1"
+        },
+        {
+          "location": "p[6]",
+          "text": "审批角色及批准条件",
+          "style": "Heading1"
+        },
+        {
+          "location": "p[8]",
+          "text": "归还要求",
+          "style": "Heading1"
+        }
+      ],
+      "actual_text": "适用范围\n本须知适用于星桥演示设备内部借用场景，资料为纯虚构演示材料。【来源：星桥演示设备借用规则_v1.0.0.txt】\n借用期限\n借用期限依演示规则。资料为纯虚构演示材料。【来源：星桥演示设备借用规则_v1.0.0.txt】\n预约要求\n借用设备需提前预约。【来源：星桥演示设备借用规则_v1.0.0.txt】\n审批角色及批准条件\n审批由指定角色负责，满足规则条件即批准。【来源：星桥演示设备借用规则_v1.0.0.txt】\n归还要求\n借用设备须按时归还，保持完好。【来源：星桥演示设备借用规则_v1.0.0.txt】\n",
+      "exact_citation_count": 5,
+      "effective_font_and_color_check": [
+        {
+          "name": "resolved_chinese_font_and_color",
+          "status": "pass",
+          "detail": {
+            "mismatches": [],
+            "unresolved": [],
+            "note": "Theme/automatic/missing values are unknown; inspect effective theme/Word rendering, not automatic failure."
+          }
+        }
+      ],
+      "observed_tool_dispatches": [
+        {
+          "line": 60,
+          "tool": "end"
+        }
+      ],
+      "actual_verification_report_without_private_paths": null,
+      "independent_verdict": "failed_content_and_document_title",
+      "execution_sha256": "cf40b998f0bce971e5ca2fa2be868031da8d769d10e36f06f6387a191e398c61",
+      "log_sha256": "a6f0cc457e69af0b3c691fa45b1db0038f33d08261bbeb19a71820af777665d9",
+      "independent_review_sha256": "67c2588e7b38123f222cee660a6b92673943d12a25645d3f9159ba227d663ea6",
+      "word_structure_review_sha256": "5378ab788af269d1ebb42586fd20131508f7e57feb9e2a251753cccfa86caec6",
+      "render_receipt_sha256": "7dc3046ce0afcd20041a346897014737d25d9c5c7bdc454f42e9c5df4209e84c",
+      "database_reset_receipt_sha256": "dc274f56a0c37127016dfb38db6513ecce4ec9ed7a1c4e8b7d0eba309708dc1f"
+    },
+    "SK-004": {
+      "attempt": "001",
+      "started": "2026-11-06T01:29:34.252010+08:00",
+      "finished": "2026-11-06T01:33:33.437665+08:00",
+      "elapsed_seconds": 239.19,
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "model_requested": "hy3",
+      "hy3_requests": 7,
+      "response_header_statuses": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "selected_skill_id": "qa_borrowing_ab",
+      "sampled_key_presence": {
+        "skill": true,
+        "skill_id": true,
+        "skill_selection": false,
+        "verification_report": true,
+        "unmet_requirements": true,
+        "state": true,
+        "error": true,
+        "save_path": true
+      },
+      "actual_result_keys": [
+        "capabilities",
+        "citations",
+        "document_citations",
+        "error",
+        "evidence_records",
+        "file_retrived_items",
+        "file_roles",
+        "file_summaries",
+        "gdb_label",
+        "input_file_path",
+        "messages",
+        "output_dir",
+        "replace_pairs",
+        "retrieval_plan",
+        "retrieval_progress",
+        "retrieval_report",
+        "retrieve_count_limit",
+        "retrieve_params",
+        "retrieve_target",
+        "retrieve_tool",
+        "retrieved_content",
+        "rewrite_file",
+        "rewrite_mode",
+        "rewrite_steps",
+        "save_path",
+        "skill",
+        "skill_id",
+        "skill_name",
+        "state",
+        "unmet_requirements",
+        "user_intent",
+        "verification_report"
+      ],
+      "request_sha256": "1a10cf985bee76aef8290f8a35fc6dab874bbe2f9672f0b2c52d7bb2e4555885",
+      "expected_sha256": "679bd821025e4e5232d03a6c36271b44c5bd80381d27549a40eddf50109ed94c",
+      "input_preserved": true,
+      "candidate_unchanged": true,
+      "skill_files_preserved": true,
+      "harness_timed_out": false,
+      "initial_database_counts": {
+        "nodes": 0,
+        "relationships": 0
+      },
+      "output": {
+        "file": "f5bde52_SK-004_借用须知_v1.0.0.docx",
+        "sha256": "f3ba35132e112f1d3a07799a4381b8c5244853a05e20a6e75fb25b1e8d9b72eb",
+        "bytes": 37118
+      },
+      "page": {
+        "file": "f5bde52_SK-004_actual_page-1_v1.0.28.png",
+        "sha256": "15f41ff42780bf30aa5d114bd2ecd63f89db71bbe8859a59e79fd1466c82920b",
+        "kind": "actual unchanged generated Word page; root and independent reviewer visually inspected"
+      },
+      "whole_non_whitespace_characters": 150,
+      "tables": 0,
+      "title_present": false,
+      "headings": [
+        {
+          "location": "p[0]",
+          "text": "借用与申请",
+          "style": "Heading1"
+        },
+        {
+          "location": "p[2]",
+          "text": "归还与依据",
+          "style": "Heading1"
+        }
+      ],
+      "actual_text": "借用与申请\n仅适用于星桥演示设备的内部借用。每次借用最多3天。借用申请需提前2个工作日提交。由演示设备管理员确认设备可用后批准。【来源：星桥演示设备借用规则_v1.0.0.txt】\n归还与依据\n归还前完成外观检查，并登记归还时间。本资料为纯虚构演示材料。【来源：星桥演示设备借用规则_v1.0.0.txt】\n",
+      "exact_citation_count": 2,
+      "effective_font_and_color_check": [
+        {
+          "name": "resolved_chinese_font_and_color",
+          "status": "pass",
+          "detail": {
+            "mismatches": [],
+            "unresolved": [],
+            "note": "Theme/automatic/missing values are unknown; inspect effective theme/Word rendering, not automatic failure."
+          }
+        }
+      ],
+      "observed_tool_dispatches": [],
+      "actual_verification_report_without_private_paths": {
+        "passed": false,
+        "summary": "6/8 项检查通过",
+        "programmatic_passed": false,
+        "checks": [
+          {
+            "name": "required_sections",
+            "passed": true,
+            "detail": "必填章节齐全"
+          },
+          {
+            "name": "section_order",
+            "passed": true,
+            "detail": "章节顺序符合规范"
+          },
+          {
+            "name": "must_include",
+            "passed": false,
+            "detail": "以下要点未出现：借用与申请：适用范围、借用期限、预约要求、审批角色；归还与依据：归还要求"
+          },
+          {
+            "name": "required_data",
+            "passed": false,
+            "detail": "正文缺少数据字段：适用范围、借用期限、预约要求、审批角色、归还要求"
+          },
+          {
+            "name": "citations",
+            "passed": true,
+            "detail": "引用标记共 2 条，需引用章节均达标"
+          },
+          {
+            "name": "citation_sources",
+            "passed": true,
+            "detail": "引用 2 条，均能对应到已检索来源"
+          },
+          {
+            "name": "no_placeholder",
+            "passed": true,
+            "detail": "未发现占位内容"
+          },
+          {
+            "name": "min_length",
+            "passed": true,
+            "detail": "全文 150 字"
+          }
+        ],
+        "semantic_review": {
+          "executed": true,
+          "passed": true,
+          "summary": "文档仅引用了用户提供的唯一规则文本《星桥演示设备借用规则_v1.0.0.txt》作为来源，未出现其他外部来源、未查询知识库、也未补造未知事实（\"本资料为纯虚构演示材料\"为元声明，不构成补造事实）。因此未违反\"来源可信度与时效性\"语义规则。",
+          "issues": []
+        },
+        "unmet_requirements": [
+          "must_include：以下要点未出现：借用与申请：适用范围、借用期限、预约要求、审批角色；归还与依据：归还要求",
+          "required_data：正文缺少数据字段：适用范围、借用期限、预约要求、审批角色、归还要求"
+        ]
+      },
+      "independent_verdict": "failed_document_title_and_configured_literal_labels",
+      "execution_sha256": "82e5466992316726a99afe243e788d8048882d6d4276963fe4304ec47a182b29",
+      "log_sha256": "500ad8597ad37c9eba80b15cbda9f8473ea0c7dd52cd4e8b815d2061ee2dcffb",
+      "independent_review_sha256": "a2065f88b2e831380b334bb44355f57d4ea6e823c63eea5783779bffd5994fd6",
+      "word_structure_review_sha256": "3725cde39609b5a3875b4d458e05e3da30ea024787b2b29fc7a76ffb6a4355d1",
+      "render_receipt_sha256": "09e35d662d1509d2748135dc5786cfb038d7668b6ebf582393dbe736a05acdbb",
+      "database_reset_receipt_sha256": "726f9fb40fb17f96a6a0fa8883c80a89fc3474a230ac05a122d0bea0d721c915"
+    }
+  },
+  "product_modified": false,
+  "dependencies_installed": false,
+  "defects_added": [],
+  "defects_closed": [],
+  "defects_updated": [
+    "DEF-003",
+    "DEF-004"
+  ],
+  "database": {
+    "port": 17692,
+    "status": "stopped",
+    "same_physical_service_reused": true,
+    "business_initial_nodes_and_relationships": [
+      0,
+      0
+    ],
+    "identity_checked_before_cleanup": true
+  },
+  "limitations": [
+    "One actual run per arm; no statistical quality or latency improvement claim.",
+    "Hy3 requested through retained transport adapter; response model identity was not independently retained.",
+    "A passing Skill fact path does not close original no-Skill defects or the old CP002 direct-end regression.",
+    "Only report observation here; deliberate verifier positive/negative controls remain unexecuted.",
+    "Known private markers are checked; not a claim of exhaustive secret detection."
+  ],
+  "case_findings": {
+    "SK-003": "Failed: important source facts lost and required document title missing; 251 characters, no tables, full citations, Songti and black passed.",
+    "SK-004": "Failed overall: title missing and literal configured field labels absent; actual five facts, two sections/order, two full citations, length and configured format passed."
+  },
+  "handover_evidence": {
+    "case": "SK-003",
+    "actual_end_log_line": 60,
+    "actual_end_argument_key": "delivery",
+    "delivery_contains_correct_source_facts": true,
+    "terminal_retrieved_content": [],
+    "writer_reads": "retrieved_content through build_retrieved_info",
+    "source_code": [
+      "src/document_agent/agent/retrieve_node.py:191-197",
+      "src/document_agent/agent/docx_node.py:78",
+      "src/document_agent/agent/retrieved_context.py:74-76"
+    ],
+    "boundary": "State/source review supports the handover gap; complete HTTP writing prompts and model internal causes were not independently retained."
+  }
+}

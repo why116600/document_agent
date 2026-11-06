@@ -1,0 +1,106 @@
+{
+  "id": "qa_borrowing_ab",
+  "name": "借用说明两章测试规范",
+  "version": 1,
+  "description": "用于虚构规则资料的最小两章节写作对照",
+  "enabled": true,
+  "task": {
+    "doc_type": "new",
+    "triggers": [],
+    "purpose": "依据用户提供的唯一规则文本生成简短借用说明",
+    "language": "zh-CN",
+    "length_target": {
+      "max_chars": 300
+    },
+    "extra_requirements": [
+      "不使用表格",
+      "全部文字为黑色，中文均为宋体",
+      "不补充资料未说明的费用、押金、处罚或真实人员信息"
+    ]
+  },
+  "structure": {
+    "order": "strict",
+    "numbering": "",
+    "output_format": "恰好两个章节，使用正文段落，不使用表格；每章末尾标明实际来源文件名",
+    "format": {
+      "body_font": "宋体",
+      "body_size": 12,
+      "heading_font": "宋体",
+      "heading_sizes": {
+        "1": 16
+      },
+      "heading_bold": true
+    },
+    "sections": [
+      {
+        "key": "conditions",
+        "title": "借用与申请",
+        "level": 1,
+        "required": true,
+        "must_include": [
+          "适用范围",
+          "借用期限",
+          "预约要求",
+          "审批角色"
+        ],
+        "evidence_required": true,
+        "min_citations": 1,
+        "guidance": "只根据规则文本说明适用范围、借用期限、预约和审批要求。"
+      },
+      {
+        "key": "procedure",
+        "title": "归还与依据",
+        "level": 1,
+        "required": true,
+        "must_include": [
+          "归还要求"
+        ],
+        "evidence_required": true,
+        "min_citations": 1,
+        "guidance": "只根据规则文本说明归还要求和资料纯虚构性质，标明依据文件。"
+      }
+    ]
+  },
+  "research": {
+    "questions": [
+      "该规则文本的适用范围、借用期限、预约要求、审批角色和归还要求分别是什么？"
+    ],
+    "data_fields": [
+      "适用范围",
+      "借用期限",
+      "预约要求",
+      "审批角色",
+      "归还要求"
+    ],
+    "max_rounds": 3,
+    "per_question_attempts": 2,
+    "source": {
+      "priority": [
+        "file"
+      ]
+    },
+    "query_expansion": false,
+    "on_empty": "mark_missing",
+    "credibility_rule": "只采用用户提供的唯一规则文本，不查询知识库，不补造未知事实"
+  },
+  "evidence": {
+    "citation_template": "【来源：{name}】",
+    "min_sources_per_key_claim": 1,
+    "cross_validation": false
+  },
+  "verification": {
+    "checks": [
+      "required_sections",
+      "section_order",
+      "must_include",
+      "required_data",
+      "citations",
+      "citation_sources",
+      "no_placeholder",
+      "min_length"
+    ],
+    "semantic_review": true,
+    "on_failure": "report"
+  },
+  "instructions": "严格根据唯一TXT写作。仅生成借用与申请、归还与依据两个章节，标题原样出现，按配置顺序。全文（含章节标题和来源标记）不超过300个非空白字符。所有文字黑色，中文宋体。每章至少一次使用实际文件全名的来源标记。没有依据的内容不补充。每章引用均使用完整文件名（含扩展名）：星桥演示设备借用规则_v1.0.0.txt。"
+}
