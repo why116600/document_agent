@@ -1,14 +1,13 @@
-"""Skill 管理命令行：列出、查看、校验、生成模板、按自然语言生成 Skill。"""
+"""Skill 管理内部模块，由 console_app 的 skill 子命令调用。"""
 
 from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 from typing import Optional
 
-from document_agent.skills.schema import DocumentSkill
+from document_agent.skills.schema import DocumentSkill, explicit_source_restriction
 from document_agent.skills.store import (
     SkillError,
     list_skills,
@@ -22,8 +21,8 @@ from document_agent.skills.store import (
 from document_agent.skills.templates import TEMPLATE_BODY, build_template_skill, draft_skill_prompt
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="document_agent.skill_cli", description="管理文档 Skill 配置")
+def build_parser(prog: str = "document_agent.console_app skill") -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog=prog, description="管理文档 Skill 配置")
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("list", help="列出全部 Skill")
@@ -50,6 +49,8 @@ def build_parser() -> argparse.ArgumentParser:
     draft.add_argument("--single", action="store_true", help="保存为单文件配置而不是 Skill 包")
     draft.add_argument("--yaml", action="store_true", help="--single 模式下输出 YAML")
     draft.add_argument("--force", action="store_true", help="目标已存在时覆盖")
+    draft.add_argument("--sources", nargs="+", choices=["file", "knowledge"],
+                       help="明确允许的来源及优先级；模型输出必须符合此约束")
 
     return parser
 
@@ -87,7 +88,7 @@ def _save(skill: DocumentSkill, args, instructions: Optional[str] = None) -> int
     print("  - SKILL.md（执行说明，可自由编辑）")
     print("  - skill.yaml（结构化配置，加载时校验）")
     print("  - 可选目录：references/（.md/.txt 会自动注入提示词）、assets/template.docx（文档模板）")
-    print("编辑后用 skill_cli validate 校验。")
+    print("编辑后用 python -m document_agent.console_app skill validate <id> 校验。")
     return 0
 
 
@@ -96,7 +97,7 @@ def _command_list() -> int:
     skills, errors = list_skills()
     print(f"Skill 目录：{skill_dir}")
     if not skills and not errors:
-        print("（目录下没有 Skill，可用 skill_cli new <id> 生成模板）")
+        print("（目录下没有 Skill，可用 python -m document_agent.console_app skill new <id> 生成模板）")
     for skill in skills:
         print(f"- {skill.id}｜{skill.name}｜{skill.summary()}")
     for error in errors:
@@ -151,6 +152,18 @@ def _command_draft(args) -> int:
         return 1
 
     base_prompt = draft_skill_prompt(args.description, args.skill_id)
+    try:
+        restriction = explicit_source_restriction(args.description)
+    except ValueError as exc:
+        print(f"[错误] {exc}")
+        return 1
+    sources = getattr(args, "sources", None)
+    if sources and restriction and sources != restriction:
+        print("[错误] --sources 与需求中的单来源限制冲突")
+        return 1
+    required_sources = sources or restriction
+    if required_sources:
+        base_prompt += f"\n【必须遵守】research.source.priority 必须等于 {json.dumps(required_sources)}。\n"
     prompt = base_prompt
     last_error = ""
     for _ in range(3):
@@ -161,13 +174,17 @@ def _command_draft(args) -> int:
             try:
                 data = json.loads(candidate)
                 skill = DocumentSkill.model_validate(data)
+                if args.skill_id and skill.id != args.skill_id:
+                    raise ValueError(f"id 必须为 {args.skill_id}")
+                if required_sources and skill.research.source.priority != required_sources:
+                    raise ValueError(f"research.source.priority 必须等于 {required_sources}，不得添加其他来源")
             except Exception as exc:
                 last_error = str(exc)[:500]
                 continue
             instructions = (
                 "# 执行说明\n\n"
                 f"需求来源：{args.description}\n\n"
-                "生成的规范见 skill.yaml；如需补充执行流程与主要指令，请直接编辑本文件。\n"
+                + (skill.instructions or "生成的规范见 skill.yaml；如需补充执行流程与主要指令，请直接编辑本文件。\n")
             )
             return _save(skill, args, instructions=instructions)
         prompt = (
@@ -180,8 +197,8 @@ def _command_draft(args) -> int:
     return 1
 
 
-def main(argv=None) -> int:
-    args = build_parser().parse_args(argv)
+def run(argv, *, prog: str = "document_agent.console_app skill") -> int:
+    args = build_parser(prog=prog).parse_args(argv)
     if args.command == "list":
         return _command_list()
     if args.command == "show":
@@ -195,5 +212,3 @@ def main(argv=None) -> int:
     return 1
 
 
-if __name__ == "__main__":
-    sys.exit(main())

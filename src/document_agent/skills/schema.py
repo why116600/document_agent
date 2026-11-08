@@ -19,6 +19,17 @@ SKILL_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 # 当前系统实际具备的检索来源；技能若声明其它来源只能退化或报错，不能凭空造出连接器
 AVAILABLE_SOURCES = ("file", "knowledge")
 
+
+def explicit_source_restriction(text: str) -> Optional[List[str]]:
+    """识别明确的单来源指令；复杂或未识别的自然语言仍需用户核对。"""
+    text = re.sub(r"\s+", "", text or "")
+    prefix = r"(?<!不)(?:仅|只)(?:允许|能|可)?(?:使用|采用|依据|根据|检索)?"
+    file_only = re.search(prefix + r"(?:用户(?:提供|上传)的?|提供的?|上传的?|本地的?|参考的?)?(?:文件|附件|资料)", text)
+    knowledge_only = re.search(prefix + r"(?:组织|本地|远程)?(?:知识库|知识图谱)", text)
+    if file_only and knowledge_only:
+        raise ValueError("同时声明仅文件和仅知识库，来源要求互相冲突")
+    return ["file"] if file_only else ["knowledge"] if knowledge_only else None
+
 # 验收检查项：每一项都由 verify_node 有对应实现；未实现的检查不允许写进配置
 VERIFICATION_CHECKS = (
     "required_sections",
@@ -108,8 +119,11 @@ class SectionSpec(_StrictModel):
     level: int = Field(default=1, ge=1, le=4, description="Word 大纲级别：1 为章，2 为节")
     required: bool = Field(default=True, description="是否为必填章节")
     must_include: List[str] = Field(
-        default_factory=list, max_length=20, description="本章必须出现的要点/字段名"
+        default_factory=list, max_length=20, description="按字面检查的必含关键词；自然语言内容要求放 requirements"
     )
+    requirements: List[str] = Field(default_factory=list, max_length=20, description="本章语义要求，由模型结合原文片段审核")
+    data_fields: List[str] = Field(default_factory=list, max_length=30, description="本章必须呈现的 research.data_fields 字段")
+    min_body_chars: int = Field(default=1, ge=1, le=20000, description="不含标题的正文最少字符数，拦截空章")
     evidence_types: List[str] = Field(
         default_factory=list, max_length=5, description="本章需要的证据类型，如「市场规模数据」「政策原文」"
     )
@@ -211,6 +225,10 @@ class ResearchSpec(_StrictModel):
     data_fields: List[str] = Field(
         default_factory=list, max_length=30, description="必须收集的数据字段/指标"
     )
+    numeric_fields: List[str] = Field(
+        default_factory=list, max_length=30, description="data_fields 中必须出现数值的字段；非数值口径仍需语义审核"
+    )
+    field_aliases: Dict[str, List[str]] = Field(default_factory=dict, max_length=30, description="数据字段的等价写法；键必须属于 data_fields")
     time_range: str = Field(
         default="", max_length=100, description="检索时间范围（知识库无时间字段，仅作为提示词与写作依据）"
     )
@@ -227,6 +245,9 @@ class ResearchSpec(_StrictModel):
         default="rewrite_query", description="检索为空时的处理方式"
     )
     stop_when: str = Field(default="", max_length=200, description="提前结束检索的条件")
+    stop_after_no_new_evidence: int = Field(
+        default=0, ge=0, le=10, description="连续几轮没有新增证据时停止，0 表示关闭；程序直接执行"
+    )
     credibility_rule: str = Field(
         default="", max_length=300, description="来源可信度与时效性要求（提示词约束，无法自动判定）"
     )
@@ -235,20 +256,38 @@ class ResearchSpec(_StrictModel):
     @classmethod
     def _check_questions(cls, value: List[str]) -> List[str]:
         for item in value:
-            if len(item) > 200:
-                raise ValueError("research.questions 单条不得超过 200 字")
+            if not item.strip() or len(item) > 200:
+                raise ValueError("research.questions 单条不得为空或超过 200 字")
         return value
 
     @field_validator("data_fields")
     @classmethod
     def _check_fields(cls, value: List[str]) -> List[str]:
         for item in value:
-            if len(item) > 60:
-                raise ValueError("research.data_fields 单项不得超过 60 字")
+            if not item.strip() or len(item) > 60:
+                raise ValueError("research.data_fields 单项不得为空或超过 60 字")
         return value
+
+    @model_validator(mode="after")
+    def _check_budget(self):
+        if not set(self.numeric_fields).issubset(self.data_fields):
+            raise ValueError("research.numeric_fields 必须是 research.data_fields 的子集")
+        if not set(self.field_aliases).issubset(self.data_fields):
+            raise ValueError("research.field_aliases 的键必须属于 research.data_fields")
+        for aliases in self.field_aliases.values():
+            if len(aliases) > 10 or any(not a.strip() or len(a) > 80 for a in aliases):
+                raise ValueError("每个字段最多10个别名，别名不得为空或超过80字")
+        question_count = len(self.questions) or (1 if self.data_fields else 0)
+        if self.max_rounds < question_count:
+            raise ValueError(
+                f"research.max_rounds={self.max_rounds} 小于研究问题数 {question_count}，"
+                "每个问题至少需要一次检索；请增加预算或合并问题"
+            )
+        return self
 
 
 class EvidenceSpec(_StrictModel):
+    derived_data: Literal["label", "forbid"] = Field(default="label", description="label 允许依据已有数据计算并明确标注，forbid 禁止补算缺失指标")
     citation_template: str = Field(
         default="【来源：{name}】",
         max_length=80,
@@ -296,6 +335,7 @@ class VerificationSpec(_StrictModel):
     semantic_review: bool = Field(
         default=True, description="是否在程序化检查后调用模型做语义补充评估（术语口径、交叉验证、数据一致性等）"
     )
+    max_section_attempts: int = Field(default=3, ge=1, le=3, description="每章生成及受控修复的总次数上限")
     on_failure: Literal["report"] = Field(
         default="report", description="验收未通过时的处理方式；当前仅支持 report（只报告不阻断）"
     )
@@ -346,6 +386,12 @@ class DocumentSkill(_StrictModel):
 
     @model_validator(mode="after")
     def _check_consistency(self):
+        for section in self.structure.sections:
+            if not set(section.data_fields).issubset(self.research.data_fields):
+                raise ValueError(f"章节 {section.title} 的 data_fields 必须属于 research.data_fields")
+        restriction = explicit_source_restriction(self.research.credibility_rule + "\n" + self.instructions)
+        if restriction and self.research.source.priority != restriction:
+            raise ValueError(f"明确的单来源指令要求 {restriction}，但 research.source.priority={self.research.source.priority}")
         citation_checks = {"citations", "citation_sources"} & set(self.verification.checks)
         if citation_checks and "{name}" not in self.evidence.citation_template:
             raise ValueError(

@@ -74,6 +74,7 @@ def _check_capabilities(skill: DocumentSkill, state: AgentState, gdb: Any,
             status = _run_sync(probe())
             knowledge_available = bool(status.get("ok"))
             knowledge_detail = "远程知识图谱可连接" if knowledge_available else "远程知识图谱未就绪"
+            knowledge_detail += "；research.knowledge.* 仅适用于本地检索，远程参数由远程检索器控制"
         except Exception as exc:
             knowledge_available, knowledge_detail = False, f"远程知识图谱不可用：{exc}"
     else:

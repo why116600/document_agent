@@ -585,6 +585,12 @@ class GenerationRuntime:
                 return
             self.store.mark_generated(session_id, [produced.name])
             content = f"文档已生成：{produced.name}"
+            verification = result.get("verification_report")
+            if verification:
+                content += "\n" + verification.get("summary", "")
+            unmet = result.get("unmet_requirements") or []
+            if unmet:
+                content += "\n仍需处理：\n" + "\n".join("- " + item for item in unmet)
             self.store.update_message(
                 session_id,
                 assistant_message_id,
@@ -593,6 +599,9 @@ class GenerationRuntime:
                 files=[produced.name],
                 save_path=str(produced),
                 error=None,
+                verification_report=verification,
+                retrieval_report=result.get("retrieval_report"),
+                unmet_requirements=unmet,
             )
             job.finish(
                 {
@@ -600,6 +609,9 @@ class GenerationRuntime:
                     "message": content,
                     "file": produced.name,
                     "save_path": str(produced),
+                    "verification_report": verification,
+                    "retrieval_report": result.get("retrieval_report"),
+                    "unmet_requirements": unmet,
                 }
             )
             return

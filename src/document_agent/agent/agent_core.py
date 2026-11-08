@@ -42,6 +42,7 @@ class AgentState(TypedDict):
     retrieval_report: Optional[Dict[str, Any]]#检索完成后的覆盖报告
     citations: List[Dict[str, Any]]#整理后的可引用来源清单
     unmet_requirements: List[str]#最终未满足的检索/验收要求
+    generation_report: Optional[List[Dict[str, Any]]]#各章的生成尝试和检查失败记录
 
 
 def get_last_user_text(messages) -> str:
@@ -87,7 +88,7 @@ class AgentCore:
             from remote_kg_tool import RemoteKGTool
         return RemoteKGTool(settings.base_url, **settings.tool_kwargs())
 
-    def build_graph(self, gdb, kg=None, remote_kg=None): #构建agent图
+    def build_graph(self, gdb, kg=None, remote_kg=None, *, knowledge_required=True): #构建agent图
         """组装检索与写作节点。
 
         :param gdb: 本地 Memgraph 篇章树；远程知识图谱模式下不使用，可传 None
@@ -107,7 +108,7 @@ class AgentCore:
 
         settings = remote_kg if isinstance(remote_kg, RemoteKGSettings) else load_remote_kg_settings()
         self.remote_kg_settings = settings
-        self.knowledge_mode = settings.mode
+        self.knowledge_mode = settings.mode if knowledge_required else "files"
         print(f"[知识图谱] {settings.describe()}")
 
         self.graph = StateGraph(AgentState)
@@ -116,7 +117,14 @@ class AgentCore:
         self.graph.add_node("retrieve", create_retrieve_node(self.llm))
         self.graph.add_node("retrieve_file", create_file_retrieve_node(self.llm))
         #知识图谱检索节点：按配置在“远程知识图谱”与“本地图数据库”之间二选一
-        if settings.enabled:
+        use_remote = settings.enabled and knowledge_required
+        if not knowledge_required:
+            self.remote_kg_tool = None
+            knowledge_node = "retrieve_disabled"
+            self.graph.add_node(knowledge_node, lambda state: {
+                **state, "state": "error", "error": "本次仅文件模式禁止知识库检索"
+            })
+        elif use_remote:
             from kg_retrieve_node import create_kg_retrieve_node
             self.remote_kg_tool = self._build_remote_kg_tool(settings)
             knowledge_node = "retrieve_remote_kg"
@@ -150,7 +158,7 @@ class AgentCore:
         )
         self.graph.add_edge("summary","retrieve")
         self.graph.add_edge("retrieve_file","retrieve")
-        if settings.enabled:
+        if use_remote or not knowledge_required:
             self.graph.add_conditional_edges(
                 knowledge_node,
                 lambda state: "end" if state.get("state") == "error" else "continue",
@@ -183,7 +191,8 @@ class AgentCore:
         """
         if self.agent_invoke is None:
             raise ValueError("未初始化agent的图")
-        config = {"configurable": {"thread_id": session_id}}
+        # 每次工具调用至少经历 retrieve -> tool 两个节点；Skill 上限10轮会超过默认25步。
+        config = {"configurable": {"thread_id": session_id}, "recursion_limit": 100}
         return self.agent_invoke.invoke(
             {
                 "messages": [{"role": "user", "content": user_input}],
@@ -218,6 +227,7 @@ class AgentCore:
                 "retrieval_report": None,
                 "citations": [],
                 "unmet_requirements": [],
+                "generation_report": None,
             },
             config=config
         )

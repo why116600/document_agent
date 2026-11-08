@@ -28,6 +28,16 @@ class EvidenceCoverage(BaseModel):
 
     covered: bool = Field(description="现有资料是否足以回答该问题")
     reason: str = Field(default="", description="判断理由，指出已获得什么或还缺什么")
+    has_evidence: bool = Field(default=True, description="是否含有相关的具体事实，只有未找到/缺失说明时为 false")
+
+
+class QueryRewrite(BaseModel):
+    query: str = Field(default="", max_length=500, description="不同于之前尝试的一条检索式；无法改写时为空")
+
+
+class RetrievalStopDecision(BaseModel):
+    stop: bool = Field(description="已有检索进度是否满足用户的提前停止条件")
+    reason: str = Field(default="", description="根据进度说明理由，不得把未覆盖的问题说成已覆盖")
 
 
 # 各检索工具的说明；Skill 通过来源优先级决定本次实际开放哪些工具
@@ -45,14 +55,14 @@ def build_tool_description(tools: List[str]) -> str:
 def _assess_coverage(llm, step: Dict[str, Any], records: List[Dict[str, Any]]) -> tuple:
     """判断本轮新增证据是否回答了当前研究问题；无证据时不调用模型。"""
     if not records:
-        return False, "本轮没有检索到新的证据"
+        return False, "本轮没有检索到新的证据", False
     if llm is None:
-        return False, "未配置模型，无法判断证据是否覆盖研究问题"
+        return False, "未配置模型，无法判断证据是否覆盖研究问题", True
 
     lines = []
     for record in records[:10]:
         source = str(record.get("source") or "未知来源")
-        snippet = str(record.get("snippet") or "").strip()
+        snippet = str(record.get("content") or record.get("snippet") or "").strip()
         lines.append(f"- 来源：{source}｜片段：{snippet}")
     evidence_text = "\n".join(lines)[:3000]
 
@@ -60,14 +70,55 @@ def _assess_coverage(llm, step: Dict[str, Any], records: List[Dict[str, Any]]) -
         "你是检索结果审核助手。请判断下列资料是否足以回答给定的研究问题。\n"
         f"研究问题：{step['question']}\n"
         f"本轮资料：\n{evidence_text}\n"
-        "判定标准：出现可引用的具体事实、数据或明确结论即算覆盖；只有标题、目录、泛泛相关或"
+        "判定标准：问题要求的各项数据、口径均有支撑才算 covered；仅回答问题的一部分不能算覆盖。"
+        "has_evidence 表示资料是否包含相关的具体事实；只有标题、目录、泛泛相关或"
         "「未找到」提示不算覆盖。\n"
-        "请给出 covered（是否覆盖）与简要 reason。"
+        "请给出 covered、has_evidence 与简要 reason。"
     )
     result = llm_model_invoke(llm, prompt, EvidenceCoverage)
     if result is None:
-        return False, "证据覆盖判断失败"
-    return bool(result.covered), result.reason
+        return False, "证据覆盖判断失败", True
+    return bool(result.covered and result.has_evidence), result.reason, bool(result.has_evidence)
+
+
+def _retry_query(llm, plan, progress, step, reason):
+    used = {item["query"] for item in progress.get("attempts", [])
+            if item["question_id"] == step["question_id"]}
+    used.add(step["query"])
+    question = next(q for q in plan["questions"] if q["id"] == step["question_id"])
+    for query in question["queries"]:
+        if query not in used:
+            return query
+    if llm is None:
+        return None
+    draft = llm_model_invoke(llm, (
+        f"为没有结果的检索改写一条查询，不要编造事实。研究问题：{step['question']}\n"
+        f"已尝试：{sorted(used)}\n未覆盖原因：{reason}\n"
+        "保持主题、数据指标、时间和地域限定，输出一条不同的 query。"
+    ), QueryRewrite)
+    query = str(getattr(draft, "query", "") or "").strip()
+    return query if query and query not in used else None
+
+
+def _evaluate_stop(llm, skill, progress):
+    if not skill.research.stop_when or progress.get("stop_reason"):
+        return progress
+    result = None
+    if llm is not None:
+        result = llm_model_invoke(llm, (
+            "判断是否满足提前停止检索条件。只根据实际进度判断；停止不代表全部问题已覆盖。\n"
+            f"条件：{skill.research.stop_when}\n"
+            f"全部问题数：{len(skill.research.questions) or 1}\n"
+            f"已覆盖：{progress['covered']}\n已标缺失：{progress['missing']}\n"
+            f"连续无新增证据轮数：{progress['consecutive_empty']}\n"
+            f"最近尝试：{progress['attempts'][-5:]}"
+        ), RetrievalStopDecision)
+    executed = isinstance(result, RetrievalStopDecision)
+    return {**progress,
+            "stop_evaluation": {"executed": executed, "stop": result.stop if executed else False,
+                                "reason": result.reason if executed else "条件评估不可用，继续按程序预算执行"},
+            "stop_reason": f"stop_when：{result.reason or skill.research.stop_when}"
+                           if executed and result.stop else ""}
 
 
 def _orchestrated_retrieve(llm, state: AgentState, skill: DocumentSkill, plan: Dict[str, Any]) -> AgentState:
@@ -82,8 +133,20 @@ def _orchestrated_retrieve(llm, state: AgentState, skill: DocumentSkill, plan: D
         step = pending["step"]
         start = int(pending.get("evidence_start") or 0)
         new_records = evidence[start:]
-        covered, reason = _assess_coverage(llm, step, new_records)
-        progress = record_assessment(plan, progress, covered, len(new_records))
+        covered, reason, has_evidence = _assess_coverage(llm, step, new_records)
+        retry_query = None
+        next_attempt = next((item for item in plan["steps"] if item["index"] > pending["index"]
+                             and item["question_id"] == step["question_id"]), None)
+        same_source = next_attempt and (next_attempt["source"], next_attempt["path"]) == (step["source"], step["path"])
+        threshold = skill.research.stop_after_no_new_evidence
+        threshold_reached = not has_evidence and threshold and progress.get("consecutive_empty", 0) + 1 >= threshold
+        should_rewrite = (not has_evidence and skill.research.on_empty == "rewrite_query") or (has_evidence and same_source)
+        if (not covered and should_rewrite and remaining > 0 and next_attempt and not threshold_reached
+                and skill.research.query_expansion):
+            retry_query = _retry_query(llm, plan, progress, step, reason)
+        progress = record_assessment(plan, progress, covered, len(new_records) if has_evidence else 0,
+                                     retry_query=retry_query, reason=reason)
+        progress = _evaluate_stop(llm, skill, progress)
         print(
             f"【检索评估】{step['question_id']}｜{step['source']}｜"
             f"{'已覆盖' if covered else '未覆盖'}｜{reason}"
@@ -91,7 +154,7 @@ def _orchestrated_retrieve(llm, state: AgentState, skill: DocumentSkill, plan: D
 
     # 2. 预算耗尽或计划执行完毕：输出检索报告并结束
     step = current_step(plan, progress)
-    if step is None or remaining <= 0:
+    if step is None or remaining <= 0 or progress.get("stop_reason"):
         budget_total = int(skill.research.max_rounds)
         report = finalize_report(plan, progress, budget_total, budget_total - remaining)
         print(f"【检索结果】覆盖 {len(report['covered'])}/{len(plan['questions'])} 个研究问题")

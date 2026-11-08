@@ -24,8 +24,10 @@ def create_file_retrieve_node(llm):
             return {**state,"state":"error","error":"文件检索缺少必要参数字段"}
         path=params.get("path")
         query=params.get("query")
+        skill=coerce_skill(state.get("skill"))
+        cached_result=file_retrieved_items.get((path,query))
         print(f"对文件{path}进行检索")
-        if (path,query) in file_retrieved_items.keys():
+        if cached_result is not None and skill is None:
             tool_response=f"重复对文件{path}检索：{query}"
             print(tool_response)
             retrieved_items.append(tool_response)
@@ -48,7 +50,6 @@ def create_file_retrieve_node(llm):
             retrieved_items.append(tool_response)
             return {**state,"state":"error","error":tool_response,"retrieved_content":retrieved_items}
         # Skill 可限制单个文件送入模型的字符数，避免超长文件把提示词撑爆
-        skill=coerce_skill(state.get("skill"))
         max_chars=int(skill.research.file.max_chars) if skill is not None else 0
         if max_chars and len(content)>max_chars:
             print(f"【文件检索】{path} 内容超过 {max_chars} 字符，已截断")
@@ -59,8 +60,12 @@ def create_file_retrieve_node(llm):
             f"要检索的内容：{query}\n"
             "仅回答问题，不要输出其他内容。"
         )
-        res=llm_invoke(llm, prompt_for_retrieval)
-        result=getattr(res,"content","")
+        if cached_result is not None:
+            # 不同研究问题可使用相同查询；复用提取结果，再按当前问题评估覆盖。
+            result=cached_result
+        else:
+            res=llm_invoke(llm, prompt_for_retrieval)
+            result=getattr(res,"content","")
         if len(result)>0:
             retrieved_items.append(f"使用file工具以{query}为关键内容，对文件{path}的检索结果：{result}")
             file_retrieved_items[(path,query)]=result
@@ -79,6 +84,8 @@ def create_file_retrieve_node(llm):
                 "file_mtime":file_mtime,
                 "query":str(query),
                 "snippet":str(result)[:300],
+                "content":str(result)[:6000],
+                "source_excerpt":str(content)[:10000],
             })
             return {**state,"file_retrived_items":file_retrieved_items,"retrieved_content":retrieved_items,
                     "evidence_records":evidence_records}

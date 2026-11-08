@@ -16,9 +16,11 @@ D:\Conda\envs\docx_agent\python.exe -m pip install -e .
 模型配置（DeepSeek，OpenAI 兼容接口），使用前需设置环境变量：
 ```bash
 set MODEL_API_KEY=你的密钥
-set MODEL_BASE_URL=https://api.deepseek.com/v1
-set MODEL_NAME=deepseek-chat
+set MODEL_BASE_URL=https://api.deepseek.com
+set MODEL_NAME=deepseek-flash
 ```
+
+2026-11-08 已按[官方更新记录](https://api-docs.deepseek.com/updates/)修正默认模型名。`deepseek-chat` / `deepseek-reasoner` 是已停用的旧名称；当前默认 `deepseek-flash`。官方接口采用非思考模式以适配本工作流的工具调用。遇到 `Bad Request`，先运行 `python -m document_agent.diagnose_model` 查看最小请求、普通调用、结构化调用的具体响应正文；该命令需要在已配置密钥的同一窗口运行。
 
 ## 运行控制台程序
 在 `src` 目录下运行。采用**自然语言交互模式**：文件路径直接作为位置参数传入（终端支持按 `Tab` 键自动补齐），改写目标、改写模式、输出文件名等全部由你在提示符中输入的自然语言描述，意图识别节点（大模型）会自动分析：
@@ -290,9 +292,10 @@ skills/<id>/
 | B 写作规范 | `task.purpose` / `audience` / `tone` / `professionalism` / `language` | 文档目标、读者、语气、专业程度、语言 |
 | B 写作规范 | `task.length_target` / `task.terminology` / `task.banned_expressions` / `task.extra_requirements` | 篇幅、统一术语写法、禁用表达、其它约束 |
 | B 写作规范 | `structure.order` / `numbering` / `output_format` | 章节顺序、编号体例、段落/表格等输出格式 |
-| B 写作规范 | `structure.sections` | 章节：`title`、`level`(1~4)、`required`、`must_include`、`evidence_types`、`evidence_required`、`min_citations`、`guidance` |
+| B 写作规范 | `structure.sections` | 章节：`title`、`level`(1~4)、`required`、`must_include`（字面关键词）、`requirements`（自然语言语义要求）、`data_fields`、`min_body_chars`、`evidence_types`、`evidence_required`、`min_citations`、`guidance` |
 | B 写作规范 | `structure.format` | 正文字体/字号、标题字体/各级字号、加粗、行距、首行缩进 |
 | C 检索目标 | `research.questions` / `data_fields` | 必须回答的问题、必须收集的数据字段 |
+| C 检索目标 | `research.field_aliases` | 字段的等价表达；用于字段覆盖检查，不改变指标含义 |
 | C 检索目标 | `research.time_range` / `region` | 时间范围、地域范围（仅提示词约束） |
 | D 检索策略 | `research.source.priority` | 允许使用的来源与优先级，仅支持 `knowledge`（知识库）与 `file`（用户文件） |
 | D 检索策略 | `research.knowledge` | 知识库召回数 `top_k`、最低相似度 `min_similarity`、是否展开邻居、展开轮次 `max_expansions` |
@@ -301,7 +304,9 @@ skills/<id>/
 | D 检索策略 | `research.query_expansion` / `on_empty` / `stop_when` | 查询改写、空结果处理、提前结束条件 |
 | D 检索策略 | `research.credibility_rule` | 来源可信度与时效性要求（仅提示词与语义评估） |
 | D 检索策略 | `evidence.citation_template` / `min_sources_per_key_claim` / `cross_validation` / `conflict_policy` | 引用格式、来源数量、交叉验证与冲突处理 |
+| D 检索策略 | `evidence.derived_data` | `label` 要求推算注明公式与输入来源；`forbid` 禁止推算。属于提示词/语义要求，非通用算术校验 |
 | E 验收规则 | `verification.checks` / `semantic_review` / `on_failure` | 程序化验收项列表、是否做语义补充评估；`on_failure` 当前固定为 `report` |
+| E 验收规则 | `verification.max_section_attempts` | 新建文档每章最多生成次数（1~3，默认3）；正文、关键词、引用或总篇幅预算未通过则反馈重试，用尽次数不保存文档 |
 
 ### 配置与真实执行能力的对应
 
@@ -315,15 +320,18 @@ skills/<id>/
 | `research.max_rounds` | 覆盖默认检索轮次预算（默认 3 次） | 硬约束 |
 | `research.knowledge.*` | 直接传给 `search_by_vector(top_k)`，按 `min_similarity` 过滤，按 id 去重，控制是否展开邻居与展开轮次 | 硬约束 |
 | `research.file.max_chars` | 文件内容超长时截断后再送入模型 | 硬约束 |
-| `research.questions` / `data_fields` | 并入检索目标与检索提示词；`required_data` 验收检查字段是否出现 | 提示词 + 验收 |
-| `time_range` / `region` / `credibility_rule` / `query_expansion` / `stop_when` / `on_empty` / `cross_validation` / `conflict_policy` | 写入检索/写作提示词，引导模型行为 | 提示词 |
+| `research.questions` / `data_fields` / `numeric_fields` | 按问题检索；验收排除缺失说明与空字段；numeric_fields 要求有数值 | 程序调度 + 基础验收，准确性另需审核 |
+| `structure.sections[].data_fields` / `requirements` | 章节字段写入写作提示词，章节语义要求由审核模型结合证据评估；不靠正则从原文猜测字段事实 | 提示词 / 语义评估 |
+| `query_expansion` / `on_empty` | 控制是否改写、空结果时换源或标记缺失；跳过同题相同来源/查询的重复调用 | 程序控制，查询改写由模型完成 |
+| `stop_after_no_new_evidence` / `stop_when` | 前者为程序执行的连续空结果阈值，后者为每轮模型判断的自然语言停止条件；评估失败继续按预算检索并记录 | 程序控制 / 模型判断 |
+| `time_range` / `region` / `credibility_rule` / `cross_validation` / `conflict_policy` | 写入检索/写作提示词，引导模型行为 | 提示词 |
 | `evidence.citation_template` | 写入写作提示词；`citations` / `citation_sources` 按模板解析并校验 | 提示词 + 验收 |
 | `verification.checks` | 落盘后逐项执行并输出报告 | 硬约束（只报告） |
 | `SKILL.md` / `references/` / `assets/template.docx` | 注入写作与改写提示词；模板作为文档基底 | 硬约束（注入） |
 
 **不在配置中暴露不存在的能力**：系统没有网页检索、BM25/关键词检索器、reranker，知识库节点也没有时间字段，
 因此不提供 `web_search`、`strategy: keyword|hybrid`、`date_filter` 这类字段；写了会直接校验失败或被忽略。
-`research.on_empty` 目前只有三种提示词级策略，没有真正的换源重试引擎。
+`research.on_empty` 在无有效证据时执行：`mark_missing` 结束该题；`fallback_source` 切换下一来源（另一文件也算另一来源）；`rewrite_query` 且 `query_expansion=true` 时优先使用备选查询或模型改写，在同一来源重试。无有效新查询时按队列尝试下一来源，绝不重复同题相同来源和查询。各题先各检索一次，再轮转重试；提前停止、来源或预算不足仍如实报告未覆盖项。`max_rounds` 小于研究问题数时拒绝加载。
 
 ### 工作流编排
 
@@ -340,7 +348,7 @@ skills/<id>/
 5. **执行与覆盖判断**：每执行一步，下一轮判断新增证据是否回答了当前问题；
    覆盖则跳过该问题剩余步骤，未覆盖则继续下一步；预算或步骤用尽时把未覆盖问题写入
    `retrieval_report.missing`。检索工具返回的可恢复错误不会污染最终状态。
-6. **生成**：按 `structure.sections` 逐章生成，注入 SKILL.md、references 与检索证据。
+6. **生成**：按 `structure.sections` 逐章生成，注入 SKILL.md、references、原始证据与已接受章节。程序统一章节编号，检查正文、关键词、引用及剩余篇幅，失败有限重试，全部章节通过后才保存。业务事实、计算和未知信息如何处理由Skill说明，不能将文本匹配当作事实证明。
 7. **验收**：程序化检查 + 语义补充评估，输出 `verification_report`、`citations` 与
    `unmet_requirements`；控制台会打印验收摘要、可追溯来源数量、未覆盖问题与未满足要求。
 
@@ -348,37 +356,51 @@ skills/<id>/
 
 | 检查项 | 判定方式 |
 | --- | --- |
-| `required_sections` | 必填章节标题是否出现在文档大纲中 |
+| `required_sections` | 精确匹配去编号后的必填标题，并检查章内正文达到 `min_body_chars`；仅标题不算通过 |
 | `section_order` | 已匹配章节的实际出现顺序是否符合清单 |
-| `must_include` | 各章节范围内是否出现 `must_include` 要点 |
-| `required_data` | `research.data_fields` 是否全部出现在正文中 |
+| `must_include` | 各章节范围内是否出现字面关键词；自然语言要求放在 `requirements`，由语义审核判断 |
+| `required_data` | 字段具有实际内容而非仅标题/缺失说明；`numeric_fields` 还需有数值。支持别名及表格的行指标+列表头，不保证数值与来源一致 |
 | `citations` | 需引用章节的引用标记数量是否达标 |
-| `citation_sources` | 引用标记中的 `{name}` 是否能对应到已检索来源（含用户提供文件与知识库来源） |
-| `unsupported_claims` | 含「预计/预测/判断/可能」等措辞的段落是否带引用，或标注「未检索到依据」 |
+| `citation_sources` | 引用标记中的 `{name}` 是否能对应到已记录检索证据的来源；仅上传但未检索的文件不算已检索来源 |
+| `unsupported_claims` | 断言/预测是否带引用或明确标注无依据；排除「无法判断」「不作推测」和待执行建议等边界说明 |
 | `terminology` | `task.terminology` 中的主术语是否都出现在正文 |
 | `banned_expressions` | 是否出现 `task.banned_expressions` 中的表达 |
 | `no_placeholder` | 是否出现「待补充 / TODO / 此处省略」等占位内容 |
-| `min_length` | 正文字数是否落在 `min_chars`~`max_chars` 区间 |
-| `semantic_review`（独立开关，不在 `checks` 列表中） | 程序化检查之后，由模型评估术语口径、交叉验证、冲突处理、时间/地域一致性与专业程度；结果记录为 `executed/passed/issues`，不阻断保存 |
+| `min_length` | 全文去空白字符数是否落在 `min_chars`~`max_chars` 区间；标题、引用和表格计入，合并单元格只计一次 |
+| `semantic_review`（独立开关，不在 `checks` 列表中） | 模型评估章节 `requirements`、口径、冲突与资料一致性。指控须引用正文原句；一致性须提供两处引文，来源问题还须有资料原句。无效引文进入待核实项，遗漏要求或正文截断记为未完成，不据此虚报通过或已确认失败；有效引文本身仍需人工判断 |
 
 ### 创建与管理
 
+2026-11-08 本地更新的完整操作步骤见 [本地修改与验收操作](docs/本地修改与验收操作.md)。修改未提交；真实模型场景须单独执行，不能以离线测试代替。
+
+针对首份真实季度报告的空风险章、净利率遗漏、表间口径冲突与验收误报，已完成后续本地修正，详见 [生成与验收修正及重跑命令](docs/生成与验收修正_20261108.md)。
+
+当前已按通用执行器的职责收敛实现，季度示例Skill为v4。移除了实验性的 `data_consistency`、`arithmetic_accuracy` 两项及专用解析模块，不再自动搬动表格内容或把Skill名称当成文档标题。语义要求支持多个独立 `quotes`，只对缺少可靠引文的要求补充一次，不重判原始问题。默认表格排版保留文本、结构和手动分页；模板的表格布局保持不变。当前能力、撤回原因及验证范围见 [架构收敛说明](docs/架构收敛说明.md)；v2/v3文档保留为历史记录。
+
+文件来源专用 Skill（`source.priority: [file]`）在控制台跳过配置文件、数据库、向量模型和远程服务初始化。可用 `--request-file` 读取 UTF-8 需求，`--output` 指定文档路径，`--report-json` 导出所用 Skill、检索报告、验收报告和运行信息。默认生成成功退出0、运行失败退出1；加 `--strict-verification` 后，生成成功但验收未通过或未完成退出2。
+
+报告中 `state=succeeded` 仅表示生成成功。`verification_report` 分开给出 `programmatic_passed`、`data_complete`、`retrieval_complete`、`semantic_review` 和综合 `status/passed`。检索缺失、所需语义审核未执行或正文审核被截断，都不能获得综合通过。`on_failure: report` 仍保留生成文档。
+
 以下命令与 `console_app` 一致，需在 `src` 目录下运行（或先在仓库根目录执行 `pip install -e .`）。
+
+写作和 Skill 管理统一使用 `console_app`：`--skill <id>` 用于写作/改写，`skill <操作>` 用于管理规则。管理逻辑位于内部模块 `skills/commands.py`，由控制台调用。管理操作会在初始化数据库之前执行；只有自然语言生成 `draft` 需要调用模型。
 
 ```bash
 # 列出 / 查看 / 校验（目录与单文件都支持）
-python -m document_agent.skill_cli list
-python -m document_agent.skill_cli show industry_report
-python -m document_agent.skill_cli validate industry_report
-python -m document_agent.skill_cli validate skills/industry_report
+python -m document_agent.console_app skill list
+python -m document_agent.console_app skill show industry_report
+python -m document_agent.console_app skill validate industry_report
+python -m document_agent.console_app skill validate skills/industry_report
 
 # 生成 Skill 包（SKILL.md + skill.yaml）；--single 改为单文件
-python -m document_agent.skill_cli new my_standard
-python -m document_agent.skill_cli new my_standard --single --yaml
+python -m document_agent.console_app skill new my_standard
+python -m document_agent.console_app skill new my_standard --single --yaml
 
 # 用自然语言生成（需要 MODEL_API_KEY 等模型配置）
-python -m document_agent.skill_cli draft "写一份面向管理层的季度经营分析报告，要求数据可溯源" --id quarterly_report
+python -m document_agent.console_app skill draft "写一份面向管理层的季度经营分析报告，要求数据可溯源" --id quarterly_report
 ```
+
+运行 `python -m document_agent.console_app skill --help` 查看管理命令。首个参数 `skill` 保留作管理入口；若恰好有同名文件，可使用 `./skill` 或文件绝对路径。
 
 ### 在写作任务中使用
 
@@ -410,7 +432,7 @@ python -m document_agent.console_app D:/docs/行业数据.pdf
    引用「【来源：不存在的文件.pdf】」触发 `citation_sources`；
    「预计未来增长」既无引用也无「未检索到依据」触发 `unsupported_claims`；
    出现「大概」触发 `banned_expressions`。随后由模型补充评估术语口径、交叉验证、
-   数据时间一致性与专业程度。全部只报告、不阻断保存。
+   数据时间一致性与专业程度。落盘后的验收只报告；生成阶段的逐章检查会在多次失败后停止保存。
 7. **返回可追溯结果**：最终输出包含文档路径、`citations`（来源/标题/片段/查询/文件时间等可用元数据）、
    检索覆盖报告与 `unmet_requirements` 清单。
 

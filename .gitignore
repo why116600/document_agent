@@ -229,3 +229,9 @@ src/workspace/
 .pipcache/
 
 src/setting.json
+
+# 本地验证日志与真实模型测试产物（用例和脚本仍保留）
+.test-tmp/
+skill-tests.log
+tests/e2e_quarterly/results/
+tests/e2e_quarterly/tmp/

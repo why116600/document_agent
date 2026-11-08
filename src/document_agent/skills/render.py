@@ -82,6 +82,11 @@ def render_structure_brief(value: Any) -> str:
         lines.append(f"{index}. {section.title}（大纲级别 {section.level}）{suffix}")
         if section.must_include:
             lines.append(f"   必须包含要点：{'、'.join(section.must_include)}")
+        if section.requirements:
+            lines.append(f"   语义要求：{'；'.join(section.requirements)}")
+        if section.data_fields:
+            lines.append(f"   本章数据字段：{'、'.join(section.data_fields)}")
+        lines.append(f"   正文不少于{section.min_body_chars}字符，不得只输出标题")
         if section.evidence_types:
             lines.append(f"   需要证据类型：{'、'.join(section.evidence_types)}")
         if section.guidance:
@@ -133,6 +138,8 @@ def render_research_brief(value: Any) -> str:
             lines.append(f"  {index}. {question}")
     if research.data_fields:
         lines.append(f"- 必须收集的数据字段：{'、'.join(research.data_fields)}")
+    if research.field_aliases:
+        lines.append(f"- 字段等价写法：{research.field_aliases}")
     if research.time_range:
         lines.append(f"- 检索时间范围：{research.time_range}（仅作为筛选依据，来源若无时间信息需注明）")
     if research.region:
@@ -155,6 +162,8 @@ def render_research_brief(value: Any) -> str:
         lines.append(f"- 检索为空时的处理：{ON_EMPTY_LABELS.get(research.on_empty, research.on_empty)}")
     if research.stop_when:
         lines.append(f"- 提前结束条件：{research.stop_when}")
+    if research.stop_after_no_new_evidence:
+        lines.append(f"- 程序停止条件：连续 {research.stop_after_no_new_evidence} 轮没有新增证据")
     if research.credibility_rule:
         lines.append(f"- 来源可信度与时效性要求：{research.credibility_rule}")
     return _join(lines)
@@ -167,6 +176,7 @@ def render_evidence_brief(value: Any) -> str:
         return ""
     evidence = skill.evidence
     lines = ["【证据与引用规范】"]
+    lines.append('- 派生指标：' + ('允许依据已提供数据计算，必须标明计算式、输入来源和“推算”；所有章节使用同一口径，不得一处称未推算而另一处给出推算值' if evidence.derived_data == 'label' else '禁止补算缺失指标，只列原文明确提供值并说明缺失'))
     if evidence.citation_template:
         lines.append(
             f"- 引用标记：使用「{evidence.citation_template}」格式标注来源，{{name}} 替换为实际来源文件名或知识库条目"

@@ -1,7 +1,7 @@
 """检索计划与进度推进的纯函数。
 
 把 Skill 配置编译成一条有序的检索队列：每个研究问题按「来源优先级 + 文件」展开，
-再由 `per_question_attempts` 限制单题尝试次数。进度推进只依赖传入数据，便于单测。
+再按尝试次数轮转，先保障各题首次检索。进度推进只依赖传入数据，便于单测。
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ def build_retrieval_plan(
     - 单题最多 `per_question_attempts` 步，超出部分丢弃。
     """
     questions: List[Dict[str, Any]] = []
-    sources = [source for source in available_sources if source in ("file", "knowledge")]
+    sources = [source for source in skill.research.source.priority if source in available_sources]
 
     for qid, question in _question_items(skill):
         queries = list((planned_queries or {}).get(qid) or [])
@@ -85,7 +85,7 @@ def build_retrieval_plan(
         questions.append({
             "id": qid,
             "question": question,
-            "queries": queries[:3],
+            "queries": queries[:3] if skill.research.query_expansion else queries[:1],
         })
 
     files = [
@@ -94,7 +94,7 @@ def build_retrieval_plan(
         if str(path).strip() and (not rewrite_file or str(path) != str(rewrite_file))
     ]
 
-    steps: List[Dict[str, Any]] = []
+    question_steps: List[List[Dict[str, Any]]] = []
     limit = skill.research.per_question_attempts
     for question in questions:
         qsteps: List[Dict[str, Any]] = []
@@ -120,7 +120,11 @@ def build_retrieval_plan(
                         })
             if len(qsteps) >= limit:
                 break
-        steps.extend(qsteps[:limit])
+        question_steps.append(qsteps[:limit])
+
+    # 先让每个问题获得一次机会，再安排第二次尝试，避免早期问题耗尽全局预算。
+    steps = [qsteps[attempt] for attempt in range(limit)
+             for qsteps in question_steps if attempt < len(qsteps)]
 
     for index, step in enumerate(steps):
         step["index"] = index
@@ -133,6 +137,9 @@ def build_retrieval_plan(
         "steps": steps,
         "max_rounds": skill.research.max_rounds,
         "per_question_attempts": limit,
+        "on_empty": skill.research.on_empty,
+        "query_expansion": skill.research.query_expansion,
+        "stop_after_no_new_evidence": skill.research.stop_after_no_new_evidence,
     }
 
 
@@ -143,6 +150,9 @@ def new_progress() -> Dict[str, Any]:
         "covered": [],
         "missing": [],
         "attempts": [],
+        "overrides": {},
+        "consecutive_empty": 0,
+        "stop_reason": "",
     }
 
 
@@ -151,7 +161,7 @@ def current_step(plan: Dict[str, Any], progress: Dict[str, Any]) -> Optional[Dic
     index = int(progress.get("step_index") or 0)
     if index < 0 or index >= len(steps):
         return None
-    return steps[index]
+    return (progress.get("overrides") or {}).get(str(index), steps[index])
 
 
 def begin_step(progress: Dict[str, Any], plan: Dict[str, Any], evidence_start: int) -> Dict[str, Any]:
@@ -170,6 +180,8 @@ def record_assessment(
     progress: Dict[str, Any],
     covered: bool,
     evidence_count: int,
+    retry_query: Optional[str] = None,
+    reason: str = "",
 ) -> Dict[str, Any]:
     """记录上一轮检索是否回答当前问题，并推进到下一步。"""
     pending = progress.get("pending")
@@ -189,21 +201,51 @@ def record_assessment(
         "path": step["path"],
         "evidence_count": evidence_count,
         "covered": covered,
+        "reason": reason,
     })
 
     next_index = int(pending["index"]) + 1
+    overrides = dict(progress.get("overrides") or {})
+    empty_streak = 0 if evidence_count else int(progress.get("consecutive_empty") or 0) + 1
+    ignored = set(progress.get("ignored") or [])
+    question_indices = [index for index in range(next_index, len(steps))
+                        if steps[index]["question_id"] == question_id and index not in ignored]
     if covered:
         if question_id not in covered_list:
             covered_list.append(question_id)
-        # 同一问题已覆盖，跳过它剩余的所有检索步骤
-        while next_index < len(steps) and steps[next_index]["question_id"] == question_id:
-            next_index += 1
     else:
-        same_question_left = (
-            next_index < len(steps) and steps[next_index]["question_id"] == question_id
-        )
-        if not same_question_left and question_id not in missing_list:
+        if not evidence_count:
+            policy = plan.get("on_empty", "rewrite_query")
+            if policy == "mark_missing":
+                if question_id not in missing_list:
+                    missing_list.append(question_id)
+            elif policy == "fallback_source":
+                # 一个文件也是一个独立来源；跳过同一来源的重复尝试。
+                ignored.update(index for index in question_indices if (
+                    steps[index]["source"], steps[index]["path"]
+                ) == (step["source"], step["path"]))
+        if plan.get("query_expansion", True) and retry_query and question_indices:
+            retry_index = question_indices[0]
+            overrides[str(retry_index)] = {
+                **steps[retry_index], "source": step["source"], "path": step["path"],
+                "query": retry_query,
+            }
+
+    tried = {(item["question_id"], item["source"], item["path"], item["query"]) for item in attempts}
+    eligible = []
+    for index in range(next_index, len(steps)):
+        candidate = overrides.get(str(index), steps[index])
+        qid = candidate["question_id"]
+        if index in ignored or qid in covered_list or qid in missing_list:
+            continue
+        if (qid, candidate["source"], candidate["path"], candidate["query"]) in tried:
+            ignored.add(index)
+            continue
+        eligible.append(index)
+    if not covered and not any(steps[index]["question_id"] == question_id for index in eligible):
+        if question_id not in missing_list:
             missing_list.append(question_id)
+    next_index = eligible[0] if eligible else len(steps)
 
     return {
         **progress,
@@ -212,6 +254,14 @@ def record_assessment(
         "covered": covered_list,
         "missing": missing_list,
         "attempts": attempts,
+        "overrides": overrides,
+        "ignored": sorted(ignored),
+        "consecutive_empty": empty_streak,
+        "stop_reason": (
+            f"连续 {empty_streak} 轮没有新增证据"
+            if plan.get("stop_after_no_new_evidence") and empty_streak >= plan["stop_after_no_new_evidence"]
+            else progress.get("stop_reason", "")
+        ),
     }
 
 
@@ -248,4 +298,10 @@ def finalize_report(
         "missing": missing,
         "questions": question_reports,
         "budget": {"total": budget_total, "used": budget_used},
+        "complete": not missing,
+        "stop_reason": progress.get("stop_reason") or (
+            "budget_exhausted" if budget_used >= budget_total else "plan_exhausted"
+        ),
+        "stop_evaluation": progress.get("stop_evaluation"),
+        "attempts": attempts,
     }

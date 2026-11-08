@@ -20,6 +20,7 @@ from agent_core import AgentState
 from llm_client import llm_model_invoke
 from document_agent.skills.render import citation_name_pattern, citation_pattern
 from document_agent.skills.schema import DocumentSkill, coerce_skill
+from document_agent.skills.content_checks import normalize_heading, placeholder_hits, unsupported_assertions
 
 PLACEHOLDER_PATTERN = re.compile(
     r"(待补充|待完善|待填写|待确认|此处省略|后续补充|TODO|TBD|XXX)", re.IGNORECASE
@@ -28,18 +29,37 @@ PLACEHOLDER_PATTERN = re.compile(
 CLAIM_MARKER_PATTERN = re.compile(r"(预计|预测|有望|推测|判断|将会|未来|可能)")
 UNSUPPORTED_MARK = "未检索到依据"
 SEMANTIC_TEXT_LIMIT = 12000
+MISSING_DATA_PATTERN = re.compile(r"未提供|未披露|未给出|未获取|未检索到|未找到|缺失|暂无|无法确认|无法确定|待核实|待补充|待确认|不详|未知|未能取得|未取得|尚无|尚未|无法计算|无法获取|无法判断|无数据|无相关")
+NUMBER_PATTERN = re.compile(r"\d|[零一二三四五六七八九十两][零一二三四五六七八九十百千万亿两]*(?:点[零一二三四五六七八九]+)?(?:元|%|％|个|人|家|件|倍|$)")
 
 
 class SemanticIssue(BaseModel):
     rule: str = Field(description="违反的规则名称")
     detail: str = Field(description="具体问题与位置/原文片段")
     severity: Literal["high", "medium", "low"] = Field(default="medium", description="严重程度")
+    kind: Literal['content', 'consistency', 'source', 'missing_requirement'] = 'content'
+    quote: str = Field(default='', max_length=1200, description="逐字复制存在问题的正文片段，不得改写数值或单位")
+    contradicting_quote: str = Field(default='', max_length=1200, description="一致性问题必须给出另一段逐字原文")
+    source_quote: str = Field(default='', max_length=1200, description="来源问题必须给出逐字资料片段")
+
+
+class RequirementAssessment(BaseModel):
+    id: str
+    satisfied: bool
+    quote: str = Field(default='', max_length=1200)
+    quotes: List[str] = Field(default_factory=list, max_length=6, description='多个独立逐字片段，不得以省略号拼接')
+    detail: str = ''
 
 
 class SemanticReview(BaseModel):
     passed: bool = Field(description="是否未发现语义规则违规")
     issues: List[SemanticIssue] = Field(default_factory=list, description="发现的问题列表")
     summary: str = Field(default="", description="总体评价")
+    requirements: List[RequirementAssessment] = Field(default_factory=list)
+
+
+class RequirementReview(BaseModel):
+    requirements: List[RequirementAssessment] = Field(default_factory=list)
 
 
 def _iter_blocks(doc: Document):
@@ -55,14 +75,18 @@ def _block_text(block: Any) -> str:
         return block.text or ""
     if isinstance(block, Table):
         parts: List[str] = []
+        seen = set()
         for row in block.rows:
             for cell in row.cells:
+                if cell._tc in seen:
+                    continue
+                seen.add(cell._tc)
                 parts.append(cell.text or "")
         return "\n".join(parts)
     return ""
 
 
-def _heading_level(block: Any) -> Optional[int]:
+def heading_level(block: Any) -> Optional[int]:
     if not isinstance(block, Paragraph):
         return None
     pPr = block._element.pPr
@@ -92,20 +116,29 @@ def _collect_blocks(doc: Document) -> List[Dict[str, Any]]:
         blocks.append({
             "text": text,
             "normalized": _normalize(text),
-            "level": _heading_level(block),
+            "level": heading_level(block),
+            "table_rows": [[c.text for c in row.cells] for row in block.rows] if isinstance(block, Table) else [],
+            "data_texts": (
+                [" | ".join(cell.text for cell in row.cells) for row in block.rows]
+                + [f"{header.text}：{cell.text}" for row in block.rows[1:]
+                   for header, cell in zip(block.rows[0].cells, row.cells)]
+                + [f"{row.cells[0].text}{header.text}：{cell.text}" for row in block.rows[1:]
+                   for header, cell in zip(block.rows[0].cells[1:], row.cells[1:])]
+                if isinstance(block, Table) and block.rows else [text]
+            ),
         })
     return blocks
 
 
 def _match_heading(blocks: List[Dict[str, Any]], title: str) -> Optional[int]:
-    target = _normalize(title)
+    target = normalize_heading(title)
     if not target:
         return None
     for index, item in enumerate(blocks):
         if not item["level"]:
             continue
-        text = item["normalized"]
-        if target in text or text in target:
+        text = normalize_heading(item['text'])
+        if target == text:
             return index
     return None
 
@@ -131,17 +164,54 @@ def _all_text(blocks: List[Dict[str, Any]]) -> str:
     return "\n".join(item["text"] for item in blocks)
 
 
+def document_text(doc) -> str:
+    """文档实际文本；合并单元格只读取一次。生成与验收共用该口径。"""
+    return _all_text(_collect_blocks(doc))
+
+
+def document_length(doc) -> int:
+    return len(re.sub(r'\s+', '', document_text(doc)))
+
+
+def section_issues(doc, skill, section) -> List[str]:
+    """生成阶段只检查声明式章节结构，不从自由文本猜测业务事实。"""
+    from document_agent.skills.schema import SectionSpec
+    local = skill.model_copy() if skill else DocumentSkill(id='draft', name='draft')
+    spec = SectionSpec.model_validate({**section, 'required': True})
+    local.structure = local.structure.model_copy(update={'sections': [spec]})
+    blocks = _collect_blocks(doc)
+    checks = [_check_required_sections, _check_must_include, _check_citations, _check_no_placeholder]
+    issues = []
+    for check in checks:
+        result = check(blocks, local)
+        if not result['passed']:
+            issues.append(result['detail'])
+    return issues
+
+
 def _check_required_sections(blocks, skill: DocumentSkill) -> Dict[str, Any]:
     missing = []
+    empty = []
     for section in skill.structure.sections:
         if not section.required:
             continue
-        if _match_heading(blocks, section.title) is None:
+        index = _match_heading(blocks, section.title)
+        if index is None:
             missing.append(section.title)
+        else:
+            start, end = _section_range(blocks, index)
+            body = ''.join(b['text'] for b in blocks[start + 1:end + 1] if not b['level'])
+            pattern = citation_pattern(skill)
+            body = pattern.sub('', body) if pattern else body
+            if len(_normalize(body)) < section.min_body_chars or (body and placeholder_hits(body) and len(_normalize(body)) < 15):
+                empty.append(section.title)
     return {
         "name": "required_sections",
-        "passed": not missing,
-        "detail": "必填章节齐全" if not missing else "缺少必填章节：" + "、".join(missing),
+        "passed": not missing and not empty,
+        "missing_sections": missing,
+        "empty_sections": empty,
+        "detail": '；'.join((["缺少必填章节：" + '、'.join(missing)] if missing else []) +
+                           (["章节正文为空或不足：" + '、'.join(empty)] if empty else [])) or '必填章节及正文齐全',
     }
 
 
@@ -183,16 +253,42 @@ def _check_must_include(blocks, skill: DocumentSkill) -> Dict[str, Any]:
     }
 
 
-def _check_required_data(blocks, skill: DocumentSkill) -> Dict[str, Any]:
-    fields = skill.research.data_fields
+def _check_required_data(blocks, skill: DocumentSkill, fields=None) -> Dict[str, Any]:
+    fields = skill.research.data_fields if fields is None else fields
     if not fields:
         return {"name": "required_data", "passed": True, "detail": "未配置必须收集的数据字段"}
-    text = _normalize(_all_text(blocks))
-    missing = [field for field in fields if _normalize(field) not in text]
+    # 仅有字段名或缺失说明不算取得数据；表格按行及表头/值配对检查。
+    candidates = []
+    for block in blocks:
+        if block.get("level"):
+            continue
+        for text in block.get("data_texts", [block["text"]]):
+            pattern = citation_pattern(skill)
+            text = pattern.sub("", text) if pattern else text
+            candidates.extend(re.split(r"[。！？\n；;，,]", text))
+    missing = []
+    for field in fields:
+        found = False
+        for clause in candidates:
+            normalized = _normalize(clause)
+            labels = [field] + skill.research.field_aliases.get(field, [])
+            label = next((_normalize(x) for x in labels if _normalize(x) in normalized), None)
+            if label is None or MISSING_DATA_PATTERN.search(clause):
+                continue
+            value = normalized.split(label, 1)[1].strip("：:|、（）() ")
+            if not value:
+                continue
+            if field in skill.research.numeric_fields and not NUMBER_PATTERN.search(value):
+                continue
+            found = True
+            break
+        if not found:
+            missing.append(field)
     return {
         "name": "required_data",
         "passed": not missing,
-        "detail": "必需数据字段均已出现" if not missing else "正文缺少数据字段：" + "、".join(missing),
+        "missing_fields": missing,
+        "detail": "必需字段均有内容（数值准确性仍需语义或人工核对）" if not missing else "正文缺少有效数据内容：" + "、".join(missing),
     }
 
 
@@ -291,7 +387,7 @@ def _check_unsupported_claims(blocks, skill: DocumentSkill) -> Dict[str, Any]:
         text = item["text"].strip()
         if not text or item["level"]:
             continue
-        if not CLAIM_MARKER_PATTERN.search(text):
+        if not unsupported_assertions(text):
             continue
         if UNSUPPORTED_MARK in text:
             continue
@@ -310,7 +406,7 @@ def _check_unsupported_claims(blocks, skill: DocumentSkill) -> Dict[str, Any]:
 
 
 def _check_no_placeholder(blocks, skill: DocumentSkill) -> Dict[str, Any]:
-    hits = PLACEHOLDER_PATTERN.findall(_all_text(blocks))
+    hits = placeholder_hits(_all_text(blocks))
     return {
         "name": "no_placeholder",
         "passed": not hits,
@@ -454,6 +550,9 @@ def _build_citations(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 def _semantic_rules_text(skill: DocumentSkill) -> str:
     """只挑出程序化检查无法可靠判断的规则。"""
     lines = []
+    for i, section in enumerate(skill.structure.sections, 1):
+        for j, requirement in enumerate(section.requirements, 1):
+            lines.append(f"- S{i}.R{j} [{section.title}] {requirement}")
     if skill.task.professionalism:
         lines.append(f"- 专业程度与目标读者匹配：{skill.task.professionalism}")
     if skill.task.terminology:
@@ -469,28 +568,70 @@ def _semantic_rules_text(skill: DocumentSkill) -> str:
         )
     if skill.research.credibility_rule:
         lines.append(f"- 来源可信度与时效性：{skill.research.credibility_rule}")
+    if lines and (skill.research.data_fields or skill.research.questions):
+        lines.append('- 原文已列示的数值/比率应称原文值或复算，不应一律标为推算；' +
+                     ('缺失指标允许按已有输入推算，需公式与来源' if skill.evidence.derived_data == 'label' else '禁止补算原文未列示的指标'))
     return "\n".join(lines)
+
+
+def render_source_evidence(records, limit=16000):
+    seen = set()
+    parts = []
+    for record in records or []:
+        for field in ('source_excerpt', 'content', 'snippet'):
+            text = str(record.get(field) or '').strip()
+            key = (str(record.get('source') or ''), text)
+            if text and key not in seen:
+                seen.add(key)
+                parts.append(f"来源：{key[0]}\n资料片段：{text}")
+            if text and field == 'content':
+                break
+    return '\n'.join(parts)[:limit]
+
+
+def _validated_requirements(items, expected, blocks):
+    accepted, errors = {}, []
+    for item in items:
+        section = expected.get(item.id)
+        index = _match_heading(blocks, section.title) if section else None
+        text = _section_text(blocks, index) if index is not None else ''
+        quotes = item.quotes or ([item.quote] if item.quote else [])
+        if not quotes or not all(q.strip() and _normalize(q) in _normalize(text) for q in quotes):
+            errors.append({'id': item.id, 'reason': '缺少可定位的本章逐字引文'})
+        else:
+            accepted[item.id] = item
+    return accepted, errors
+
+
+def _issue_has_evidence(issue, doc_text, source_text):
+    if not issue.quote or _normalize(issue.quote) not in doc_text:
+        return False
+    if issue.kind == 'consistency':
+        return bool(issue.contradicting_quote and _normalize(issue.contradicting_quote) in doc_text)
+    if issue.kind == 'source':
+        return bool(issue.source_quote and _normalize(issue.source_quote) in source_text)
+    return True
 
 
 def _run_semantic_review(llm, skill: DocumentSkill, doc_path: str,
                          report: Dict[str, Any],
-                         retrieval_report: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+                         retrieval_report: Optional[Dict[str, Any]], records=None) -> Optional[Dict[str, Any]]:
     """对需要语义判断的规则做一次补充评估；失败不阻断，只标注未执行。"""
     if not skill.verification.semantic_review:
-        return {"executed": False, "passed": None, "summary": "配置已关闭语义评估", "issues": []}
+        return {"required": False, "executed": False, "passed": None, "summary": "配置已关闭语义评估", "issues": []}
     rules = _semantic_rules_text(skill)
     if not rules:
-        return {"executed": False, "passed": None, "summary": "没有需要语义判断的规则", "issues": []}
+        return {"required": False, "executed": False, "passed": None, "summary": "没有需要语义判断的规则", "issues": []}
     if llm is None:
-        return {"executed": False, "passed": None, "summary": "未配置模型，跳过语义评估", "issues": []}
+        return {"required": True, "executed": False, "passed": None, "summary": "未配置模型，跳过语义评估", "issues": []}
 
     try:
         doc = Document(doc_path)
     except Exception as exc:
-        return {"executed": False, "passed": None, "summary": f"无法读取文档：{exc}", "issues": []}
+        return {"required": True, "executed": False, "passed": None, "summary": f"无法读取文档：{exc}", "issues": []}
 
     blocks = _collect_blocks(doc)
-    text = _all_text(blocks)
+    text = '\n'.join(f"[B{i}] {b['text']}" for i, b in enumerate(blocks, 1))
     truncated = len(text) > SEMANTIC_TEXT_LIMIT
     excerpt = text[:SEMANTIC_TEXT_LIMIT]
 
@@ -502,6 +643,7 @@ def _run_semantic_review(llm, skill: DocumentSkill, doc_path: str,
         if not q.get("covered")
     ) or "（无）"
 
+    evidence_text = render_source_evidence(records, SEMANTIC_TEXT_LIMIT)
     prompt = (
         "你是文档质量审核助手。程序化检查已经覆盖章节齐全、字数、占位词、引用数量与引用来源是否存在，"
         "请只补充评估下列需要语义判断的规则：\n"
@@ -509,30 +651,81 @@ def _run_semantic_review(llm, skill: DocumentSkill, doc_path: str,
         f"【文档正文{('（已截断）' if truncated else '')}】\n{excerpt}\n\n"
         f"【程序化检查已发现的问题】\n{issue_lines}\n"
         f"【检索未覆盖的问题】\n{missing_lines}\n\n"
-        "只报告确实违反上述规则的问题，并给出原文片段作为依据；没有问题则 passed=true。"
+        f"【可用资料片段（可能截断）】\n{evidence_text or '无资料片段，不得声称已核实事实'}\n"
+        "核对正文与资料中的数值、单位、计算、缺失及冲突；资料不足时不得把无法核实说成已核实。\n"
+        "每个issue必须提供quote，逐字复制有问题的正文，不得更改数字、单位或指标名；"
+        "一致性问题kind=consistency并提供另一段contradicting_quote；来源问题kind=source并提供source_quote。"
+        "不同指标和比较基期不可混淆；依据输入计算的结果须核对公式、单位及来源，不将推算直接等同于编造。"
+        "‘无法判断’‘不作推测’是边界说明，建议未来核查也不是已发生事实。\n"
+        "对每个Sx.Ry要求返回一项requirements：id、satisfied、该章节内逐字quote或多个独立quotes与detail；不得遗漏任何要求。"
+        "禁止用省略号把两段原文拼成一个quote；多处证据分别放入quotes数组。引文定位不等于推断正确。"
+        "不能以语义意见覆盖程序检查结果，不能把条件性解释当作已证实的成因。"
+        "只报告有原文依据的违规，没有问题则passed=true。"
     )
-    result = llm_model_invoke(llm, prompt, SemanticReview)
+    result = llm_model_invoke(llm, prompt, SemanticReview, retry=1)
     if result is None:
-        return {"executed": False, "passed": None, "summary": "语义评估调用失败", "issues": []}
+        return {"required": True, "executed": False, "passed": None, "summary": "语义评估调用失败", "issues": []}
+    expected = {f'S{i}.R{j}': section for i, section in enumerate(skill.structure.sections, 1)
+                for j, _ in enumerate(section.requirements, 1)}
+    assessed, errors = _validated_requirements(result.requirements, expected, blocks)
+    attempts = [{'stage': 'review', 'raw_review': result.model_dump(), 'assessment_errors': errors}]
+    missing = set(expected) - set(assessed)
+    if missing:
+        repair_prompt = prompt + '\n只补充以下要求的逐字引文；返回requirements，不重新评判问题或修改正文：' + ', '.join(sorted(missing))
+        repair = llm_model_invoke(llm, repair_prompt, RequirementReview, retry=1)
+        if repair is None:
+            attempts.append({'stage': 'repair_requirements', 'error': '引文修复调用失败'})
+        else:
+            fixed, errors = _validated_requirements(repair.requirements, {k: expected[k] for k in missing}, blocks)
+            assessed.update(fixed)
+            attempts.append({'stage': 'repair_requirements', 'raw_review': repair.model_dump(), 'assessment_errors': errors})
+
+    # 问题只评判一次；引文补充不增删原来的指控，避免多轮状态互相覆盖。
+    issues = list(result.issues)
+    for item in assessed.values():
+        if not item.satisfied:
+            issues.append(SemanticIssue(rule=item.id, detail=item.detail or '章节语义要求未满足',
+                                       quote=(item.quotes or [item.quote])[0], kind='missing_requirement'))
+    valid, unverified = [], []
+    for issue in issues:
+        grounded = _issue_has_evidence(issue, _normalize(excerpt), _normalize(evidence_text))
+        record = {**issue.model_dump(), 'evidence_status': 'quote_located_not_fact_verified' if grounded else 'invalid_quote'}
+        (valid if grounded else unverified).append(record)
+    if not result.passed and not issues:
+        unverified.append({'rule': 'semantic_result', 'detail': '模型判未通过但没有提供可定位的指控'})
+    unchecked = sorted(set(expected) - set(assessed))
+    complete = not truncated and not unverified and not unchecked
     return {
         "executed": True,
-        "passed": bool(result.passed),
-        "summary": result.summary,
-        "issues": [issue.model_dump() for issue in result.issues],
+        "required": True,
+        "complete": complete,
+        "passed": False if valid else True if complete else None,
+        "summary": f"已定位引文的问题{len(valid)}项（结论仍需核实），无效引文指控{len(unverified)}项，未完成语义要求{len(unchecked)}项" +
+                   (f"；正文仅覆盖前{SEMANTIC_TEXT_LIMIT}字符" if truncated else ''),
+        "raw_model_summary": result.summary,
+        "issues": valid,
+        "unverified_issues": unverified,
+        "unchecked_requirements": unchecked,
+        "requirements": [item.model_dump() for item in assessed.values()],
+        "review_attempts": attempts,
     }
 
 
 def _finalize_report(report: Dict[str, Any], citations: List[Dict[str, Any]],
                      semantic: Optional[Dict[str, Any]],
-                     retrieval_report: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+                     retrieval_report: Optional[Dict[str, Any]], research_required=False) -> Dict[str, Any]:
     """合并程序化检查、语义评估与检索缺失，生成最终未满足项清单。"""
     report["programmatic_passed"] = bool(report.get("passed", False))
     report["citations"] = citations[:20]
     report["semantic_review"] = semantic or {
         "executed": False, "passed": None, "summary": "未执行语义评估", "issues": []
     }
-    if semantic and semantic.get("executed") and not semantic.get("passed"):
-        report["passed"] = False
+    report["retrieval_complete"] = (
+        not retrieval_report.get("missing") and all(q.get("covered") for q in retrieval_report.get("questions", []))
+        if retrieval_report is not None else None
+    )
+    data_check = next((item for item in report.get("checks", []) if item["name"] == "required_data"), None)
+    report["data_complete"] = data_check["passed"] if data_check else None
 
     unmet: List[str] = []
     for item in report.get("checks") or []:
@@ -541,8 +734,24 @@ def _finalize_report(report: Dict[str, Any], citations: List[Dict[str, Any]],
     for question in (retrieval_report or {}).get("questions") or []:
         if not question.get("covered"):
             unmet.append(f"检索缺失（{question['id']}）：{question['question']}")
+    listed_ids = {q["id"] for q in (retrieval_report or {}).get("questions", [])}
+    unmet.extend(f"检索缺失（{qid}）" for qid in (retrieval_report or {}).get("missing", []) if qid not in listed_ids)
+    retrieval_unknown = research_required and report["retrieval_complete"] is None
+    if retrieval_unknown:
+        unmet.append("检索覆盖未完成：没有检索覆盖报告")
     for issue in (semantic or {}).get("issues") or []:
         unmet.append(f"语义检查：{issue.get('rule')}｜{issue.get('detail')}")
+    semantic_incomplete = bool(semantic and semantic.get("required") and (
+        not semantic.get("executed") or semantic.get("complete") is False
+    ))
+    if semantic_incomplete:
+        unmet.append("语义检查未完成：" + semantic.get("summary", ""))
+    semantic_failed = bool(semantic and semantic.get("executed") and semantic.get("passed") is False)
+    failed = not report["programmatic_passed"] or semantic_failed
+    incomplete = report["retrieval_complete"] is False or semantic_incomplete or retrieval_unknown
+    report["passed"] = not failed and not incomplete
+    report["status"] = "failed" if failed else "incomplete" if incomplete else "passed"
+    report["summary"] += "；综合验收：" + {"failed": "未通过", "incomplete": "未完成", "passed": "通过"}[report["status"]]
     report["unmet_requirements"] = unmet
     return report
 
@@ -570,7 +779,6 @@ def create_verify_node(llm=None):
                 known_sources.append(str(record["source"]))
             if record.get("source_type") == "knowledge":
                 has_knowledge = True
-        known_sources.extend(str(path) for path in (state.get("input_file_path") or []))
 
         report = run_verification(
             save_path,
@@ -581,9 +789,10 @@ def create_verify_node(llm=None):
         )
         citations = _build_citations(records)
         semantic = _run_semantic_review(
-            llm, skill, save_path, report, state.get("retrieval_report")
+            llm, skill, save_path, report, state.get("retrieval_report"), records
         )
-        report = _finalize_report(report, citations, semantic, state.get("retrieval_report"))
+        report = _finalize_report(report, citations, semantic, state.get("retrieval_report"),
+                                  research_required=bool(skill.research.questions or skill.research.data_fields))
 
         print(f"【验收】{skill.name}｜{report['summary']}｜文件：{report['file']}")
         for item in report["checks"]:
@@ -591,7 +800,8 @@ def create_verify_node(llm=None):
             print(f"    - {item['name']}：{mark}｜{item['detail']}")
         review = report["semantic_review"]
         if review.get("executed"):
-            print(f"    - semantic_review：{'通过' if review.get('passed') else '未通过'}｜"
+            mark = '通过' if review.get('passed') is True else '未通过' if review.get('passed') is False else '待核实'
+            print(f"    - semantic_review：{mark}｜"
                   f"{review.get('summary') or '（无说明）'}")
         elif skill.verification.semantic_review:
             print(f"    - semantic_review：未执行｜{review.get('summary')}")
