@@ -14,9 +14,19 @@
     "require_llm": true,
     "web_allow_remote": true,
     "web_port": 8000,
+    "feishu": {
+        "app_id": "",
+        "app_secret": "",
+        "accounts_base": "https://accounts.feishu.cn",
+        "api_base": "https://open.feishu.cn",
+        "redirect_uri": "",
+        "base_url": "",
+        "session_secret": "",
+        "scope": ""
+    },
     "remote_kg": {
         "enabled": true,
-        "base_url": "http://192.168.1.136:8000",
+        "base_url": "http://localhost:8000",
         "auth_token": "",
         "timeout": 60,
         "max_retries": 2
