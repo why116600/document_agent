@@ -6,6 +6,7 @@ import traceback
 
 from llm_client import llm_invoke, llm_model_invoke
 from agent_core import AgentState
+from retrieval_material import build_end_material
 from document_agent.retrieve_tool.extract_document import extract_document_content
 from document_agent.skills.plan import (
     begin_step,
@@ -44,7 +45,11 @@ class RetrievalStopDecision(BaseModel):
 TOOL_DESCRIPTIONS = {
     "file": "file为检索用户提供的文件内容的工具，参数path为文件路径，参数query为检索的关键内容。",
     "knowledge": "knowledge为检索系统知识库的工具，融合规章制度流程规范与实体关系事实，参数query为要检索的关键内容。",
-    "end": "end为结束检索的工具，如果你认为目前已知的内容已经满足用户要求，可以调用end工具结束检索。",
+    "end": (
+        "end为结束检索的工具，如果你认为目前已知的内容已经满足用户要求，可以调用end工具结束检索。\n"
+        "调用end时，arguments中应逐条列出已确认事实的完整原句；保留对象、数值、单位、接收角色、"
+        "起算点、适用范围、否定关系和例外；不得只写结论或省略紧邻限定语。\n"
+    ),
 }
 
 
@@ -252,6 +257,22 @@ def _legacy_retrieve(llm, state: AgentState, skill) -> AgentState:
             print("无检索参数，继续尝试...")
             continue
         print("使用工具：", tool.tool_name, "参数：", tool.arguments)
+        if tool.tool_name == "end":
+            # 结束检索时模型常把已确认的要点写在 arguments 里
+            block = build_end_material(tool.arguments)
+            if block:
+                retrived_conent = list(retrived_conent) + [block]
+                print(f"【检索结束】已把 {block.count(chr(10))} 行要点并入写作资料（{len(block)} 字）")
+            else:
+                print("【检索结束】结束检索时未给出要点，写作阶段将回退到参考资料摘要")
+            return {
+                **state,
+                "retrieve_tool": tool.tool_name,
+                "retrieve_params": tool.arguments,
+                "retrieve_target": query,
+                "retrieve_count_limit": retrieve_limit - 1,
+                "retrieved_content": retrived_conent,
+            }
         return {
             **state,
             "retrieve_tool": tool.tool_name,

@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, model_validator
 from llm_client import llm_invoke, llm_model_invoke
 from agent_core import AgentState
 from retrieved_context import build_retrieved_info, enforce_full_document_names
+from retrieval_material import collect_writing_material
 from document_agent.write_tool.word_tool import (
     DEFAULT_FONT_SIZE,
     DEFAULT_FONT_COLOR,
@@ -2737,10 +2738,14 @@ def create_rewrite_node(llm, knowledge_mode: str = "local"):
             return {**state, "state": "error", "error": f"文档内容为空，无法改写：{rewrite_path}"}
         print(f"待改写文档共{len(nodes)}个元素")
 
+        material_items, material_source = collect_writing_material(state)
+        header = "可供参考的信息："
+        if material_source == "summary":
+            header += "（检索阶段未产出要点，以下为参考资料摘要，细节以原文为准）"
         retrieved_info = build_retrieved_info(
-            state.get("retrieved_content"),
+            material_items,
             mode=knowledge_mode,
-            header="可供参考的信息：",
+            header=header,
             trailing_newline=True,
         )
 

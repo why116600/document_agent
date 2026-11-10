@@ -12,6 +12,12 @@ from docx.shared import Pt, RGBColor
 from llm_client import llm_invoke, llm_model_invoke, extract_json_from_text
 from agent_core import AgentState
 from retrieved_context import build_retrieved_info, enforce_full_document_names
+from retrieval_material import (
+    FIDELITY_RULES,
+    collect_writing_material,
+    extract_qualifier_clauses,
+    find_missing_qualifiers,
+)
 from document_agent.write_tool.word_tool import replace_node_with_data, DocxRoot, resolve_save_path, save_document
 from document_agent.skills.render import render_full_brief, render_retrieval_gaps
 from document_agent.skills.schema import coerce_skill
@@ -161,11 +167,16 @@ def _legacy_docx_node(state: AgentState, llm, knowledge_mode: str) -> AgentState
     不返回 generation_report；章节规划、逐章提示词与写盘方式与 develop 一致。
     """
     messages = state["messages"]
-    retrieved_info = build_retrieved_info(state["retrieved_content"], mode=knowledge_mode)
+    material_items, material_source = collect_writing_material(state)
+    header = "目前已知："
+    if material_source == "summary":
+        header += "（检索阶段未产出要点，以下为参考资料摘要，细节以原文为准）"
+    retrieved_info = build_retrieved_info(material_items, mode=knowledge_mode, header=header)
     prompt = (
         "你是文档写作助手，现在需要用户输入和已知信息列出整个文档的各个章节\n"
         "如果某些内容可以按表格的形式输出，则按一个章节来输出\n"
         f"用户输入：{messages}\n"
+        f"{FIDELITY_RULES}\n"
         f"{retrieved_info}\n"
         "输出结果按照json的列表格式输出章节列表，仅输出json字符串结果，不要输出其它内容"
     )
@@ -198,6 +209,7 @@ def _legacy_docx_node(state: AgentState, llm, knowledge_mode: str) -> AgentState
             "全文统一不混用），并通过 font_name/font_size 字段设置\n"
             f"整个文档的大纲：\n{section_str}\n"
             f"当前要编写的章节内容：{section}\n"
+            f"{FIDELITY_RULES}\n"
             f"{retrieved_info}\n"
         )
         res = llm_model_invoke(llm, prompt, DocxRoot)
@@ -211,6 +223,18 @@ def _legacy_docx_node(state: AgentState, llm, knowledge_mode: str) -> AgentState
             elif item.type == "table":
                 node = doc.add_table(rows=0, cols=0)
                 replace_node_with_data(node, item.Table)
+
+    # 3A 告警：素材有关键限定句但生成文本疑似缺失时记录日志，不阻断保存。
+    qualifier_clauses = extract_qualifier_clauses(material_items)
+    if qualifier_clauses:
+        missing_qualifiers = find_missing_qualifiers(qualifier_clauses, document_text(doc))
+        if missing_qualifiers:
+            print(f"【事实校验】素材限定句={len(qualifier_clauses)}，疑似缺失={len(missing_qualifiers)}")
+            for missing in missing_qualifiers:
+                print(f"【事实校验】缺失：{missing['missing']}｜{missing['clause']}")
+        else:
+            print(f"【事实校验】素材限定句={len(qualifier_clauses)}，未发现缺失")
+
     if str(knowledge_mode).strip().lower() == "remote":
         for old, new, count in enforce_full_document_names(doc, state.get("document_citations") or []):
             print(f"【引用规范】把简称引用 {old} 补全为 {new}（{count} 处）")
