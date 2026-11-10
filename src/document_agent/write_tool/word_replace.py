@@ -13,10 +13,9 @@ try:
 except ImportError:
     from word_tool import element_has_protected_content
 
-#哨兵串全部由Unicode私有区字符组成：正常文档中不会出现，也不会被"0"->"零"这类替换对改写
-_SENTINEL_PREFIX = "\ue000"
+#哨兵串全部由Unicode私有区字符组成：正常文档中不会出现，也不会被"0"->"零"这类替换对改写。
+#哨兵长度必须与旧词一致，两阶段替换才不会改变跨Run的字符分配边界。
 _SENTINEL_BODY_BASE = 0xE100
-_SENTINEL_SUFFIX = "\ue001"
 
 
 def _write_t(t_elem, text: str) -> None:
@@ -95,6 +94,42 @@ def _get_paragraph_runs(p: Paragraph) -> List[Run]:
     return [Run(r, p) for r in r_elements]
 
 
+def _allocate_cross_run_parts(new_text: str, counts: List[int]) -> List[str]:
+    """把替换文本按原 Run 的字符贡献分配，尽量保留每个 Run 的格式。
+
+    等长替换逐字符对应原 Run；不等长替换按相对位置分配。这样跨 Run 替换时，
+    原本不加粗的字符不会整体搬到加粗 Run 上。
+    """
+    if not counts:
+        return []
+    old_len = sum(max(0, int(count)) for count in counts)
+    if old_len <= 0:
+        return ["" for _ in counts]
+    if not new_text:
+        return ["" for _ in counts]
+
+    counts = [max(0, int(count)) for count in counts]
+    if len(new_text) == old_len:
+        parts, offset = [], 0
+        for count in counts:
+            parts.append(new_text[offset:offset + count])
+            offset += count
+        return parts
+
+    parts = [[] for _ in counts]
+    boundaries, acc = [], 0
+    for count in counts:
+        acc += count
+        boundaries.append(acc)
+    for index, char in enumerate(new_text):
+        original_pos = int(index * old_len / len(new_text))
+        run_index = 0
+        while run_index < len(boundaries) - 1 and original_pos >= boundaries[run_index]:
+            run_index += 1
+        parts[run_index].append(char)
+    return ["".join(part) for part in parts]
+
+
 def replace_in_paragraph(p: Paragraph, old_text: str, new_text: str) -> int:
     """在单个段落中安全替换文本，支持跨 Run（多个文本分块）的文本替换。
 
@@ -153,11 +188,24 @@ def replace_in_paragraph(p: Paragraph, old_text: str, new_text: str) -> int:
             _set_run_text_keep_children(start_run, prefix + new_text + suffix,
                                         start_char_idx, len(start_run.text) - (end_char_idx + 1))
         else:
-            _set_run_text_keep_children(start_run, prefix + new_text, start_char_idx)
-            # 清空中间 Run 的文本，保留非文本子节点
-            for mid_idx in range(start_run_idx + 1, end_run_idx):
-                _set_run_text_keep_children(runs[mid_idx], "")
-            _set_run_text_keep_children(end_run, suffix, 0, len(end_run.text) - (end_char_idx + 1))
+            # 跨 Run：按原各 Run 贡献的字符数分配替换文本，保留各自的格式边界。
+            affected = []
+            for idx in range(start_run_idx, end_run_idx + 1):
+                run = runs[idx]
+                if idx == start_run_idx:
+                    count = len(run.text) - start_char_idx
+                    head, tail = prefix, ""
+                elif idx == end_run_idx:
+                    count = end_char_idx + 1
+                    head, tail = "", suffix
+                else:
+                    count = len(run.text)
+                    head, tail = "", ""
+                affected.append((run, count, head, tail))
+
+            parts = _allocate_cross_run_parts(new_text, [item[1] for item in affected])
+            for (run, _count, head, tail), part in zip(affected, parts):
+                _set_run_text_keep_children(run, head + part + tail, len(head), len(tail))
 
         replaced_count += 1
 
@@ -192,20 +240,36 @@ def iter_table_paragraphs(table: Table):
     yield from _iter_table_paragraphs(table)
 
 
-def _iter_replace_paragraphs(doc: Document):
-    """枚举替换范围：正文段落、表格单元格、页眉页脚（含其中表格）。"""
-    for p in doc.paragraphs:
-        yield p
-    for table in doc.tables:
-        yield from _iter_table_paragraphs(table)
+def iter_container_paragraphs(doc: Document, containers):
+    """按容器枚举可替换段落；顺序固定为 正文段落 → 正文表格 → 各节页眉 → 各节页脚。
+
+    页眉页脚只枚举"本节自有定义"的部件：未定义或链接到上一节的直接跳过。
+    这样既不重复枚举继承来的同一部件（否则多节文档会重复计数），
+    也不会因为读取而凭空创建空页脚/页眉部件。
+    """
+    containers = set(containers)
+    if "body" in containers:
+        for p in doc.paragraphs:
+            yield p
+    if "table" in containers:
+        for table in doc.tables:
+            yield from _iter_table_paragraphs(table)
     for section in doc.sections:
-        for container in (section.header, section.footer):
-            if container is None:
+        for kind in ("header", "footer"):
+            if kind not in containers:
                 continue
-            for p in container.paragraphs:
+            box = section.header if kind == "header" else section.footer
+            if box.is_linked_to_previous:
+                continue
+            for p in box.paragraphs:
                 yield p
-            for t in container.tables:
+            for t in box.tables:
                 yield from _iter_table_paragraphs(t)
+
+
+def _iter_replace_paragraphs(doc: Document):
+    """枚举整篇替换范围：正文段落、表格单元格、页眉页脚（含其中表格）。"""
+    yield from iter_container_paragraphs(doc, {"body", "table", "header", "footer"})
 
 
 def replace_in_document(doc: Document, old_text: str, new_text: str) -> int:
@@ -220,15 +284,18 @@ def replace_in_document(doc: Document, old_text: str, new_text: str) -> int:
     return total_count
 
 
-def _make_sentinel(doc_text: str, position: int, old_keys=()) -> str:
+def _make_sentinel(doc_text: str, position: int, old_keys=(), length=3) -> str:
     """生成唯一的哨兵串；与原文冲突或包含任一旧词时换用随机私有区字符，直至唯一。
 
     哨兵正文用私有区字符而非数字：若含数字，{"0": "零"} 这类替换对会把哨兵本身改写掉。
+    哨兵长度与旧词一致：否则两阶段替换会改变跨 Run 的字符分配边界，导致格式漂移。
     """
-    candidate = f"{_SENTINEL_PREFIX}{chr(_SENTINEL_BODY_BASE + position)}{_SENTINEL_SUFFIX}"
+    length = max(1, int(length))
+    candidate = chr(_SENTINEL_BODY_BASE + position) * length
     while candidate in doc_text or any(key and key in candidate for key in old_keys):
-        candidate = (f"{_SENTINEL_PREFIX}{chr(_SENTINEL_BODY_BASE + position)}"
-                     f"{chr(randrange(0xE200, 0xF8FF))}{_SENTINEL_SUFFIX}")
+        candidate = "".join(
+            chr(randrange(0xE200, 0xF8FF)) for _ in range(length)
+        )
     return candidate
 
 
@@ -260,7 +327,7 @@ def batch_replace_in_paragraphs(paragraphs, replace_pairs: Dict[str, str]) -> Di
     #阶段一：旧词 -> 哨兵串，此时的命中数即原文真实出现次数
     sentinel_of: Dict[str, str] = {}
     for position, (old_text, _) in enumerate(valid_pairs):
-        sentinel = _make_sentinel(doc_text, position, old_keys)
+        sentinel = _make_sentinel(doc_text, position, old_keys, len(old_text))
         sentinel_of[old_text] = sentinel
         stats[old_text] = _replace_in_set(old_text, sentinel)
 
@@ -274,3 +341,9 @@ def batch_replace_in_paragraphs(paragraphs, replace_pairs: Dict[str, str]) -> Di
 def batch_replace_in_document(doc: Document, replace_pairs: Dict[str, str]) -> Dict[str, int]:
     """批量替换整篇文档（正文 + 表格 + 页眉页脚）中的多组键值对。"""
     return batch_replace_in_paragraphs(_iter_replace_paragraphs(doc), replace_pairs)
+
+
+def batch_replace_in_containers(doc: Document, replace_pairs: Dict[str, str],
+                                containers) -> Dict[str, int]:
+    """在整篇文档中按容器收窄的批量替换；不访问未列出的容器。"""
+    return batch_replace_in_paragraphs(iter_container_paragraphs(doc, containers), replace_pairs)

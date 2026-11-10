@@ -24,6 +24,29 @@ CAPABILITY = {
 
 ALL_CONTAINERS = frozenset({"body", "table", "header", "footer"})
 
+#容器词表：提示词、lint 与兜底共用同一张表，避免三处各写一份
+CONTAINER_WORDS = (("正文", "body"), ("表格", "table"), ("页眉", "header"), ("页脚", "footer"))
+
+FACE_ORDER = ("whole", "section", "elements")
+
+#能力清单的定性说明；作用面（face）由 CAPABILITY 直接生成，不在这里重复
+CAPABILITY_LINES = {
+    "replace": "整篇可按用户列举收窄容器（正文、表格、页眉、页脚）",
+    "edit": "只覆盖正文与表格",
+    "rewrite": "只覆盖正文",
+    "format": "页眉页脚无法按章节限定",
+}
+
+
+def capability_text() -> str:
+    """生成提示词用的【能力清单】：作用面取自 CAPABILITY，避免与校验漂移。"""
+    lines = ["【能力清单】"]
+    for action in ("replace", "edit", "rewrite", "format"):
+        faces = " / ".join([face for face in FACE_ORDER if face in CAPABILITY[action]])
+        lines.append(f"- {action}：{faces}；{CAPABILITY_LINES[action]}")
+    lines.append("- 以上是系统真实边界；超出时照实填写，系统会明确拒绝，不要改成看起来能执行的范围。")
+    return "\n".join(lines)
+
 #旧四枚举到新动作的映射：patch/global 改名，避免与范围词（whole/global）混淆
 MODE_TO_ACTION = {
     "replace": "replace",
@@ -179,10 +202,10 @@ def validate_scope(action: str, scope: Optional[Scope], outline: Dict[str, Any],
             errs.append("E_CAPABILITY: 页眉/页脚无法按章节或元素区间限定，"
                         "如需同时改整篇页眉页脚，请拆成 face=whole 的独立步骤")
         if scope.face == "whole":
+            if scope.containers is not None and not scope.containers:
+                errs.append("E_SCOPE_CONTAINERS_EMPTY: containers 为空列表；不限定容器请留空")
             if "body" not in containers:
                 errs.append("E_CAPABILITY: 整篇范围必须包含正文")
-            if scope.containers and containers != set(ALL_CONTAINERS):
-                errs.append("E_CAPABILITY: 本版本整篇 replace 暂不支持容器收窄（随 DEF-001 提供）")
 
     return errs
 
@@ -203,6 +226,10 @@ def lint_scope(action: str, scope: Optional[Scope], user_input: str) -> List[str
         warns.append("容器为子集，但依据片段未提及容器，请复核模型判断")
     if _is_short_span(scope.basis_span):
         warns.append("依据片段过短，建议复核范围是否说清楚")
+    if action == "replace" and scope.face == "whole" and scope.containers:
+        mentioned = {key for word, key in CONTAINER_WORDS if word in normalize_span(scope.basis_span)}
+        if len(mentioned) >= 2 and len(set(scope.containers)) < len(mentioned):
+            warns.append("容器列举不完整：依据片段提到多个容器，但 containers 只填了部分，请复核")
     return warns
 
 
