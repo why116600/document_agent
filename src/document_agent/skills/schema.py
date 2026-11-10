@@ -30,7 +30,7 @@ def explicit_source_restriction(text: str) -> Optional[List[str]]:
         raise ValueError("同时声明仅文件和仅知识库，来源要求互相冲突")
     return ["file"] if file_only else ["knowledge"] if knowledge_only else None
 
-# 验收检查项：每一项都由 verify_node 有对应实现；未实现的检查不允许写进配置
+# 验收检查项；terminology 为兼容旧配置保留，由 verify_node 的语义评估处理，不做程序化检查
 VERIFICATION_CHECKS = (
     "required_sections",
     "section_order",
@@ -44,6 +44,14 @@ VERIFICATION_CHECKS = (
     "no_placeholder",
     "min_length",
 )
+
+# 变更摘要里使用的字段中文标签；新增字段时只在此处补充
+SKILL_FIELD_LABELS = {
+    "name": "名称", "description": "适用场景", "enabled": "启用状态", "created_by": "作者",
+    "task": "写作要求", "structure": "文档结构", "research": "检索要求", "evidence": "证据要求",
+    "verification": "验收要求", "instructions": "执行说明", "template": "模板选择",
+    "recommendations": "可选建议",
+}
 
 MAX_SECTIONS = 40
 MAX_INSTRUCTIONS_CHARS = 8000
@@ -369,6 +377,10 @@ class DocumentSkill(_StrictModel):
     research: ResearchSpec = Field(default_factory=ResearchSpec)
     evidence: EvidenceSpec = Field(default_factory=EvidenceSpec)
     verification: VerificationSpec = Field(default_factory=VerificationSpec)
+    recommendations: List[str] = Field(
+        default_factory=list, max_length=30,
+        description="用户与规范未明确指定时采用的推荐默认值，包括模型补充的篇幅、指标等；不作为硬性验收条件",
+    )
     # 以下字段由 loader 从 SKILL.md / references/ / assets/ 填充，也可在单文件配置中直接给出
     instructions: str = Field(default="", max_length=MAX_INSTRUCTIONS_CHARS, description="SKILL.md 正文指令")
     references: List[ReferenceDoc] = Field(
@@ -376,6 +388,13 @@ class DocumentSkill(_StrictModel):
     )
     template: str = Field(default="", max_length=200, description="assets/ 下模板的相对路径（可选）")
     template_path: str = Field(default="", max_length=1000, description="模板的运行时绝对路径")
+
+    @field_validator("recommendations")
+    @classmethod
+    def _check_recommendations(cls, value: List[str]) -> List[str]:
+        if any(not item.strip() or len(item) > 300 for item in value):
+            raise ValueError("recommendations 每条建议不得为空或超过300字")
+        return value
 
     @field_validator("id")
     @classmethod
@@ -430,6 +449,7 @@ def coerce_skill(value: Any) -> Optional[DocumentSkill]:
     if isinstance(value, dict):
         try:
             return DocumentSkill.model_validate(value)
-        except ValidationError:
+        except ValidationError as exc:
+            print(f"[Skill] 状态里的规范配置不合法，本次不启用规范：{exc}")
             return None
     return None

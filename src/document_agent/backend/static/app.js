@@ -632,8 +632,13 @@
 
   async function finishJob(jobId, result) {
     setBusy(false);
+    const isSkill = !!(result && result.result_type === 'skill');
     const file = result && result.file;
-    toast(file ? `文档已生成：${file}` : '文档已生成', 'success', 6000);
+    const message = isSkill
+      ? (result.message || '规范已保存')
+      : (file ? `文档已生成：${file}` : '文档已生成');
+    toast(message, 'success', 6000);
+    // 规范管理不产生文件；此处只做会话刷新，依赖生成文件的界面状态跳过
     try {
       await refreshSession();
       scrollChatToBottom();

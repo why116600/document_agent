@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import os
 import json
+import re
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
@@ -11,12 +12,34 @@ from openai import OpenAI
 from pydantic import BaseModel, Field
 
 from document_agent.agent.llm_client import (
-    DEFAULT_BASE_URL, DEFAULT_MODEL, describe_model_error, get_deepseek_llm, validate_api_key,
+    DEFAULT_BASE_URL, DEFAULT_MODEL, get_deepseek_llm,
 )
 
 
 class DiagnosticReply(BaseModel):
     ok: bool = Field(description="请求正常处理时返回 true")
+
+
+def validate_api_key(api_key):
+    """在发送 HTTP 前拒绝空白和控制字符；错误消息不包含密钥。"""
+    if not api_key:
+        raise ValueError("MODEL_API_KEY environment variable is not set.")
+    if any(not 33 <= ord(char) <= 126 for char in api_key):
+        raise ValueError("MODEL_API_KEY 含控制字符、空白或非ASCII字符，未发送请求。")
+    return api_key
+
+
+def describe_model_error(exc: Exception) -> str:
+    """保留响应正文帮助定位 4xx，隐藏 API Key 与 Bearer 凭据。"""
+    detail = str(exc)
+    response = getattr(exc, "response", None)
+    if response is not None and getattr(response, "text", None):
+        detail += "；" + str(response.text)[:2000]
+    key = os.getenv("MODEL_API_KEY", "")
+    if key:
+        detail = detail.replace(key, "<API_KEY已隐藏>")
+    detail = re.sub(r"(?i)bearer\s+[a-z0-9._~+/=-]+", "Bearer <已隐藏>", detail)
+    return detail[:2500]
 
 
 def safe_endpoint(url: str) -> str:

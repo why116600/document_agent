@@ -232,6 +232,11 @@ src/setting.json
 
 # 本地验证日志与真实模型测试产物（用例和脚本仍保留）
 .test-tmp/
+out/
 skill-tests.log
 tests/e2e_quarterly/results/
 tests/e2e_quarterly/tmp/
+
+# 用户自定义 Skill 规则（由用户或 skill new/draft 创建，不随核心代码提交）
+# 避免随包提交 enabled=true 的示例规则，改动所有人的默认匹配行为
+src/skills/

@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Sequence
 from pydantic import BaseModel, Field
 
 from .schema import DocumentSkill
+from .render import render_recommendations
 
 
 class PlannedQuestion(BaseModel):
@@ -38,7 +39,8 @@ def build_plan_prompt(skill: DocumentSkill, user_request: str, file_names: Seque
         for qid, question in _question_items(skill)
     )
     files_desc = "、".join(file_names) if file_names else "（无用户文件）"
-    return (
+    recommendations = render_recommendations(skill)
+    return "".join(block for block in (
         "你是文档写作的检索计划助手。请为每个研究问题生成 1~3 条适合检索的查询式。\n"
         "查询式应包含主题词、指标名与必要的限定词（时间/地域），不要写成完整问句，不要编造数据。\n\n"
         f"【用户需求】\n{user_request}\n\n"
@@ -47,9 +49,11 @@ def build_plan_prompt(skill: DocumentSkill, user_request: str, file_names: Seque
         f"【时间范围】{skill.research.time_range or '（未限定）'}\n"
         f"【地域范围】{skill.research.region or '（未限定）'}\n"
         f"【可用来源】{'、'.join(skill.research.source.priority)}\n"
-        f"【用户文件】{files_desc}\n\n"
-        "输出要求：保持每个问题的 id 不变；每个问题至少 1 条、最多 3 条查询式。"
-    )
+        f"【用户文件】{files_desc}\n\n",
+        (recommendations + "\n") if recommendations else "",
+        "建议仅用于补充查询线索，不得将其变成研究问题的必填条件。\n"
+        "输出要求：保持每个问题的 id 不变；每个问题至少 1 条、最多 3 条查询式。",
+    ) if block)
 
 
 def _question_items(skill: DocumentSkill) -> List[tuple]:

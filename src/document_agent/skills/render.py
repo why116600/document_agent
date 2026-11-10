@@ -31,6 +31,20 @@ def _join(lines: List[str]) -> str:
     return "\n".join(line for line in lines if line)
 
 
+def render_recommendations(value: Any) -> str:
+    """未指定时采用推荐默认值，有明确要求时以明确要求为准。"""
+    skill = _skill(value)
+    if skill is None or not skill.recommendations:
+        return ""
+    return "【推荐默认值，仅在未指定时采用，不计入验收】\n" + (
+        "用户本次需求及规范的明确要求优先；仅在该项未明确指定时采用以下推荐值。"
+        "明确要求与规范硬性要求冲突时应说明冲突，不能用推荐值代替任何明确要求。"
+        "推荐篇幅可按信息量调整，推荐指标有资料时呈现，缺失时不强求，不得编造数据。\n"
+    ) + "\n".join(
+        f"- {item}" for item in skill.recommendations
+    )
+
+
 def render_task_brief(value: Any) -> str:
     """文档用途、读者、风格、篇幅、术语等总体写作要求。"""
     skill = _skill(value)
@@ -56,7 +70,7 @@ def render_task_brief(value: Any) -> str:
             parts.append(f"不超过 {task.length_target.max_chars} 字")
         lines.append(f"- 篇幅要求：{'，'.join(parts)}")
     if task.terminology:
-        lines.append(f"- 统一术语写法：{'、'.join(task.terminology)}")
+        lines.append(f"- 涉及时统一术语写法：{'、'.join(task.terminology)}（不要求全部出现）")
     if task.banned_expressions:
         lines.append(f"- 禁用表达：{'、'.join(task.banned_expressions)}")
     for item in task.extra_requirements:
@@ -263,6 +277,7 @@ def render_full_brief(value: Any) -> str:
         render_research_brief(value),
         render_evidence_brief(value),
         render_verification_brief(value),
+        render_recommendations(value),
     ]
     return "\n\n".join(block for block in blocks if block)
 

@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from document_agent.skills.schema import DocumentSkill, explicit_source_restriction
+from document_agent.skills.schema import SKILL_FIELD_LABELS, DocumentSkill, explicit_source_restriction
 from document_agent.skills.store import (
     SkillError,
     list_skills,
@@ -17,6 +17,8 @@ from document_agent.skills.store import (
     resolve_skill_dir,
     save_skill,
     save_skill_package,
+    read_skill_for_update,
+    save_skill_update,
 )
 from document_agent.skills.templates import TEMPLATE_BODY, build_template_skill, draft_skill_prompt
 
@@ -138,63 +140,130 @@ def _command_new(args) -> int:
     return _save(skill, args, instructions=TEMPLATE_BODY)
 
 
-def _command_draft(args) -> int:
-    try:
-        from document_agent.agent.llm_client import extract_json_from_text, get_deepseek_llm, llm_invoke
-    except Exception as exc:
-        print(f"[错误] 无法加载模型客户端：{exc}")
-        return 1
+def _merge_patch(current, patch):
+    """只合并指定键；不允许用 null 删除字段。"""
+    result = dict(current)
+    for key, value in patch.items():
+        if value is None:
+            raise ValueError(f"局部修改不允许用 null 删除字段：{key}")
+        if isinstance(value, dict):
+            result[key] = _merge_patch(result.get(key) if isinstance(result.get(key), dict) else {}, value)
+        else:
+            result[key] = value
+    return result
 
-    try:
-        llm = get_deepseek_llm()
-    except Exception as exc:
-        print(f"[错误] 模型未配置：{exc}；请先设置 MODEL_API_KEY 等环境变量")
-        return 1
 
-    base_prompt = draft_skill_prompt(args.description, args.skill_id)
-    try:
-        restriction = explicit_source_restriction(args.description)
-    except ValueError as exc:
-        print(f"[错误] {exc}")
-        return 1
-    sources = getattr(args, "sources", None)
+# 允许出现在局部补丁里的顶层字段（身份、版本、时间与运行时派生字段统一不收）
+PATCHABLE_KEYS = {
+    "name", "description", "enabled", "created_by", "task", "structure",
+    "research", "evidence", "verification", "instructions", "template",
+    "recommendations",
+}
+
+# 这些清单一旦由非空变成空，说明配置被整块清空，必须拒绝
+_CRITICAL_LISTS = (
+    ("structure", "sections"),
+    ("research", "questions"),
+    ("research", "data_fields"),
+    ("verification", "checks"),
+)
+
+
+def _critical_lists_emptied(before, after):
+    """找出「原本有内容、改后被清空」的关键清单。"""
+    emptied = []
+    for block, field in _CRITICAL_LISTS:
+        previous = (before.get(block) or {}).get(field) or []
+        current = (after.get(block) or {}).get(field) or []
+        if previous and not current:
+            emptied.append(f"{block}.{field}")
+    return emptied
+
+
+def generate_skill(description, *, skill_id=None, existing=None, llm=None, sources=None):
+    """命令行与自然语言入口共用的生成/局部修改及校验，不直接落盘。"""
+    from document_agent.agent.llm_client import extract_json_from_text, get_deepseek_llm, llm_invoke
+    llm = llm if llm is not None else get_deepseek_llm()
+    restriction = explicit_source_restriction(description)
     if sources and restriction and sources != restriction:
-        print("[错误] --sources 与需求中的单来源限制冲突")
-        return 1
+        raise SkillError('--sources 与需求中的来源限制冲突')
     required_sources = sources or restriction
     if required_sources:
-        base_prompt += f"\n【必须遵守】research.source.priority 必须等于 {json.dumps(required_sources)}。\n"
-    prompt = base_prompt
-    last_error = ""
+        print(f"【来源限制】识别到单来源要求：{required_sources}")
+    base_prompt = draft_skill_prompt(description, skill_id, existing)
+    if required_sources:
+        base_prompt += f'\nresearch.source.priority 必须等于 {json.dumps(required_sources)}。'
+    prompt, error = base_prompt, ''
     for _ in range(3):
-        result = llm_invoke(llm, prompt)
-        text = str(getattr(result, "content", "") or "")
-        candidates = extract_json_from_text(text, return_all=True) or []
+        response = llm_invoke(llm, prompt, retry=3)
+        candidates = extract_json_from_text(str(getattr(response, 'content', '') or ''), return_all=True) or []
         for candidate in candidates:
             try:
                 data = json.loads(candidate)
-                skill = DocumentSkill.model_validate(data)
-                if args.skill_id and skill.id != args.skill_id:
-                    raise ValueError(f"id 必须为 {args.skill_id}")
+                if not isinstance(data, dict) or not data:
+                    raise ValueError('需要非空JSON对象')
+                if existing is not None:
+                    unexpected = set(data) - PATCHABLE_KEYS
+                    if unexpected:
+                        raise ValueError(f'局部修改不允许改这些字段：{sorted(unexpected)}')
+                    before = existing.to_config_dict()
+                    data = _merge_patch(before, data)
+                    skill = DocumentSkill.model_validate(data)
+                    emptied = _critical_lists_emptied(before, skill.to_config_dict())
+                    if emptied:
+                        raise ValueError(f'修改后这些关键清单被清空：{"、".join(emptied)}；请明确说明要改的内容')
+                else:
+                    skill = DocumentSkill.model_validate(data)
+                if skill_id and skill.id != skill_id:
+                    raise ValueError(f'id 必须为 {skill_id}')
                 if required_sources and skill.research.source.priority != required_sources:
-                    raise ValueError(f"research.source.priority 必须等于 {required_sources}，不得添加其他来源")
-            except Exception as exc:
-                last_error = str(exc)[:500]
-                continue
-            instructions = (
-                "# 执行说明\n\n"
-                f"需求来源：{args.description}\n\n"
-                + (skill.instructions or "生成的规范见 skill.yaml；如需补充执行流程与主要指令，请直接编辑本文件。\n")
-            )
-            return _save(skill, args, instructions=instructions)
-        prompt = (
-            base_prompt
-            + f"\n\n【上一次输出不合法】{last_error or '未找到可解析的 JSON 对象'}\n"
-            "请严格按字段约束重新输出一个完整 JSON 对象，不要输出任何解释。"
-        )
+                    raise ValueError(f'research.source.priority 必须等于 {required_sources}')
+                if existing is None:
+                    if skill.template or skill.template_path or skill.references:
+                        raise ValueError('创建规范不创建模板或参考附件，请先将template留空')
+                    skill = skill.model_copy(update={'version': 1, 'created_at': None, 'updated_at': None})
+                    skill.instructions = '# 执行说明\n\n需求来源：' + description + '\n\n' + skill.instructions
+                    skill = DocumentSkill.model_validate(skill.model_dump())
+                return skill
+            except (ValueError, TypeError) as exc:
+                error = str(exc)[:800]
+        prompt = base_prompt + '\n【上次输出未通过校验】' + (error or '未找到JSON对象') + '\n请重新返回所需JSON，不要解释。'
+    raise SkillError('连续3次未能得到合法规范：' + (error or '模型未返回JSON'))
 
-    print(f"[生成失败] 连续 3 次未能得到合法的 Skill JSON：{last_error}")
-    return 1
+
+def manage_skill_request(description, action, *, target=None, llm=None):
+    """自然语言管理只操作当前注册目录中的规则，不接受任意文件路径。"""
+    if action == 'skill_update':
+        if not target:
+            raise SkillError('请说明要修改的规范名称或 id')
+        source, current, snapshot = read_skill_for_update(target)
+        updated = generate_skill(description, skill_id=current.id, existing=current, llm=llm)
+        before, after = current.to_config_dict(), updated.to_config_dict()
+        changed = sorted(key for key in before.keys() | after.keys() if after.get(key) != before.get(key))
+        if not changed:
+            raise SkillError('未产生配置变更，请说明具体要修改的内容')
+        updated, backup = save_skill_update(source, updated, snapshot)
+        summary = '、'.join(SKILL_FIELD_LABELS.get(key, key) for key in changed)
+        return {'action': action, 'id': updated.id, 'name': updated.name, 'version': updated.version,
+                'path': str(source), 'backup': str(backup), 'changed_fields': changed,
+                'message': f'已更新规范「{updated.name}」（{updated.id}），版本v{updated.version}。变更：{summary}。原文件已备份。'}
+    if action != 'skill_create':
+        raise SkillError('不支持的规范管理操作')
+    skill = generate_skill(description, skill_id=target, llm=llm)
+    path = save_skill_package(skill, instructions=skill.instructions)
+    return {'action': action, 'id': skill.id, 'name': skill.name, 'version': skill.version,
+            'path': str(path), 'changed_fields': [], 'message': f'已创建规范「{skill.name}」（{skill.id}），版本v{skill.version}。后续写作可按需求自动选用。'}
+
+
+def _command_draft(args) -> int:
+    try:
+        skill = generate_skill(args.description, skill_id=args.skill_id, sources=getattr(args, 'sources', None))
+        return _save(skill, args, instructions=skill.instructions)
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        print(f'[生成失败] {exc}')
+        return 1
 
 
 def run(argv, *, prog: str = "document_agent.console_app skill") -> int:
@@ -210,5 +279,10 @@ def run(argv, *, prog: str = "document_agent.console_app skill") -> int:
     if args.command == "draft":
         return _command_draft(args)
     return 1
+
+
+if __name__ == "__main__":
+    import sys
+    raise SystemExit(run(sys.argv[1:], prog="document_agent.skills.commands"))
 
 

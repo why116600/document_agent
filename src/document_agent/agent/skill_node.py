@@ -1,6 +1,6 @@
 """Skill 解析节点：匹配、加载校验、能力预检与检索计划生成。
 
-位置在 intent 之后、summary 之前：intent 负责判断「写还是改」，本节点负责确定「按什么规范写」，
+位置在 intent 之后、summary 之前：intent 分析任务并选择规范，本节点复用选择结果并检查能力，
 后续 summary / retrieve / docx / rewrite / verify 全部从 state 读取已校验的配置与计划。
 """
 
@@ -11,15 +11,15 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from agent_core import AgentState, get_last_user_text
 from llm_client import llm_model_invoke
-from document_agent.skills.match import match_skill_for_text
+from document_agent.skills.match import resolve_skill
 from document_agent.skills.plan import (
     RetrievalPlanDraft,
     build_plan_prompt,
     build_retrieval_plan,
     new_progress,
 )
-from document_agent.skills.schema import DocumentSkill
-from document_agent.skills.store import SkillError, load_skill
+from document_agent.skills.schema import DocumentSkill, coerce_skill
+from document_agent.skills.store import SkillError
 
 
 def _probe_knowledge(gdb: Any) -> Tuple[bool, str]:
@@ -137,27 +137,18 @@ def create_skill_node(llm=None, gdb: Any = None, kg: Any = None, remote_kg_tool:
         user_text = get_last_user_text(state.get("messages")).strip()
         explicit = str(state.get("skill_id") or "").strip()
 
-        if explicit:
-            try:
-                skill = load_skill(explicit)
-            except SkillError as exc:
-                print(f"[Skill 加载错误] {exc}")
-                return {**state, "state": "error", "error": str(exc)}
-            reason = f"命令行指定 --skill={explicit}"
-        else:
-            skill, reason = match_skill_for_text(user_text, state.get("skill_name"))
-            print(f"【Skill 匹配】{reason}")
-            if skill is None:
-                return {**state, "skill": None, "skill_id": None}
-
-        current_intent = "rewrite" if state.get("user_intent") == "rewrite" else "new"
-        if skill.task.doc_type != "any" and skill.task.doc_type != current_intent:
-            message = (
-                f"Skill「{skill.name}」（{skill.id}）声明适用于 {skill.task.doc_type} 任务，"
-                f"但当前识别为 {current_intent} 任务；请改用匹配的 Skill 或把 doc_type 设为 any"
-            )
-            print(f"[Skill 校验错误] {message}")
-            return {**state, "state": "error", "error": message}
+        try:
+            if state.get('intent_prepared'):
+                skill, reason = coerce_skill(state.get('skill')), state.get('skill_reason', '')
+            else:
+                skill, reason = resolve_skill(user_text, explicit=explicit, llm_hint=state.get('skill_name'),
+                                               use_skill=state.get('use_skill'), excluded_skills=state.get('excluded_skills') or [],
+                                               task_type=state.get('user_intent') or 'new')
+        except SkillError as exc:
+            return {**state, 'state': 'error', 'error': str(exc)}
+        print(f'【Skill 匹配】{reason}')
+        if skill is None:
+            return {**state, 'skill': None, 'skill_id': None}
 
         capabilities = _check_capabilities(skill, state, gdb, kg, remote_kg_tool)
         print(f"【Skill】已加载 {skill.summary()}｜匹配依据：{reason}")

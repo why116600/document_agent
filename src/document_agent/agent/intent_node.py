@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, List, Tuple, Optional, Dict, Literal
 from pydantic import BaseModel, Field
@@ -7,7 +8,8 @@ from pydantic import BaseModel, Field
 from agent_core import AgentState, get_last_user_text
 from llm_client import llm_model_invoke
 from document_agent.file_types import SUPPORTED_REFERENCE_SUFFIXES
-from document_agent.skills.store import list_skill_summaries
+from document_agent.skills.store import list_skill_summaries, SkillError
+from document_agent.skills.match import resolve_skill
 
 
 
@@ -51,13 +53,16 @@ class DocumentTaskIntent(BaseModel):
     用于从用户自由输入的自然语言指令和传入的文件池中，
     自动识别写作意图（改写还是新建）、挑选修改目标文档、区分参考材料、推导改写模式与提取另存为目标。
     """
-    task_type: Literal["new", "rewrite"] = Field(
+    task_type: Literal["new", "rewrite", "skill_create", "skill_update"] = Field(
         description=(
             "任务类型：\n"
             "- 'rewrite': 用户希望对已有的某个 Word (.docx) 文档进行修改、改写、重写、局部修补、全文替换或公文润色；\n"
-            "- 'new': 用户希望从零起草、全新撰写一份新文档（即使提供了参考资料，也是根据参考资料全新撰写）。"
+            "- 'new': 用户希望从零起草一份文档；\n"
+            "- 'skill_create': 明确要求定义并保存可复用的一类文档规范，不是按已有规范写本次文档；\n"
+            "- 'skill_update': 明确要求修改已保存的写作/检索规范，不是修改某个文档。"
         )
     )
+    skill_target: Optional[str] = Field(default=None, description='修改规范时填写用户指定的规范id或完整名称；歧义或未指明时null。创建时仅当用户明确给出合法英文id才填写，否则null。不得填写文件路径')
     target_file: Optional[str] = Field(
         default=None,
         description=(
@@ -112,10 +117,12 @@ class DocumentTaskIntent(BaseModel):
     skill: Optional[str] = Field(
         default=None,
         description=(
-            "用户明确要求使用的文档 Skill：从【可用 Skill 列表】中挑选最匹配的 id；"
-            "用户没有提到任何 Skill 时必须为 null，不要自行臆测。"
+            "结合文档类型、任务目的与可用规范选择唯一适用的已启用 Skill id，不要求用户说出Skill一词；"
+            "没有适用项或存在歧义时为null，不得生成不存在的id。"
         )
     )
+    use_skill: Optional[bool] = Field(default=None, description='明确拒绝所有写作规范时False；明确要求采用规范时True；其他情况None，按任务自动匹配')
+    excluded_skills: List[str] = Field(default_factory=list, max_length=20, description='用户明确拒绝的特定规范id；仅从可用列表提取，不等同于拒绝全部Skill')
     reasoning: str = Field(
         default="",
         description="做出该意图判断、文件挑选及文件名拟定的简要分析理由。"
@@ -310,7 +317,7 @@ def validate_reference_paths(reference_paths: Optional[List[str]]) -> Tuple[List
 
 
 def build_full_intent_prompt(user_prompt: str, candidate_files: List[str],
-                             available_skills: Optional[List[Tuple[str, str, str]]] = None) -> str:
+                             available_skills: Optional[List[Dict[str, Any]]] = None) -> str:
     """构建用于全量意图与槽位分析的大模型提示词。"""
     if candidate_files:
         files_desc = "\n".join([f"- {Path(f).name} (完整路径: {f})" for f in candidate_files])
@@ -318,11 +325,12 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str],
         files_desc = "(未提供任何候选文件)"
 
     if available_skills:
-        lines = []
-        for skill_id, skill_name, triggers in available_skills:
-            suffix = f"｜触发词={triggers}" if triggers else ""
-            lines.append(f"- id={skill_id}｜名称={skill_name}{suffix}")
-        skills_desc = "\n".join(lines)
+        brief = [
+            {key: item.get(key) for key in ('id', 'name', 'enabled', 'doc_type',
+                                            'description', 'purpose', 'triggers')}
+            for item in available_skills
+        ]
+        skills_desc = json.dumps(brief, ensure_ascii=False)
     else:
         skills_desc = "(当前没有已配置的 Skill)"
 
@@ -334,6 +342,8 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str],
         f"【用户指令内容】\n{user_prompt}\n\n"
         "【分析与槽位抽取规范】\n"
         "1. task_type 判断：\n"
+        "   - 明确要求创建、保存或修改可复用写作规范时选择skill_create/skill_update；skill_target为规范id或名称。\n"
+        "   - ‘按规范写报告’属于new，‘按规范修改这份文档’属于rewrite，不得当成修改规范本身。\n"
         "   - 'rewrite'：用户希望对已有的某份 Word (.docx) 文档进行修改、改写、局部调整、全文重构、替换或润色（例如：'把xxx里的第三条改为'、'根据A修改B'、'对xxx进行公文润色'）；\n"
         "   - 'new'：用户希望全新起草、生成一份新文档（例如：'参考资料写一份报告'、'起草一份合作协议'），不以修改某份已有文档为目标。\n"
         "2. target_file 挑选（仅当 task_type 为 rewrite 时）：\n"
@@ -371,9 +381,9 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str],
         "（例如：原文件是'11_粗糙排版_各业务线自报数据与零散问题汇总.docx'，参考了'正式版2'，可智能拟定为'11_各业务线自报数据与零散问题汇总_正式版.docx'或'11_各业务线自报数据与零散问题汇总_规范排版版.docx'）；\n"
         "     * 若为 overwrite 模式：可填原文件名或保持为 null。\n"
         "7. skill 挑选：\n"
-        "   - 仅当用户明确提到要按某个 Skill／规范／模板撰写（例如'用行业研究报告 Skill 写'、'按公司公文规范写'）时，"
-        "从【可用 Skill 列表】中挑选 id 填入；\n"
-        "   - 用户没有提到 Skill，或列表为空时，必须为 null，绝不能自行臆测。\n"
+        "   - 写文档时仅选择enabled=true且适用的规范，用户无需说出Skill一词；不适用或有歧义时skill=null，不猜选。管理规范可定位禁用项。\n"
+        "   - 用户拒绝所有规范时use_skill=false；明确要求规范时true；普通写作任务为null，由已有规则自动匹配。\n"
+        "   - 被明确拒绝的具体规范放excluded_skills，其他规范仍可匹配；‘不用A，改用B’应排除A并选择B。列表为空时skill=null，不臆造。\n"
         "8. reasoning：简要阐述判断依据、是否为复合指令及步骤拆分理由、Skill 命中理由，以及文件名推导理由。"
     )
 
@@ -436,6 +446,13 @@ def build_rewrite_steps(task_intent, fallback_mode: str, replace_pairs: Dict[str
 def create_intent_node(llm=None):
     """创建初始化、参数校验与全量意图识别节点：意图、目标文件、有序步骤与另存文件名均由大模型从自然语言推断。"""
     def intent_node(state: AgentState) -> AgentState:
+        if state.get('intent_prepared'):
+            # 复用预分析结果时文件可能已被删除或移动，重新做一次存在性与类型校验
+            _, ref_error = validate_reference_paths(state.get("input_file_path") or [])
+            if ref_error:
+                return {**state, "state": "error",
+                        "error": f"参考文件在任务开始前发生变化：{ref_error}"}
+            return state
         raw_input_files = list(state.get("input_file_path") or [])
         explicit_save_path = (state.get("save_path") or "").strip()
         replace_pairs = dict(state.get("replace_pairs") or {})
@@ -457,14 +474,16 @@ def create_intent_node(llm=None):
         rewrite_steps: List[Dict[str, Any]] = []
         extracted_save_filename = None
         skill_name = None
+        use_skill = None
+        excluded_skills = []
         user_intent = "new"
 
         # 2. 大模型全量分析指令与候选文件池
         if llm is not None and user_prompt:
             print("【意图分析】正在分析用户指令与候选文件...")
-            available_skills: List[Tuple[str, str, str]] = []
+            available_skills = []
             try:
-                available_skills = list_skill_summaries()
+                available_skills = list_skill_summaries(include_disabled=True)
             except Exception as exc:
                 print(f"【Skill】读取 Skill 目录失败，本次不提供可选 Skill：{exc}")
             intent_prompt = build_full_intent_prompt(user_prompt, valid_input_files, available_skills)
@@ -472,7 +491,13 @@ def create_intent_node(llm=None):
 
             if task_intent:
                 print(f"【智能意图分析结果】任务类型: {task_intent.task_type.upper()} | 依据: {task_intent.reasoning}")
+                if task_intent.task_type in ('skill_create', 'skill_update'):
+                    return {**state, 'user_intent': task_intent.task_type,
+                            'skill_target': state.get('skill_id') or task_intent.skill_target,
+                            'skill': None, 'intent_prepared': True}
                 skill_name = (task_intent.skill or "").strip() or None
+                use_skill = task_intent.use_skill
+                excluded_skills = task_intent.excluded_skills
                 if skill_name:
                     print(f"【智能意图分析结果】命中 Skill：{skill_name}")
                 if task_intent.task_type == "rewrite":
@@ -505,7 +530,7 @@ def create_intent_node(llm=None):
                     save_mode = task_intent.save_mode or "new_file"
                     extracted_save_filename = task_intent.suggested_filename or task_intent.save_filename
             else:
-                # 大模型结构化解析失败时，默认按全新写作处理
+                # 模型超时或结构化解析失败是常见的暂时性故障，退回原安全默认继续完成任务
                 print("【意图分析】结构化解析无结果，按全新写作处理")
                 user_intent = "new"
                 rewrite_file = None
@@ -517,6 +542,12 @@ def create_intent_node(llm=None):
             rewrite_file = None
             rewrite_mode = None
             save_mode = "new_file"
+
+        try:
+            skill, skill_reason = resolve_skill(user_prompt, explicit=state.get('skill_id'), llm_hint=skill_name,
+                                                use_skill=use_skill, excluded_skills=excluded_skills, task_type=user_intent)
+        except SkillError as exc:
+            return {**state, 'state': 'error', 'error': str(exc)}
 
         # 3. 构建文件角色映射（保留全部文件，不剔除改写目标）
         file_roles: Dict[str, str] = {}
@@ -566,6 +597,11 @@ def create_intent_node(llm=None):
             "input_file_path": valid_input_files,  # 保留全部文件
             "file_roles": file_roles,              # 各文件角色
             "skill_name": skill_name,              # 意图识别命中的 Skill（未命中为 None）
+            'use_skill': use_skill,
+            'excluded_skills': excluded_skills,
+            'skill': skill.to_state_dict() if skill else None,
+            'skill_reason': skill_reason,
+            'intent_prepared': True,
         }
 
     return intent_node
@@ -575,4 +611,6 @@ def route_after_intent(state: AgentState) -> str:
     """初始化/校验出错时直接结束流程。"""
     if state.get("state") == "error":
         return "end"
+    if state.get('user_intent') in ('skill_create', 'skill_update'):
+        return 'manage_skill'
     return "continue"

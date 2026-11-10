@@ -154,12 +154,80 @@ def _chapter_budget(doc, sections, index, skill):
     return budget
 
 
+def _legacy_docx_node(state: AgentState, llm, knowledge_mode: str) -> AgentState:
+    """未启用 Skill 时沿用 develop 版原始生成流程，保证行为逐项等价。
+
+    不生成草稿、不做章节检查与重试、不注入 Skill/证据提示词、不重排表格、
+    不返回 generation_report；章节规划、逐章提示词与写盘方式与 develop 一致。
+    """
+    messages = state["messages"]
+    retrieved_info = build_retrieved_info(state["retrieved_content"], mode=knowledge_mode)
+    prompt = (
+        "你是文档写作助手，现在需要用户输入和已知信息列出整个文档的各个章节\n"
+        "如果某些内容可以按表格的形式输出，则按一个章节来输出\n"
+        f"用户输入：{messages}\n"
+        f"{retrieved_info}\n"
+        "输出结果按照json的列表格式输出章节列表，仅输出json字符串结果，不要输出其它内容"
+    )
+    res = llm_invoke(llm, prompt)
+    section_str = getattr(res, "content", None)
+    if section_str is None:
+        return {**state, "state": "error", "error": "规划文档章节时，模型输出错误"}
+    matches = extract_json_from_text(section_str, return_all=True) or []
+    print("分解结果：", matches)
+    if len(matches) <= 0:
+        print("章节内容输出不包含json格式的数据")
+    try:
+        sections = json.loads(matches[0])
+    except Exception as exc:
+        print("解析分段json数据失败：", exc)
+        return {**state, "state": "error", "error": f"{exc}"}
+
+    doc = Document()
+    style = doc.styles['Normal']
+    style.font.name = 'Times New Roman'
+    style.element.rPr.rFonts.set(qn('w:eastAsia'), '宋体')
+    for section in sections:
+        print(f"编写{section}章节")
+        prompt = (
+            "你是一个写作系统的智能助手，需要根据章节主旨以及源信息进行文档生成，包括段落和表格\n"
+            "文档字体上，除了用户的特殊要求，正文不加粗，标题加粗\n"
+            "标题段落请设置 heading_level 字段写入真实大纲级别（章节主标题=1，其下小节标题=2，正文段落不设置）\n"
+            "字体字号：若用户指定了格式方案则以用户要求为准；否则请你根据文档类型与用途，"
+            "自行思考并设计一套最适合本文档的字体字号方案（标题与正文层级梯度清晰、同层级一致、"
+            "全文统一不混用），并通过 font_name/font_size 字段设置\n"
+            f"整个文档的大纲：\n{section_str}\n"
+            f"当前要编写的章节内容：{section}\n"
+            f"{retrieved_info}\n"
+        )
+        res = llm_model_invoke(llm, prompt, DocxRoot)
+        if res is None:
+            print("写作失败")
+            return {**state, "error": "写作失败", "state": "error"}
+        for item in res.items:
+            if item.type == "paragraph":
+                node = doc.add_paragraph("")
+                replace_node_with_data(node, item.Paragraph)
+            elif item.type == "table":
+                node = doc.add_table(rows=0, cols=0)
+                replace_node_with_data(node, item.Table)
+    if str(knowledge_mode).strip().lower() == "remote":
+        for old, new, count in enforce_full_document_names(doc, state.get("document_citations") or []):
+            print(f"【引用规范】把简称引用 {old} 补全为 {new}（{count} 处）")
+    save_path = resolve_save_path(state.get("save_path"))
+    save_path = save_document(doc, save_path)
+    print("保存到：", str(save_path))
+    return {**state, "state": "succeeded", "save_path": str(save_path)}
+
+
 def create_new_docx_node(llm, knowledge_mode: str = "local"):
-    """按 Skill 或模型规划逐章生成，保留远程引用全名补全与保存逻辑。"""
+    """按 Skill 或模型规划逐章生成；未启用 Skill 时走 develop 版原始流程。"""
     def docx_node(state: AgentState) -> AgentState:
+        skill = coerce_skill(state.get("skill"))
+        if skill is None:
+            return _legacy_docx_node(state, llm, knowledge_mode)
         messages = state["messages"]
         retrieved_info = build_retrieved_info(state.get("retrieved_content") or [], mode=knowledge_mode)
-        skill = coerce_skill(state.get("skill"))
         skill_blocks = "\n\n".join(block for block in (
             render_full_brief(skill), render_retrieval_gaps(state.get("retrieval_report"))
         ) if block)

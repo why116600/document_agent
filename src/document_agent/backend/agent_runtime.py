@@ -537,9 +537,9 @@ class GenerationRuntime:
             session_dir = self.store.session_dir(session_id)
             files = self.store.file_paths(session_id)
             if files:
-                job.emit({"type": "status", "message": f"检测到 {len(files)} 个可用文件，开始分析写作需求…"})
+                job.emit({"type": "status", "message": f"检测到 {len(files)} 个可用文件，开始分析需求…"})
             else:
-                job.emit({"type": "status", "message": "未检测到参考文件，将直接开始撰写…"})
+                job.emit({"type": "status", "message": "未检测到参考文件，开始分析需求…"})
 
             job.emit({"type": "status", "message": "正在加载写作智能体…"})
             core = self.get_core(session_id)
@@ -577,6 +577,15 @@ class GenerationRuntime:
         result = result or {}
         state = result.get("state")
         save_path = str(result.get("save_path") or "").strip()
+
+        if state == 'succeeded' and result.get('result_type') == 'skill':
+            content = result.get('message') or '规范已保存'
+            operation = result.get('skill_operation') or {}
+            self.store.update_message(session_id, assistant_message_id, status='succeeded', content=content,
+                                      files=[], save_path=None, error=None, result_type='skill', skill_operation=operation)
+            job.finish({'state': 'succeeded', 'result_type': 'skill', 'file': None,
+                        'message': content, 'skill_operation': operation})
+            return
 
         if state == "succeeded" and save_path:
             produced = self._ensure_in_session(session_id, save_path)

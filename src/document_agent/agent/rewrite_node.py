@@ -41,6 +41,7 @@ from document_agent.skills.render import (
     render_format_brief,
     render_instructions,
     render_references,
+    render_recommendations,
     render_retrieval_gaps,
     render_structure_brief,
     render_task_brief,
@@ -2408,6 +2409,7 @@ def create_rewrite_node(llm, knowledge_mode: str = "local"):
                 render_format_brief(skill),
                 render_evidence_brief(skill),
                 render_verification_brief(skill),
+                render_recommendations(skill),
                 render_retrieval_gaps(state.get("retrieval_report")),
             ) if block)
             if skill_blocks:

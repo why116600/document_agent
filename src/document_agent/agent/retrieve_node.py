@@ -14,7 +14,7 @@ from document_agent.skills.plan import (
     new_progress,
     record_assessment,
 )
-from document_agent.skills.render import allowed_tools, render_research_brief
+from document_agent.skills.render import allowed_tools, render_research_brief, render_recommendations
 from document_agent.skills.schema import DocumentSkill, coerce_skill
 
 
@@ -197,7 +197,7 @@ def _legacy_retrieve(llm, state: AgentState, skill) -> AgentState:
     tool_response = ""
     allowed = allowed_tools(skill)
     tool_lines = build_tool_description(allowed)
-    research_brief = render_research_brief(skill)
+    research_brief = '\n\n'.join(filter(None, (render_research_brief(skill), render_recommendations(skill))))
     if research_brief:
         research_brief += "\n必须优先使用排在前面的来源；不要调用列表之外的工具。"
     if len(file_summaries) > 0:

@@ -101,11 +101,11 @@ def llm_api_key() -> str:
 
 
 def llm_base_url() -> str:
-    return (os.getenv("MODEL_BASE_URL") or "https://api.deepseek.com").strip()
+    return (os.getenv("MODEL_BASE_URL") or "https://api.deepseek.com/v1").strip()
 
 
 def llm_model_name() -> str:
-    return (os.getenv("MODEL_NAME") or "deepseek-flash").strip()
+    return (os.getenv("MODEL_NAME") or "deepseek-chat").strip()
 
 
 def llm_configured() -> bool:

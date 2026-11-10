@@ -432,24 +432,6 @@ def _check_min_length(blocks, skill: DocumentSkill) -> Dict[str, Any]:
     }
 
 
-def _check_terminology(blocks, skill: DocumentSkill) -> Dict[str, Any]:
-    terms = []
-    for term in skill.task.terminology:
-        # 术语可能带括号说明，只校验主术语是否出现
-        main = re.split(r"[（(]", term, maxsplit=1)[0].strip()
-        if main:
-            terms.append(main)
-    if not terms:
-        return {"name": "terminology", "passed": True, "detail": "未配置统一术语"}
-    text = _normalize(_all_text(blocks))
-    missing = [term for term in terms if _normalize(term) not in text]
-    return {
-        "name": "terminology",
-        "passed": not missing,
-        "detail": "统一术语均已出现" if not missing else "正文未使用术语：" + "、".join(missing),
-    }
-
-
 def _check_banned_expressions(blocks, skill: DocumentSkill) -> Dict[str, Any]:
     expressions = [item for item in skill.task.banned_expressions if item]
     if not expressions:
@@ -469,25 +451,29 @@ CHECK_FUNCTIONS = {
     "must_include": _check_must_include,
     "required_data": _check_required_data,
     "citations": _check_citations,
-    "terminology": _check_terminology,
     "banned_expressions": _check_banned_expressions,
     "no_placeholder": _check_no_placeholder,
     "min_length": _check_min_length,
 }
 
+# 由语义评估处理、不做程序化检查的验收项；保留在配置枚举里只为兼容旧规则
+SEMANTIC_ONLY_CHECKS = {"terminology"}
+
 
 def run_verification(path: str, skill: DocumentSkill, user_intent: str = "new",
                      known_sources: Optional[List[str]] = None,
                      has_knowledge: bool = False) -> Dict[str, Any]:
-    """对已保存的 docx 执行 Skill 要求的检查；返回可序列化的报告。"""
+    """对已保存的 docx 执行程序化检查；术语实际用法交由语义评估。建议仅展示。"""
     file_path = Path(path)
-    base = {"skill_id": skill.id, "file": str(file_path), "user_intent": user_intent}
+    base = {"skill_id": skill.id, "file": str(file_path), "user_intent": user_intent,
+            "recommendations": list(skill.recommendations)}
 
     if not file_path.exists():
         return {
             **base,
             "passed": False,
             "checks": [{"name": "file_exists", "passed": False, "detail": f"文件不存在：{file_path}"}],
+            "skipped_checks": [],
             "summary": "0/1 项检查通过",
         }
 
@@ -498,6 +484,7 @@ def run_verification(path: str, skill: DocumentSkill, user_intent: str = "new",
             **base,
             "passed": False,
             "checks": [{"name": "file_readable", "passed": False, "detail": f"无法打开文档：{exc}"}],
+            "skipped_checks": [],
             "summary": "0/1 项检查通过",
         }
 
@@ -510,17 +497,29 @@ def run_verification(path: str, skill: DocumentSkill, user_intent: str = "new",
         if name == "unsupported_claims":
             checks.append(_check_unsupported_claims(blocks, skill))
             continue
+        if name in SEMANTIC_ONLY_CHECKS:
+            checks.append({
+                "name": name,
+                "passed": True,
+                "skipped": True,
+                "detail": "该项由语义评估处理，未做程序化检查",
+            })
+            continue
         func = CHECK_FUNCTIONS.get(name)
         if func is None:
+            checks.append({"name": name, "passed": False,
+                           "detail": f"未实现的验收项：{name}"})
             continue
         checks.append(func(blocks, skill))
 
-    passed_count = sum(1 for item in checks if item["passed"])
+    counted = [item for item in checks if not item.get("skipped")]
+    passed_count = sum(1 for item in counted if item["passed"])
     return {
         **base,
-        "passed": passed_count == len(checks),
+        "passed": passed_count == len(counted),
         "checks": checks,
-        "summary": f"{passed_count}/{len(checks)} 项检查通过",
+        "skipped_checks": [item["name"] for item in checks if item.get("skipped")],
+        "summary": f"{passed_count}/{len(counted)} 项检查通过",
     }
 
 
@@ -556,7 +555,7 @@ def _semantic_rules_text(skill: DocumentSkill) -> str:
     if skill.task.professionalism:
         lines.append(f"- 专业程度与目标读者匹配：{skill.task.professionalism}")
     if skill.task.terminology:
-        lines.append(f"- 术语口径应统一为：{'、'.join(skill.task.terminology)}")
+        lines.append(f"- 涉及时统一术语写法：{'、'.join(skill.task.terminology)}；未涉及的术语不要求出现，不得据此判为缺项")
     if skill.evidence.cross_validation:
         lines.append("- 关键数据需要交叉验证，不同来源不一致时必须说明")
     if skill.evidence.conflict_policy:
@@ -796,7 +795,7 @@ def create_verify_node(llm=None):
 
         print(f"【验收】{skill.name}｜{report['summary']}｜文件：{report['file']}")
         for item in report["checks"]:
-            mark = "通过" if item["passed"] else "未通过"
+            mark = "跳过" if item.get("skipped") else ("通过" if item["passed"] else "未通过")
             print(f"    - {item['name']}：{mark}｜{item['detail']}")
         review = report["semantic_review"]
         if review.get("executed"):

@@ -20,6 +20,11 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
+import tempfile
+from functools import wraps
+from threading import RLock
+from uuid import uuid4
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -38,7 +43,63 @@ SKILL_FILE_SUFFIXES = (".json", ".yaml", ".yml")
 SKILL_CONFIG_NAMES = ("skill.yaml", "skill.yml", "skill.json")
 REFERENCE_SUFFIXES = (".md", ".markdown", ".txt")
 MAX_REFERENCES_TOTAL_CHARS = 12000
+MAX_BACKUPS_PER_SKILL = 20
 FRONTMATTER_PATTERN = re.compile(r"^---\s*\n(.*?)\n---\s*\n?(.*)$", re.DOTALL)
+_STORE_LOCK = RLock()
+
+
+def _locked(operation):
+    @wraps(operation)
+    def call(*args, **kwargs):
+        with _STORE_LOCK:
+            return operation(*args, **kwargs)
+    return call
+
+
+def _atomic_write(path: Path, content: bytes):
+    temporary = None
+    try:
+        mode = (path.stat().st_mode & 0o777) if path.exists() else 0o644
+        if not mode:
+            mode = 0o644
+        with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, mode)
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def _replace_files(writes):
+    """单文件原子替换；包内任一文件失败时恢复原内容。"""
+    previous = {path: path.read_bytes() if path.exists() else None for path in writes}
+    try:
+        for path, content in writes.items():
+            _atomic_write(path, content)
+    except Exception:
+        restore_errors = []
+        for path, content in previous.items():
+            try:
+                if content is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    _atomic_write(path, content)
+            except OSError as exc:
+                restore_errors.append(f"{path.name}: {exc}")
+        if restore_errors:
+            print(f"[Skill] 回滚部分失败，请从 .history/ 手动恢复：{'；'.join(restore_errors)}")
+        raise
+
+
+def _drop_empty_recommendations(data: Dict[str, Any]) -> Dict[str, Any]:
+    """空的 recommendations 不写进配置文件，保证旧版本程序仍能读取。"""
+    if not data.get('recommendations'):
+        data.pop('recommendations', None)
+    return data
 
 
 class SkillError(RuntimeError):
@@ -138,7 +199,7 @@ def _resolve_within(base: Path, relative: str) -> Path:
     try:
         candidate.relative_to(base.resolve())
     except ValueError as exc:
-        raise SkillError(f"模板路径必须位于 Skill 目录内：{relative}") from exc
+        raise SkillError(f"路径必须位于 Skill 目录内：{relative}") from exc
     return candidate
 
 
@@ -185,6 +246,7 @@ def _resolve_template(package_dir: Path, configured: str) -> str:
     return str(default.resolve()) if default.is_file() else ""
 
 
+@_locked
 def load_skill_file(path: str | Path, allow_disabled: bool = False) -> DocumentSkill:
     """按路径加载并校验单个配置文件（不读取 SKILL.md/references/assets）。"""
     path_obj = Path(path).expanduser()
@@ -202,6 +264,7 @@ def load_skill_file(path: str | Path, allow_disabled: bool = False) -> DocumentS
     return skill
 
 
+@_locked
 def load_skill_dir(path: str | Path, allow_disabled: bool = False) -> DocumentSkill:
     """加载 Skill 包目录：配置 + SKILL.md + references/ + assets/。"""
     package_dir = Path(path).expanduser()
@@ -269,6 +332,7 @@ def _load_source(path: Path, allow_disabled: bool = True) -> DocumentSkill:
     return load_skill_file(path, allow_disabled=allow_disabled)
 
 
+@_locked
 def load_skill(ref: str, allow_disabled: bool = False) -> DocumentSkill:
     """按「目录/文件路径 / Skill id / 展示名称」加载 Skill。
 
@@ -335,6 +399,7 @@ def load_skill(ref: str, allow_disabled: bool = False) -> DocumentSkill:
     )
 
 
+@_locked
 def list_skills() -> Tuple[List[DocumentSkill], List[str]]:
     """加载目录下全部 Skill（含禁用项），返回 (列表, 错误说明列表)。"""
     skills: List[DocumentSkill] = []
@@ -357,13 +422,18 @@ def list_skills() -> Tuple[List[DocumentSkill], List[str]]:
     return skills, errors
 
 
-def list_skill_summaries() -> List[Tuple[str, str, str]]:
-    """给意图识别提供已启用的 Skill 清单：返回 (id, 名称, 触发词)。"""
+def list_skill_summaries(include_disabled: bool = False) -> List[Dict[str, Any]]:
+    """给意图识别提供用途摘要；管理任务可包含禁用项，不注入完整指令。
+
+    返回字典列表（键：id/name/enabled/doc_type/description/purpose/triggers）。
+    旧调用方若按三元组解包，请改为按 ``item['id']`` 取值。
+    """
     skills, _ = list_skills()
     return [
-        (skill.id, skill.name, "、".join(skill.task.triggers))
+        {'id': skill.id, 'name': skill.name, 'enabled': skill.enabled, 'doc_type': skill.task.doc_type,
+         'description': skill.description, 'purpose': skill.task.purpose, 'triggers': skill.task.triggers}
         for skill in skills
-        if skill.enabled
+        if skill.enabled or include_disabled
     ]
 
 
@@ -373,6 +443,7 @@ def _touch_timestamps(skill: DocumentSkill) -> DocumentSkill:
     return skill.model_copy(update={"created_at": created, "updated_at": now})
 
 
+@_locked
 def save_skill(skill: DocumentSkill, out_path: Optional[str | Path] = None, as_yaml: bool = False) -> Path:
     """保存为单文件 Skill；未给出路径时写入 ``<skill_dir>/<id>.json``（YAML 用 ``.yaml``）。"""
     if out_path:
@@ -382,7 +453,7 @@ def save_skill(skill: DocumentSkill, out_path: Optional[str | Path] = None, as_y
 
     path.parent.mkdir(parents=True, exist_ok=True)
     skill = _touch_timestamps(skill)
-    data = skill.to_config_dict()
+    data = _drop_empty_recommendations(skill.to_config_dict())
 
     if path.suffix.lower() in (".yaml", ".yml"):
         try:
@@ -393,10 +464,99 @@ def save_skill(skill: DocumentSkill, out_path: Optional[str | Path] = None, as_y
     else:
         text = json.dumps(data, ensure_ascii=False, indent=2)
 
-    path.write_text(text + ("" if text.endswith("\n") else "\n"), encoding="utf-8")
+    _atomic_write(path, (text + ("" if text.endswith("\n") else "\n")).encode('utf-8'))
     return path
 
 
+@_locked
+def read_skill_for_update(ref: str):
+    """仅精确定位配置目录内的规则，并保留生成补丁之前的文件快照。"""
+    root = resolve_skill_dir().resolve()
+    ref_norm = ref.strip().lower()
+    matches = []
+    load_errors = []
+    for source in _iter_skill_sources(root):
+        try:
+            source.resolve().relative_to(root)
+            if source.is_dir():
+                for name in (*SKILL_CONFIG_NAMES, 'SKILL.md'):
+                    _resolve_within(source, name)
+            skill = _load_source(source, allow_disabled=True)
+        except (ValueError, SkillError) as exc:
+            load_errors.append(f'{source.name}: {exc}')
+            continue
+        if skill.id.lower() == ref_norm or skill.name.strip().lower() == ref_norm:
+            matches.append((source, skill))
+            if len(matches) > 1:
+                break
+    if len(matches) != 1:
+        names = '、'.join(f'{s.name}（{s.id}）' for _, s in matches)
+        hint = '；以下规则读取失败：' + '；'.join(load_errors) if load_errors else ''
+        raise SkillError(f'无法唯一确定要修改的规范「{ref}」'
+                         + (f'：{names}' if names else '，请提供已配置的名称或 id') + hint)
+    source, skill = matches[0]
+    files = [source] if source.is_file() else [source / name for name in SKILL_CONFIG_NAMES if (source / name).is_file()] + [source / 'SKILL.md']
+    return source, skill, {path: path.read_bytes() if path.is_file() else None for path in files}
+
+
+@_locked
+def save_skill_update(source: Path, updated: DocumentSkill, snapshot):
+    """校验新版本，先备份，再替换规则文件；进程内串行，拒绝覆盖过期快照。"""
+    source = source.resolve()
+    try:
+        source.relative_to(resolve_skill_dir().resolve())
+    except ValueError:
+        raise SkillError('只能修改当前 Skill 配置目录内的规范') from None
+    root = resolve_skill_dir()
+    for path in snapshot:
+        try:
+            relative = path.relative_to(root)
+        except ValueError as exc:
+            raise SkillError('规则目录在修改期间发生变化，请重新发起修改') from exc
+        _resolve_within(root, str(relative))
+    if any((p.read_bytes() if p.is_file() else None) != content for p, content in snapshot.items()):
+        raise SkillError('规范在生成修改期间已发生变化，请重新发起修改，未覆盖当前文件')
+    current = _load_source(source, allow_disabled=True)
+    if updated.id != current.id:
+        raise SkillError('修改不能改变 Skill id，请另行创建新规范')
+    data = updated.to_config_dict()
+    data.update(version=current.version + 1, created_at=current.to_config_dict().get('created_at'), updated_at=datetime.now().isoformat())
+    updated = DocumentSkill.model_validate(data)
+    if source.is_dir():
+        import yaml
+        _resolve_template(source, updated.template)
+        config = next(source / name for name in SKILL_CONFIG_NAMES if (source / name).is_file())
+        data = _drop_empty_recommendations(updated.to_config_dict())
+        data.pop('instructions', None)
+        config_text = yaml.safe_dump(data, allow_unicode=True, sort_keys=False) if config.suffix.lower() != '.json' else json.dumps(data, ensure_ascii=False, indent=2)
+        md = source / 'SKILL.md'
+        meta, _ = parse_skill_md(md.read_text(encoding='utf-8'), md) if md.exists() else ({}, '')
+        meta.update(id=updated.id, name=updated.name, version=updated.version, description=updated.description, enabled=updated.enabled)
+        md_text = '---\n' + yaml.safe_dump(meta, allow_unicode=True, sort_keys=False) + '---\n\n' + updated.instructions + '\n'
+        writes = {config: config_text.encode('utf-8'), md: md_text.encode('utf-8')}
+    else:
+        import yaml
+        data = _drop_empty_recommendations(updated.to_config_dict())
+        original = _read_mapping(source)
+        for key in ('references', 'template_path'):
+            if key in original:
+                data[key] = original[key]
+        text = json.dumps(data, ensure_ascii=False, indent=2) if source.suffix.lower() == '.json' else yaml.safe_dump(data, allow_unicode=True, sort_keys=False)
+        writes = {source: text.encode('utf-8')}
+    backup_root = _resolve_within(resolve_skill_dir(), '.history')
+    backup = backup_root / f'{current.id}_{datetime.now():%Y%m%d_%H%M%S}_{uuid4().hex[:8]}'
+    backup.mkdir(parents=True)
+    for path, content in snapshot.items():
+        if content is not None:
+            (backup / path.name).write_bytes(content)
+    old_backups = sorted(backup_root.glob(f'{current.id}_*'), key=lambda item: item.stat().st_mtime)
+    for stale in old_backups[:-MAX_BACKUPS_PER_SKILL]:
+        shutil.rmtree(stale, ignore_errors=True)
+    _replace_files(writes)
+    return updated, backup
+
+
+@_locked
 def save_skill_package(
     skill: DocumentSkill,
     instructions: Optional[str] = None,
@@ -409,23 +569,30 @@ def save_skill_package(
     except ImportError as exc:  # pragma: no cover
         raise SkillError("保存 Skill 包需要安装 pyyaml") from exc
 
-    base_dir = Path(root).expanduser() if root else resolve_skill_dir()
-    package_dir = base_dir / skill.id
+    base_dir = Path(root).expanduser().resolve() if root else resolve_skill_dir()
+    package_dir = _resolve_within(base_dir, skill.id)
     if package_dir.exists() and not force:
         raise SkillError(f"Skill 目录已存在：{package_dir}；如需覆盖请加 --force")
+    for source in _iter_skill_sources(base_dir):
+        if source.resolve() == package_dir:
+            continue
+        try:
+            existing = _load_source(source, allow_disabled=True)
+        except SkillError:
+            continue
+        if existing.id.lower() == skill.id.lower():
+            raise SkillError(f'Skill id「{skill.id}」已由 {source.name} 使用，不能重复创建')
 
+    created_dir = not package_dir.exists()
     package_dir.mkdir(parents=True, exist_ok=True)
     skill = _touch_timestamps(skill)
 
-    config = skill.model_dump(
+    config = _drop_empty_recommendations(skill.model_dump(
         mode="json",
         exclude_none=True,
         exclude={"instructions", "references", "template_path"},
-    )
-    (package_dir / "skill.yaml").write_text(
-        yaml.safe_dump(config, allow_unicode=True, sort_keys=False),
-        encoding="utf-8",
-    )
+    ))
+    config_text = yaml.safe_dump(config, allow_unicode=True, sort_keys=False)
 
     body = instructions if instructions is not None else skill.instructions
     if not body:
@@ -440,8 +607,17 @@ def save_skill_package(
         "description": skill.description,
     }
     front_text = yaml.safe_dump(frontmatter, allow_unicode=True, sort_keys=False).strip()
-    (package_dir / "SKILL.md").write_text(
-        f"---\n{front_text}\n---\n\n{body.strip()}\n",
-        encoding="utf-8",
-    )
+    writes = {
+        _resolve_within(package_dir, 'skill.yaml'): config_text.encode('utf-8'),
+        _resolve_within(package_dir, 'SKILL.md'): f"---\n{front_text}\n---\n\n{body.strip()}\n".encode('utf-8'),
+    }
+    try:
+        _replace_files(writes)
+    except Exception:
+        if created_dir:
+            try:
+                package_dir.rmdir()  # 只移除本次创建且已回滚为空的目录
+            except OSError:
+                pass
+        raise
     return package_dir

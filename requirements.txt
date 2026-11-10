@@ -14,3 +14,5 @@ uvicorn==0.35.0
 python-multipart==0.0.22
 # 远程知识图谱检索客户端（document_agent.retrieve_tool.remote_kg_tool）
 httpx==0.28.1
+# 用户自定义 Skill 的 YAML 配置（与 pyproject.toml 的 pyyaml>=6.0 保持一致）
+pyyaml>=6.0
