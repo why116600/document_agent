@@ -80,6 +80,57 @@ def _read_source_text(path: str) -> str:
     return ""
 
 
+def read_source_text(paths: Sequence[str]) -> str:
+    """读取全部原始资料文本，供事实保真校验和计划补料使用。"""
+    texts = [_read_source_text(str(path)) for path in paths or []]
+    return "\n".join(text for text in texts if text and text.strip())
+
+
+def _topic_probe(topic: str) -> str:
+    """取主题前两个有效字符作为检索锚点，兼容“台账保留期/借用台账”这类表述差异。"""
+    value = re.sub(r"\s+", "", str(topic or ""))
+    if len(value) <= 2:
+        return value
+    return value[:2]
+
+
+def supplement_material_with_source(material_block: str, source_text: str,
+                                    fact_keys: Sequence[str],
+                                    topics: Sequence[str] = (),
+                                    max_clauses: int = 12) -> str:
+    """检索漏掉的事实或主题，从原始资料补回对应子句，避免计划误写“资料未说明”。"""
+    if not source_text:
+        return material_block
+    compact_material = re.sub(r"\s+", "", material_block or "")
+    probes = [
+        re.sub(r"\s+", "", str(key))
+        for key in fact_keys or []
+        if str(key) and re.sub(r"\s+", "", str(key)) not in compact_material
+    ]
+    for topic in topics or []:
+        probe = _topic_probe(topic)
+        if probe and probe not in compact_material and probe not in probes:
+            probes.append(probe)
+    if not probes:
+        return material_block
+    clauses = []
+    for clause in re.split(r"[。；;\n]", source_text):
+        clause = clause.strip()
+        if not clause:
+            continue
+        if any(probe in re.sub(r"\s+", "", clause) for probe in probes):
+            clauses.append(clause)
+        if len(clauses) >= max_clauses:
+            break
+    if not clauses:
+        return material_block
+    return (
+        (material_block or "")
+        + "\n【原资料补充（检索未覆盖的事实/主题）】\n"
+        + "；".join(clauses)
+        + "\n"
+    )
+
 def source_fact_counts_from_files(paths: Sequence[str]) -> Dict[str, int]:
     """方案要点：优先从原始资料文件统计事实，避免检索片段重复放大计数。"""
     counts: Dict[str, int] = {}

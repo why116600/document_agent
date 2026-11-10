@@ -139,13 +139,19 @@ class TableItem(BaseModel):
                 return {"rows": rows, "cols": cols, "grid": grid}
         return data
     
+class FieldValueItem(BaseModel):
+    field: str = Field(default="", description="字段名，仅用于定位和渲染，不写入正文值")
+    value: str = Field(default="", description="字段事实，只写值，不带字段名或标签")
+
+
 class DocxItem(BaseModel):
-    type: str = Field(description="文档元素类型，paragraph表示段落文本，table表示表格")
+    type: str = Field(description="文档元素类型，paragraph表示段落文本，table表示表格，field_value表示字段值")
     Paragraph: Optional[ParagraphItem] = Field(default=None, description="段落文本内容")
     Table: Optional[TableItem] = Field(default=None, description="表格内容")
-    
+    FieldValue: Optional[FieldValueItem] = Field(default=None, description="字段值内容，由渲染器决定标签位置")
+
 class DocxRoot(BaseModel):
-    items: List[DocxItem] = Field(description="文档内容列表，每个元素表示一段文本或一个表格")
+    items: List[DocxItem] = Field(description="文档内容列表，每个元素表示一段文本、一个表格或一个字段值")
     
 # ---------- 转换辅助函数 ----------
 

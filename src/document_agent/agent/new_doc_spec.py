@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 TextStyleScope = Literal["all", "body", "headings", "table"]
 CountingRule = Literal["non_whitespace", "chinese_chars", "all_chars"]
+DocumentForm = Literal["prose", "sectioned", "field_list", "table", "form"]
 
 
 class TextStyleSpec(BaseModel):
@@ -50,6 +51,16 @@ class NewDocSpec(BaseModel):
     )
     duplicate_policy: Literal["strict", "normal", "off"] = Field(
         default="normal", description="重复检查强度：strict=强制检查，normal=有结构约束时检查，off=不检查。"
+    )
+    document_form: Optional[DocumentForm] = Field(
+        default=None,
+        description="文档形态：prose 连续短文、sectioned 分章节说明、field_list 条款清单、table 表格、form 表单；未明确为 null。",
+    )
+    include_section_titles: Optional[bool] = Field(
+        default=None, description="是否要求包含章节标题；未明确为 null。"
+    )
+    include_field_names: Optional[bool] = Field(
+        default=None, description="是否要求包含字段名称；未明确为 null。"
     )
 
 
@@ -448,9 +459,59 @@ def extract_duplicate_policy(text: str) -> Literal["strict", "normal", "off"]:
     return "normal"
 
 
+def extract_document_form(
+    text: str,
+) -> tuple[Optional[DocumentForm], Optional[bool], Optional[bool]]:
+    """确定性识别文档形态、章节标题与字段名称要求；未明确返回 None。"""
+    text = text or ""
+    has_prose = any(token in text for token in (
+        "连续短文", "连续段落", "一段话", "一整段", "不分章节", "不分子章节",
+    ))
+    has_section = any(token in text for token in (
+        "含章节标题", "包含章节标题", "有章节标题", "分章节", "按章节",
+    ))
+    no_section = any(token in text for token in (
+        "不要章节标题", "不含章节标题", "无章节标题", "不要分章节", "不分章节",
+    ))
+    has_field_names = any(token in text for token in (
+        "含字段名称", "包含字段名称", "有字段名称", "字段名称", "字段名",
+    ))
+    no_field_names = any(token in text for token in (
+        "不要字段名称", "不含字段名称", "不要字段名", "不写字段名",
+    ))
+    has_list = any(token in text for token in (
+        "字段清单", "字段列表", "逐条列明", "逐条列出", "按字段列出",
+        "条款清单", "清单形式",
+    ))
+    has_form = any(token in text for token in ("表单", "填写表", "表格式填写"))
+    has_table = any(token in text for token in (
+        "表格呈现", "用表格", "表格形式", "表格式", "表格列出",
+    )) and extract_table_policy(text) != "forbid"
+
+    if has_table:
+        form: Optional[DocumentForm] = "table"
+    elif has_form:
+        form = "form"
+    elif has_list:
+        form = "field_list"
+    elif has_prose and has_section:
+        form = "sectioned"
+    elif has_prose:
+        form = "prose"
+    elif has_section:
+        form = "sectioned"
+    else:
+        form = None
+
+    section_titles = False if no_section else (True if has_section else None)
+    field_names = False if no_field_names else (True if has_field_names else None)
+    return form, section_titles, field_names
+
+
 def parse_new_doc_spec(text: str) -> NewDocSpec:
     """确定性兜底：覆盖常见表达；未明确要求的字段保持 null/unspecified。"""
     max_body_chars, counting_rule = extract_body_limit(text)
+    document_form, include_section_titles, include_field_names = extract_document_form(text)
     return NewDocSpec(
         title=extract_doc_title(text),
         max_body_chars=max_body_chars,
@@ -459,6 +520,9 @@ def parse_new_doc_spec(text: str) -> NewDocSpec:
         text_styles=extract_text_styles(text),
         required_topics=extract_required_topics(text),
         duplicate_policy=extract_duplicate_policy(text),
+        document_form=document_form,
+        include_section_titles=include_section_titles,
+        include_field_names=include_field_names,
     )
 
 
@@ -596,6 +660,15 @@ def merge_new_doc_spec(model_spec: Optional[NewDocSpec],
             model.duplicate_policy
             if model.duplicate_policy != "normal"
             else fallback.duplicate_policy
+        ),
+        document_form=_prefer_fallback(
+            model.document_form, fallback.document_form, "文档形态"
+        ),
+        include_section_titles=_prefer_fallback(
+            model.include_section_titles, fallback.include_section_titles, "章节标题要求"
+        ),
+        include_field_names=_prefer_fallback(
+            model.include_field_names, fallback.include_field_names, "字段名称要求"
         ),
     )
 

@@ -392,6 +392,10 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str], outli
         "scope 取 all/body/headings/table；例如“标题黑体、正文宋体”必须输出两条，不能合并成全篇宋体；"
         "未提字体/颜色时留空数组；\n"
         "   - required_topics：只抄用户明确要求覆盖的主题/字段；“字段名称/章节标题/文档标题”等格式要求不算主题；\n"
+        "   - document_form：用户明确“连续短文/一段话/不分章节”→prose；“分章节”→sectioned；"
+        "“清单/逐条/字段列表”→field_list；“表格”→table；“表单/填写”→form；未明确→null；\n"
+        "   - include_section_titles：明确“含章节标题/包含章节标题”→true；“不要章节标题/不分章节”→false；未提→null；\n"
+        "   - include_field_names：明确“含字段名称/包含字段名称”→true；“不要字段名”→false；未提→null；\n"
         "   - duplicate_policy：用户明确不要重复/只写一次/不要总览→strict，否则 normal；\n"
         "   - 以上任一项没有明确依据时，宁可留空，也不要推断。"
     )
