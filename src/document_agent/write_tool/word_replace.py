@@ -187,6 +187,11 @@ def _iter_table_paragraphs(table: Table):
                 yield from _iter_table_paragraphs(nested)
 
 
+def iter_table_paragraphs(table: Table):
+    """公开入口：遍历表格所有单元格段落（合并单元格去重，递归嵌套表格）。"""
+    yield from _iter_table_paragraphs(table)
+
+
 def _iter_replace_paragraphs(doc: Document):
     """枚举替换范围：正文段落、表格单元格、页眉页脚（含其中表格）。"""
     for p in doc.paragraphs:
@@ -227,11 +232,11 @@ def _make_sentinel(doc_text: str, position: int, old_keys=()) -> str:
     return candidate
 
 
-def batch_replace_in_document(doc: Document, replace_pairs: Dict[str, str]) -> Dict[str, int]:
-    """批量替换文档中的多组键值对，返回每个目标词在原文中的替换命中次数统计。
+def batch_replace_in_paragraphs(paragraphs, replace_pairs: Dict[str, str]) -> Dict[str, int]:
+    """在给定段落集合内批量替换多组键值对，返回每个目标词的真实命中次数。
 
     逐对串行替换会有"A→B、B→C"污染（{"甲方":"乙方","乙方":"丙方"}会把甲方最终变成丙方），
-    故改用占位符两阶段替换，命中数也只统计原文中的真实出现次数。
+    故改用占位符两阶段替换；哨兵唯一性只在本次传入的段落集合内判断。
     """
     stats: Dict[str, int] = {}
     #长词优先：{"甲":"X","甲方":"Y"} 这类有重叠的键，短词先替换会吃掉长词的文本
@@ -242,18 +247,30 @@ def batch_replace_in_document(doc: Document, replace_pairs: Dict[str, str]) -> D
     if not valid_pairs:
         return stats
 
-    doc_text = "\n".join(p.text or "" for p in _iter_replace_paragraphs(doc))
+    targets = list(paragraphs)
+    if not targets:
+        return stats
+
+    doc_text = "\n".join(p.text or "" for p in targets)
     old_keys = [old_text for old_text, _ in valid_pairs]
+
+    def _replace_in_set(old_text: str, new_text: str) -> int:
+        return sum(replace_in_paragraph(p, old_text, new_text) for p in targets)
 
     #阶段一：旧词 -> 哨兵串，此时的命中数即原文真实出现次数
     sentinel_of: Dict[str, str] = {}
     for position, (old_text, _) in enumerate(valid_pairs):
         sentinel = _make_sentinel(doc_text, position, old_keys)
         sentinel_of[old_text] = sentinel
-        stats[old_text] = replace_in_document(doc, old_text, sentinel)
+        stats[old_text] = _replace_in_set(old_text, sentinel)
 
     #阶段二：哨兵串 -> 新词，新词里即使含其它组的旧词也不会被再替换
     for old_text, new_text in valid_pairs:
-        replace_in_document(doc, sentinel_of[old_text], new_text)
+        _replace_in_set(sentinel_of[old_text], new_text)
 
     return stats
+
+
+def batch_replace_in_document(doc: Document, replace_pairs: Dict[str, str]) -> Dict[str, int]:
+    """批量替换整篇文档（正文 + 表格 + 页眉页脚）中的多组键值对。"""
+    return batch_replace_in_paragraphs(_iter_replace_paragraphs(doc), replace_pairs)
