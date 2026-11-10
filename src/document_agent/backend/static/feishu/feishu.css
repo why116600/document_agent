@@ -1,0 +1,232 @@
+/* =====================================================================
+   飞书版专属样式：登录门禁 + 侧边栏用户信息
+   基础布局/组件复用 /static/styles.css，这里只补充差异部分。
+   ===================================================================== */
+
+:root {
+  --feishu: #3370ff;
+  --feishu-strong: #245bdb;
+}
+
+body.feishu-body {
+  background: var(--bg);
+}
+
+/* --------------------------------------------------------------- 登录门禁 */
+.login-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(900px 500px at 15% 0%, rgba(79, 124, 255, .35), transparent 60%),
+    radial-gradient(700px 500px at 100% 100%, rgba(51, 112, 255, .22), transparent 55%),
+    linear-gradient(160deg, #0e1a31 0%, #14284a 100%);
+}
+
+.login-gate[hidden] {
+  display: none;
+}
+
+.login-card {
+  width: min(430px, 100%);
+  padding: 40px 34px 30px;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 30px 80px rgba(5, 16, 40, .45);
+  text-align: center;
+}
+
+.login-logo {
+  width: 62px;
+  height: 62px;
+  margin: 0 auto 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  font-size: 30px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #5b86ff, #2f4fd8);
+  box-shadow: 0 12px 26px rgba(63, 108, 245, .35);
+}
+
+.login-card h1 {
+  margin: 0 0 10px;
+  font-size: 22px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.login-card p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: var(--muted);
+}
+
+.login-btn {
+  display: inline-flex;
+  margin-top: 24px;
+  padding: 12px 34px;
+  font-size: 15px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--feishu), var(--feishu-strong));
+  box-shadow: 0 10px 24px rgba(51, 112, 255, .32);
+  text-decoration: none;
+}
+
+.login-btn:hover {
+  filter: brightness(1.05);
+}
+
+.login-btn[hidden] {
+  display: none;
+}
+
+.login-hint {
+  margin-top: 16px !important;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 12px !important;
+  text-align: left;
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+
+/* 回调地址提示：登录前让管理员能直接复制到飞书后台登记 */
+.redirect-box {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+  text-align: left;
+  background: #f8faff;
+}
+
+.redirect-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.redirect-uri {
+  display: block;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--primary-strong);
+  word-break: break-all;
+  user-select: all;
+}
+
+.copy-btn {
+  padding: 4px 10px;
+  font-size: 11.5px;
+}
+
+.redirect-tip {
+  margin-top: 8px !important;
+  font-size: 11px !important;
+  line-height: 1.65;
+  color: var(--muted);
+}
+
+.login-note {
+  margin-top: 22px !important;
+  font-size: 11.5px !important;
+  color: #9aa6bd !important;
+}
+
+/* --------------------------------------------------------------- 用户信息 */
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 4px 2px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, .09);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .06);
+}
+
+.user-card[hidden] {
+  display: none;
+}
+
+.user-avatar,
+.user-initial {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.user-avatar[hidden],
+.user-initial[hidden] {
+  display: none;
+}
+
+.user-initial {
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--feishu), var(--feishu-strong));
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.user-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e9eefb;
+}
+
+.user-meta {
+  font-size: 10.5px;
+  color: #8698b8;
+}
+
+.logout-link {
+  margin-left: auto;
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: #9ab0d8;
+  text-decoration: none;
+}
+
+.logout-link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, .1);
+}
+
+@media (max-width: 560px) {
+  .login-card {
+    padding: 32px 22px 24px;
+  }
+  .login-card h1 {
+    font-size: 20px;
+  }
+}

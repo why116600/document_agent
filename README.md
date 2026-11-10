@@ -166,6 +166,110 @@ export MODEL_API_KEY="你的密钥"
 - 启动日志、`start.ps1/start.sh status` 以及页面左下角都会显示当前访问方式及其来源
   （`setting.json 配置` 或 `命令行 -BindHost 覆盖`）；
 - 服务本身没有登录鉴权，开启远程访问前请确认处于可信网络，或自行在反向代理层加认证。
+  需要账号登录与按用户隔离数据时，请使用下文的**飞书版**。
+
+## 飞书版（/feishu）
+
+在本地 Web 版基础上新增的飞书桌面网页，入口：`http(s)://<主机>:<端口>/feishu`。
+它与本地版共用同一个后端进程、知识库和智能体，但**登录与数据完全按飞书用户隔离**。
+
+### 功能
+
+- **飞书账号登录**：走飞书网页应用 OAuth 授权码流程，未登录时任何业务接口都返回 401；
+- **显示用户名称**：登录后侧边栏底部显示飞书用户名与头像，并提供退出登录；
+- **用户级隔离**：每位飞书用户有独立的会话列表、会话文件夹、生成文档和运行日志；
+  接口从登录 Cookie 推导用户，不接受客户端传入的用户标识，其他用户即使拿到会话 ID 也无法访问；
+- 新建会话、上传资料、生成/改写、实时日志、下载文档等操作与本地版一致。
+
+### 配置（src/setting.json）
+
+```json
+"feishu": {
+  "app_id": "cli_xxxxxxxx",
+  "app_secret": "请填写飞书应用凭证",
+  "accounts_base": "https://accounts.feishu.cn",
+  "api_base": "https://open.feishu.cn",
+  "redirect_uri": "",
+  "base_url": "",
+  "session_secret": "",
+  "scope": ""
+}
+```
+
+- `app_id` / `app_secret`：飞书开放平台「企业自建应用」的凭证；建议用环境变量
+  `DOC_AGENT_FEISHU_APP_ID` / `DOC_AGENT_FEISHU_APP_SECRET` 提供，避免把密钥写进配置文件；
+- `accounts_base`：飞书账号授权与令牌服务地址，默认 `https://accounts.feishu.cn`
+  （Lark 国际版填 `https://accounts.larksuite.com`；环境变量 `DOC_AGENT_FEISHU_ACCOUNTS_BASE`）；
+- `api_base`：OpenAPI 地址，用于读取用户信息，默认 `https://open.feishu.cn`
+  （Lark 国际版填 `https://open.larksuite.com`；环境变量 `DOC_AGENT_FEISHU_API_BASE`）；
+- `redirect_uri`：回调地址，留空时按当前访问地址自动推导（`/api/feishu/auth/callback`）；
+  通过反向代理或域名访问时建议显式配置，且必须与飞书后台登记完全一致；
+- `base_url`：服务对外根地址，用于自动推导回调；环境变量 `DOC_AGENT_FEISHU_BASE_URL`；
+- `session_secret`：登录 Cookie 的签名密钥，留空时自动生成并保存在
+  `workspace/feishu/session.secret`（环境变量 `DOC_AGENT_FEISHU_SECRET`）；
+  更换密钥会使所有已登录用户失效。多进程/多 worker 部署时必须显式配置同一个密钥，
+  否则各进程签发的 Cookie 互不认可；
+- `scope`：需要用户额外授权的权限（空格分隔，环境变量 `DOC_AGENT_FEISHU_SCOPE`）。
+  只读取姓名、头像和 open_id 时不需要填写；如需邮箱、user_id 等敏感字段再按需申请并配置。
+
+### 飞书开放平台配置步骤
+
+1. 在[飞书开放平台](https://open.feishu.cn/)创建「企业自建应用」；
+2. 为应用添加「网页应用」能力，并在安全设置的重定向 URL 中登记
+   `http(s)://<你的域名或IP>:<端口>/api/feishu/auth/callback`；
+3. 发布应用版本并设置可用范围（只对指定部门/成员开放，这决定了谁能登录）。
+   读取用户名称/头像/open_id 不需要额外 API 权限；如需邮箱、user_id 等字段，
+   再到权限管理开通对应权限并写入 `scope`；
+4. 把 `app_id` / `app_secret` 填入 `setting.json` 或环境变量，重启服务；
+5. 浏览器访问 `http://<主机>:<端口>/feishu`，点击「使用飞书登录」完成授权。
+
+> 若用局域网 IP 或域名访问，回调地址必须能从浏览器访问到，并且已在飞书后台登记；
+> 否则飞书会拒绝授权。飞书开放平台通常要求重定向 URL 使用 **HTTPS**（本地 `localhost`
+> 调试除外），局域网 IP + HTTP 往往无法登记；生产环境请使用 HTTPS 域名，
+> 并配置 `base_url` / `redirect_uri`。HTTPS 反向代理场景还需正确传递
+> `X-Forwarded-Proto`（本服务会据此设置 Cookie 的 `Secure` 属性）。
+
+### 常见问题：授权页提示 20029（redirect_uri 请求不合法）
+
+20029 是飞书对**重定向 URL 未登记或与请求不一致**的报错，不是 `app_secret` 错误
+（应用凭证是否正确可以用 `app_access_token` 接口单独验证）。排查步骤：
+
+1. 打开 `/feishu` 登录页，复制页面显示的「飞书回调地址」，例如
+   `http://127.0.0.1:8001/api/feishu/auth/callback`；
+2. 在飞书开发者后台进入**同一个 `app_id` 对应的应用** → 开发配置 → 安全设置 →
+   **重定向 URL**，添加上一步的**完整地址**（协议、域名、端口、路径必须完全一致，
+   不能只填域名）；
+3. 保存后如有版本发布要求，请创建并发布新版本；确认 `app_id` 与登记重定向 URL 的是同一个应用；
+4. 页面用 `localhost` 打开就登记 `localhost`，用 `127.0.0.1` 打开就登记 `127.0.0.1`，
+   用局域网 IP 打开就登记该 IP（飞书通常要求非 localhost 使用 HTTPS）；
+5. 反向代理/域名场景建议把 `feishu.redirect_uri` 固定为飞书后台登记的地址（或同时配置
+   `base_url`），并始终用该地址打开页面，避免浏览器 Host 变化导致回调地址变化。
+
+登录页会显示当前实际使用的回调地址，以及它来自配置还是按访问地址推导；
+服务启动日志也会打印「飞书回调」提示。
+
+### 安全与数据
+
+- 服务端**不保存**飞书 `user_access_token`，只保存 HMAC-SHA256 签名的 open_id 会话 Cookie：
+  `HttpOnly`、`SameSite=Lax`、默认 7 天有效，HTTPS 下自动加 `Secure`；
+- 登录回调校验一次性 state Cookie，防止登录 CSRF；
+- 用户数据目录：`workspace/feishu/users/<open_id>/`，其中 `profile.json` 保存名称/头像，
+  `sessions/` 保存该用户的会话与文档；
+- 每个请求都由服务端根据签名 Cookie 确定用户与目录，接口层没有“切换用户”的参数；
+- 飞书应用可用范围之外的用户无法登录；服务本身不再提供第二套账号密码体系；
+- 本地版 `/api` 与 `/` 仍保持无登录（用于单机/内网控制台）。如果服务暴露到公网，
+  建议在反向代理层限制 `/api`、`/` 的来源，或只对外开放 `/feishu` 与 `/api/feishu`；
+  飞书版数据本身始终按用户隔离。
+
+### 飞书版接口
+
+| 接口 | 说明 |
+| --- | --- |
+| `GET /api/feishu/auth/status` | 登录状态、是否已配置飞书应用、当前用户 |
+| `GET /api/feishu/auth/login` | 跳转飞书授权页 |
+| `GET /api/feishu/auth/callback` | 飞书回调，校验 state 并写入登录 Cookie |
+| `GET /api/feishu/auth/logout` | 退出登录 |
+| `/api/feishu/sessions`、`/api/feishu/sessions/{id}/files`、`/api/feishu/sessions/{id}/messages`、`/api/feishu/jobs/{id}/events` | 与会话相关的业务接口，均要求登录且只作用于当前用户目录 |
 
 ### 知识图谱模式配置（src/setting.json）
 

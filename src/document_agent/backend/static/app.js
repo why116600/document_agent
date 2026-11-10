@@ -7,6 +7,9 @@
 (() => {
   'use strict';
 
+  // 本地版使用 /api；飞书版页面会在加载本脚本前把它设为 /api/feishu
+  const API_BASE = (typeof window !== 'undefined' && window.DOC_AGENT_API_BASE) || '/api';
+
   const $ = (id) => document.getElementById(id);
 
   const state = {
@@ -73,6 +76,9 @@
       try { data = JSON.parse(text); } catch { data = text; }
     }
     if (!response.ok) {
+      if (response.status === 401 && typeof window.DOC_AGENT_ON_UNAUTHORIZED === 'function') {
+        window.DOC_AGENT_ON_UNAUTHORIZED();
+      }
       const detail = data && data.detail;
       let message;
       if (typeof detail === 'string') message = detail;
@@ -103,7 +109,7 @@
   }
 
   function sessionUrl(suffix = '') {
-    return `/api/sessions/${encodeURIComponent(state.sessionId)}${suffix}`;
+    return `${API_BASE}/sessions/${encodeURIComponent(state.sessionId)}${suffix}`;
   }
 
   function fileUrl(name) {
@@ -123,7 +129,7 @@
   // ------------------------------------------------------------------ 健康状态
   async function loadHealth() {
     try {
-      const health = await api('/api/health');
+      const health = await api(`${API_BASE}/health`);
       const configured = Boolean(health.llm_configured);
       nodes.serverStatus.className = `status-line ${configured ? 'ok' : 'warn'}`;
       nodes.statusText.textContent = configured ? '服务运行中 · 大模型已配置' : '服务运行中 · 未配置 API Key';
@@ -209,7 +215,7 @@
 
   // ------------------------------------------------------------------ 会话列表
   async function loadSessions() {
-    const data = await api('/api/sessions');
+    const data = await api(`${API_BASE}/sessions`);
     state.sessions = data.sessions || [];
     renderSessions();
   }
@@ -543,7 +549,7 @@
     closeStream();
     state.jobId = jobId;
     setBusy(true);
-    const source = new EventSource(`/api/jobs/${encodeURIComponent(jobId)}/events`);
+    const source = new EventSource(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/events`);
     state.es = source;
 
     source.onmessage = (event) => {
@@ -575,7 +581,7 @@
 
   async function attachJob(jobId) {
     try {
-      const info = await api(`/api/jobs/${encodeURIComponent(jobId)}`);
+      const info = await api(`${API_BASE}/jobs/${encodeURIComponent(jobId)}`);
       if (info.status === 'running') {
         watchJob(jobId);
       } else {
@@ -653,7 +659,7 @@
   // ------------------------------------------------------------------ 操作
   async function createSession() {
     try {
-      const session = await api('/api/sessions', { method: 'POST', body: {} });
+      const session = await api(`${API_BASE}/sessions`, { method: 'POST', body: {} });
       await loadSessions();
       state.sessionId = null;
       state.detail = null;
@@ -669,7 +675,7 @@
     const title = session.title || session.id;
     if (!window.confirm(`确定删除会话「${title}」吗？会话文件夹中的文件会一起删除，且不可恢复。`)) return;
     try {
-      await api(`/api/sessions/${encodeURIComponent(session.id)}`, { method: 'DELETE' });
+      await api(`${API_BASE}/sessions/${encodeURIComponent(session.id)}`, { method: 'DELETE' });
       if (state.sessionId === session.id) {
         closeStream();
         state.sessionId = null;

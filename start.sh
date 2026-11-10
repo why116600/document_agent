@@ -280,6 +280,11 @@ start_server() {
         local existing
         existing="$(cat "$PID_FILE" 2>/dev/null || true)"
         if [[ -n "$existing" ]] && kill -0 "$existing" 2>/dev/null; then
+            if ! health_ok "$python"; then
+                log_warn "检测到已有服务进程（PID $existing），但 $URL 没有响应。"
+                log_warn "可能是用其它端口启动的实例；请先 ./start.sh stop，或用正确端口查看状态。"
+                exit 1
+            fi
             log_info "服务已在运行（PID $existing）：$URL"
             open_browser
             return 0
