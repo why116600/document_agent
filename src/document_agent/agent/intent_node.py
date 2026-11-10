@@ -11,6 +11,7 @@ from document_agent.file_types import SUPPORTED_REFERENCE_SUFFIXES
 from document_agent.skills.store import list_skill_summaries, SkillError
 from document_agent.skills.match import resolve_skill
 from scope_contract import MODE_TO_ACTION, Scope, capability_text
+from new_doc_spec import NewDocSpec, normalize_spec
 
 
 
@@ -93,6 +94,13 @@ class DocumentTaskIntent(BaseModel):
     replace_pairs: Dict[str, str] = Field(
         default_factory=dict,
         description="当改写步骤中出现 replace 模式时，汇总提取所有要查找替换的词对 {原词: 新词}；非 replace 情况必须为空字典。"
+    )
+    new_doc_spec: Optional[NewDocSpec] = Field(
+        default=None,
+        description=(
+            "仅 task_type='new' 时填写：从用户原话提取的显式写作约束。"
+            "未明确要求的项必须保持 null/unspecified/空列表，不得根据文件名、用例名或常识推断。"
+        )
     )
     save_mode: Literal["new_file", "overwrite"] = Field(
         default="new_file",
@@ -410,7 +418,22 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str],
         "   - 写文档时仅选择enabled=true且适用的规范，用户无需说出Skill一词；不适用或有歧义时skill=null，不猜选。管理规范可定位禁用项。\n"
         "   - 用户拒绝所有规范时use_skill=false；明确要求规范时true；普通写作任务为null，由已有规则自动匹配。\n"
         "   - 被明确拒绝的具体规范放excluded_skills，其他规范仍可匹配；‘不用A，改用B’应排除A并选择B。列表为空时skill=null，不臆造。\n"
-        "8. reasoning：简要阐述判断依据、是否为复合指令及步骤拆分理由、Skill 命中理由，以及文件名推导理由。"
+        "8. reasoning：简要阐述判断依据、是否为复合指令及步骤拆分理由、Skill 命中理由，以及文件名推导理由。\n"
+        "9. new_doc_spec 提取（仅当 task_type 为 'new' 时；只提取用户原话中明确写出的约束）：\n"
+        "   - title：用户明确指定的总标题；参考资料文件名不是标题；未指定必须为 null；\n"
+        "   - max_body_chars：正文/全文字数上限的数字；未写数字必须为 null；\n"
+        "   - counting_rule：非空白字符→non_whitespace，汉字/字→chinese_chars，全部字符→all_chars；\n"
+        "   - table_policy：不用/禁止/不允许表格→forbid，明确允许/需要表格→allow，未提→unspecified；\n"
+        "   - text_styles：按作用域拆成数组，每项 {font_name, font_color, scope}；"
+        "scope 取 all/body/headings/table；例如“标题黑体、正文宋体”必须输出两条，不能合并成全篇宋体；"
+        "未提字体/颜色时留空数组；\n"
+        "   - required_topics：只抄用户明确要求覆盖的主题/字段；“字段名称/章节标题/文档标题”等格式要求不算主题；\n"
+        "   - document_form：用户明确“连续短文/一段话/不分章节”→prose；“分章节”→sectioned；"
+        "“清单/逐条/字段列表”→field_list；“表格”→table；“表单/填写”→form；未明确→null；\n"
+        "   - include_section_titles：明确“含章节标题/包含章节标题”→true；“不要章节标题/不分章节”→false；未提→null；\n"
+        "   - include_field_names：明确“含字段名称/包含字段名称”→true；“不要字段名”→false；未提→null；\n"
+        "   - duplicate_policy：用户明确不要重复/只写一次/不要总览→strict，否则 normal；\n"
+        "   - 以上任一项没有明确依据时，宁可留空，也不要推断。"
     )
 
 
@@ -559,6 +582,7 @@ def create_intent_node(llm=None):
         use_skill = None
         excluded_skills = []
         user_intent = "new"
+        new_doc_spec = None
 
         # 2. 大模型全量分析指令与候选文件池
         if llm is not None and user_prompt:
@@ -612,6 +636,9 @@ def create_intent_node(llm=None):
                     rewrite_mode = None
                     save_mode = task_intent.save_mode or "new_file"
                     extracted_save_filename = task_intent.suggested_filename or task_intent.save_filename
+                    new_doc_spec = normalize_spec(task_intent.new_doc_spec)
+                    if new_doc_spec:
+                        print(f"【写作约束】{new_doc_spec.model_dump_json(ensure_ascii=False)}")
             else:
                 # 模型超时或结构化解析失败是常见的暂时性故障，退回原安全默认继续完成任务
                 print("【意图分析】结构化解析无结果，按全新写作处理")
@@ -677,6 +704,7 @@ def create_intent_node(llm=None):
             "rewrite_steps": rewrite_steps,
             "replace_pairs": replace_pairs,
             "save_path": final_save_path,
+            "new_doc_spec": new_doc_spec.model_dump() if new_doc_spec else None,
             "input_file_path": valid_input_files,  # 保留全部文件
             "file_roles": file_roles,              # 各文件角色
             "skill_name": skill_name,              # 意图识别命中的 Skill（未命中为 None）

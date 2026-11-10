@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List
@@ -244,10 +245,23 @@ def _legacy_docx_node(state: AgentState, llm, knowledge_mode: str) -> AgentState
     return {**state, "state": "succeeded", "save_path": str(save_path)}
 
 
+def _constrained_new_doc_enabled() -> bool:
+    """DEF-004 结构化约束链默认关闭。
+
+    源侧最新自然五例仅 3/5，约束、事实计划与渲染职责尚未收口；保持 off 时
+    新建流程与 develop/Skill 基线逐项一致，启用后再按五例回归结果评估。
+    """
+    return (os.environ.get("DOCUMENT_PLAN_MODE") or "off").strip().lower() != "off"
+
+
 def create_new_docx_node(llm, knowledge_mode: str = "local"):
     """按 Skill 或模型规划逐章生成；未启用 Skill 时走 develop 版原始流程。"""
     def docx_node(state: AgentState) -> AgentState:
         skill = coerce_skill(state.get("skill"))
+        # 可选 DEF-004 约束链：默认关闭；启用时仅无 Skill 路径接入，Skill 双路径保持原样。
+        if skill is None and _constrained_new_doc_enabled():
+            from new_doc_constraints import create_new_docx_node as create_constrained_docx_node
+            return create_constrained_docx_node(llm, knowledge_mode=knowledge_mode)(state)
         if skill is None:
             return _legacy_docx_node(state, llm, knowledge_mode)
         messages = state["messages"]
