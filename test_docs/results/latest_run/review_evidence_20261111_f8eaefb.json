@@ -1,0 +1,181 @@
+{
+  "test_date": "2026-11-11",
+  "client_branch": "develop",
+  "client_commit": "f8eaefbe0ecb0300cc5e82848fd29ee134ff9ce3",
+  "backend_commit": "4be13b955c4c91a4a74b91a4912e861ef024cbf6",
+  "requested_model": "hy3",
+  "test_data": "隔离副本中的虚构星桥资料",
+  "neutral_pair_control": "同一需求、预期和空附件，图谱配置只改端口。",
+  "no_match_backend_control": {
+    "target_id": "KG-DEMO-20261111-NOMATCH-ZQ7X9K4",
+    "seed_id": "KG-DEMO-20261102",
+    "target_id_in_seed": false,
+    "direct_exact_keyword_counts": {
+      "entities": 0,
+      "chunks": 0,
+      "documents": 0
+    },
+    "actual_success_responses_containing_old_source": 11,
+    "actual_success_responses_containing_target_candidate": 0
+  },
+  "case_results": [
+    {
+      "case": "KG-WORD",
+      "attempt": "001",
+      "request": "请只检索远程知识图谱中测试标识KG-DEMO-20261102的虚构资料，写一份《星桥知识图谱借用说明 v1.0.0》。正文不超过200字，不使用表格，说明星桥项目由哪个团队负责、该团队负责人是谁、设备每次最多借用几天。押金金额和联系电话若资料未提供请明确写未提供，不得补造。必须在正文用《完整来源文件名（含扩展名）》注明资料来源。全部文字黑色、中文宋体，另存为星桥知识图谱借用说明_v1.0.0.docx。",
+      "request_sha256": "a627a5e875bc31334f2a2eb747545a18b336a726110d7768058105d7d6354a5b",
+      "frozen_expected_sha256": "5cff7af273d29bac9a4af3b1acccfe11214593a09cbbbc8d6f9ddc191f0c681c",
+      "input_paths": [],
+      "execution_receipt_sha256": "1a285976de821dcbb225e7b0740d4b09a0c9dd0dfdeb1603ad9e4e1ee3351dec",
+      "exit_code": 0,
+      "business_state": "succeeded",
+      "business_error_present": false,
+      "selected_graph_endpoint": "http://127.0.0.1:18000",
+      "graph_requests": 13,
+      "graph_response_status_counts": {
+        "200": 13
+      },
+      "graph_transport_errors": {},
+      "retrieved_content_count": 13,
+      "document_citations_count": 1,
+      "outputs": [
+        {
+          "name": "f8eaefb_KG-WORD_001_v1.0.0.docx",
+          "sha256": "f375f11c596643f8418d53a0c5bba7a7bdcf92026fa3a119e3f66ec8ff7ecc1d",
+          "tables": 1,
+          "document_xml_nonwhitespace_characters": 152,
+          "wps_pages_reviewed": 1
+        }
+      ],
+      "review": "团队、负责人、天数、缺字段和来源正确。正文136个非空白字符，标题、宋体和黑字符合要求。出现要求禁止的表格。"
+    },
+    {
+      "case": "KG-WORD",
+      "attempt": "002",
+      "request": "请只检索远程知识图谱中测试标识KG-DEMO-20261102的虚构资料，写一份《星桥知识图谱借用说明 v1.0.0》。正文不超过200字，不使用表格，说明星桥项目由哪个团队负责、该团队负责人是谁、设备每次最多借用几天。押金金额和联系电话若资料未提供请明确写未提供，不得补造。必须在正文用《完整来源文件名（含扩展名）》注明资料来源。全部文字黑色、中文宋体，另存为星桥知识图谱借用说明_v1.0.0.docx。",
+      "request_sha256": "a627a5e875bc31334f2a2eb747545a18b336a726110d7768058105d7d6354a5b",
+      "frozen_expected_sha256": "5cff7af273d29bac9a4af3b1acccfe11214593a09cbbbc8d6f9ddc191f0c681c",
+      "input_paths": [],
+      "execution_receipt_sha256": "a96f1a7ab35698899653f1a3f21ffef4e7fed40204c2441d6143bb7a668ad401",
+      "exit_code": 0,
+      "business_state": "succeeded",
+      "business_error_present": true,
+      "selected_graph_endpoint": "http://127.0.0.1:18009",
+      "graph_requests": 4,
+      "graph_response_status_counts": {},
+      "graph_transport_errors": {
+        "ConnectError": 4
+      },
+      "retrieved_content_count": 0,
+      "document_citations_count": 0,
+      "outputs": [
+        {
+          "name": "f8eaefb_KG-WORD_002_v1.0.0.docx",
+          "sha256": "41ceb72525d4860dc5b49826ac8a0990087d3c21177227216ba174c4f94c70ac",
+          "tables": 1,
+          "document_xml_nonwhitespace_characters": 335,
+          "wps_pages_reviewed": 1
+        }
+      ],
+      "review": "连接失败且无资料，仍以 succeeded 保存含占位内容的 Word。复现 DEF-008。"
+    },
+    {
+      "case": "KG-UNKNOWN",
+      "attempt": "001",
+      "request": "请只检索远程知识图谱中测试标识KG-DEMO-20261102的资料，核实星桥项目设备借用押金金额和演示人员甲的联系电话。资料没有提供时必须明确写未提供，不得猜测金额、电话号码或姓名。写成不超过100字的《星桥资料缺项核对 v1.0.0》，必须在正文用《完整来源文件名（含扩展名）》注明依据，全部文字黑色、中文宋体，不用表格，另存为星桥资料缺项核对_v1.0.0.docx。",
+      "request_sha256": "010bab74d6f56ec9b453521c1605272e485673a55c1aca13ccc2250c0a5568da",
+      "frozen_expected_sha256": "b75c82be51f310906cf07da591f73795a6a78bc92f588cb4df80c6d658c90827",
+      "input_paths": [],
+      "execution_receipt_sha256": "115e6fcb741a04aa7afbb39105630bee6707305e1862c4c08304bc3ea9a8dfbb",
+      "exit_code": 0,
+      "business_state": "succeeded",
+      "business_error_present": false,
+      "selected_graph_endpoint": "http://127.0.0.1:18000",
+      "graph_requests": 39,
+      "graph_response_status_counts": {
+        "200": 38,
+        "404": 1
+      },
+      "graph_transport_errors": {},
+      "retrieved_content_count": 22,
+      "document_citations_count": 1,
+      "outputs": [
+        {
+          "name": "f8eaefb_KG-UNKNOWN_001_v1.0.0.docx",
+          "sha256": "a220561cd404da2f93fcff42b528e10c9bf943e0a239b8581226faa4efa9f832",
+          "tables": 0,
+          "document_xml_nonwhitespace_characters": 92,
+          "wps_pages_reviewed": 1
+        }
+      ],
+      "review": "押金和联系电话均正确标为未提供，来源、长度、无表及黑字通过。重复标题，中文为微软雅黑。"
+    },
+    {
+      "case": "KG-UNAVAILABLE",
+      "attempt": "001",
+      "request": "请只检索远程知识图谱中测试标识KG-DEMO-20261102的资料，写一份《星桥知识图谱故障检查 v1.0.0》，说明负责团队、团队负责人和设备借用期限，不要使用模型常识或自行补充。若知识图谱服务不可用，请明确报告连接故障，不得在没有资料的情况下生成成功的业务说明。另存为星桥知识图谱故障检查_v1.0.0.docx。",
+      "request_sha256": "79755d5ef801890a414314532567972c6963b7d15aff5bd192556dd9965eef54",
+      "frozen_expected_sha256": "821c688014f138e2df00d63b5636728ea26dfceb7d67f3c879f6a005b2307424",
+      "input_paths": [],
+      "execution_receipt_sha256": "854dcb40680d1622332a2ff5119f6052dc701c5db895ad494030ed4a2ad6dc78",
+      "exit_code": 0,
+      "business_state": "succeeded",
+      "business_error_present": true,
+      "selected_graph_endpoint": "http://127.0.0.1:18009",
+      "graph_requests": 4,
+      "graph_response_status_counts": {},
+      "graph_transport_errors": {
+        "ConnectError": 4
+      },
+      "retrieved_content_count": 0,
+      "document_citations_count": 0,
+      "outputs": [
+        {
+          "name": "f8eaefb_KG-UNAVAILABLE_001_v1.0.0.docx",
+          "sha256": "26af1e8dc193aa67d777383d19cd3b179dfc7578344aec45912a813a68df4ac3",
+          "tables": 1,
+          "document_xml_nonwhitespace_characters": 1503,
+          "wps_pages_reviewed": 3
+        }
+      ],
+      "review": "连接失败后生成编造检测时间、鉴权原因、处置和恢复的三页 Word，仍报成功。复现 DEF-008。"
+    },
+    {
+      "case": "KG-NO-MATCH",
+      "attempt": "001",
+      "request": "请通过远程知识图谱核对虚构测试标识 KG-DEMO-20261111-NOMATCH-ZQ7X9K4 对应的云杉设备借用规则，并只依据该精确标识的资料，写一份100字以内的《云杉借用规则核对》。如果没有精确匹配，请明确说未找到对应资料，不要引用其他测试标识、不要猜测负责团队、借用期限或押金，也不要保存作为有效业务说明的 Word。如果找到精确资料，请在正文注明完整来源文件名并另存为云杉借用规则核对.docx。",
+      "request_sha256": "b3bc92c5d902d2d5bd29f8f182a2e2d7e3b95bc728022fd1a93e37efd5ac9771",
+      "frozen_expected_sha256": "58f76e616facfd60545ffc1df391f9ec27985a4807bdbdd2f5606d1e73145c4f",
+      "input_paths": [],
+      "execution_receipt_sha256": "820b4222652e753bda56b01fb73affd45d2e4c42b29956dab65769c92932aafe",
+      "exit_code": 0,
+      "business_state": "succeeded",
+      "business_error_present": false,
+      "selected_graph_endpoint": "http://127.0.0.1:18000",
+      "graph_requests": 39,
+      "graph_response_status_counts": {
+        "200": 34,
+        "404": 5
+      },
+      "graph_transport_errors": {},
+      "retrieved_content_count": 22,
+      "document_citations_count": 1,
+      "outputs": [
+        {
+          "name": "f8eaefb_KG-NO-MATCH_001_v1.0.0.docx",
+          "sha256": "27a3823c7e2d20bba2f320b25a1d9b821aba601aaab0f19930b87ac0c0a6c7a1",
+          "tables": 1,
+          "document_xml_nonwhitespace_characters": 207,
+          "wps_pages_reviewed": 1
+        }
+      ],
+      "review": "目标标识未入库。Word 正确写未找到，未猜测规则，仍列出无关旧标识及文件名并以 succeeded 保存。"
+    }
+  ],
+  "source_integrity": "两个固定源码目录干净，原图谱库 105 个文件的 SHA-256 核对一致。",
+  "service_shutdown_verified": true,
+  "skill_cases": {
+    "SK-006_file_only": "待 Skill 合入 develop",
+    "SK-007": "四组样例已准备，产品运行待 Skill 合入 develop"
+  }
+}

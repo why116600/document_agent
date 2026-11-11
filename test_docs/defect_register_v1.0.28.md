@@ -1,6 +1,8 @@
 # document_agent 缺陷登记表 v1.0.28
 
-更新日期：2026-11-06。固定feature/skills-system@f5bde52bdc450ab4125383531d40700be5ac42ee，同一虚构TXT与同一请求，不启用/明确启用Skill各实际运行一次。基线关键事实遗漏，关联DEF-003；两组总标题缺失，关联DEF-004。Skill组五事实、两章、引用及格式通过，但还有配置字段名未满足，整例不通过。原8个缺陷编号保持，没有新增或关闭。
+2026-11-11 补录 develop@f8eaefb 的图谱联调。更新 DEF-008，新登记 DEF-009。
+
+2026-11-06 历史写作对照。固定feature/skills-system@f5bde52bdc450ab4125383531d40700be5ac42ee，同一虚构TXT与同一请求，不启用/明确启用Skill各实际运行一次。基线关键事实遗漏，关联DEF-003；两组总标题缺失，关联DEF-004。Skill组五事实、两章、引用及格式通过，但还有配置字段名未满足，整例不通过。原8个缺陷编号保持，没有新增或关闭。
 
 两例均进程0、业务succeeded且各有1份Word；独立内容验收分别记录，不把保存/程序状态当整例通过。未改产品或依赖，测试资料的提交与推送状态以Git历史为准。v27的原007/008失败及旧a83/b6/2fef证据继续保留，本轮未重跑那些任务。36条正式整体验收未完成。
 
@@ -15,7 +17,8 @@
 | DEF-005 | 建议P2 | 2fef原例仍存在；本轮f5未复测 | 改单个单元格却改变其他格式 | 历史CP-009 |
 | DEF-006 | 建议P2 | 2fef原例仍存在；本轮f5未复测 | 格式要求未完整应用到表格 | 历史CP-010 |
 | DEF-007 | 建议P1 | 后端4be历史已确认，待修复；本轮未复跑 | 后端清空查询过滤条件 | 历史后端只读对照 |
-| DEF-008 | 建议P1 | 2fef历史已确认，待修复；本轮f5未复测 | 连接失败后继续编造并返回成功状态 | 历史KG-UNAVAILABLE |
+| DEF-008 | 建议P1 | f8eaefb 两条断连场景复现，待修复 | 连接失败后仍写作、保存并返回成功状态 | KG-WORD 002、KG-UNAVAILABLE |
+| DEF-009 | 建议P2 | f8eaefb 已确认，待修复 | 精确标识无匹配，仍保留其他来源并保存成功 | KG-NO-MATCH |
 
 [本轮报告与真实成果页](results/latest_run/README.md) · [脱敏证据](results/latest_run/review_evidence_v1.0.28.json)
 
@@ -456,6 +459,10 @@ patch表格重建及有限格式复制实现与原作者相同；已确认本机
 
 ### DEF-008 知识图谱连接失败后继续写作并编造故障事实而报成功
 
+**2026-11-11，develop@f8eaefb 中性请求对照复现。** 用同一份普通借用说明需求、相同的预期和空附件，分别连接正常端口 18000 与未监听端口 18009。断连组四次请求均返回 ConnectError，取材和真实来源均为空。最终错误字段保留连接失败，业务仍报 succeeded，退出码为 0，生成一份填有团队、负责人、期限和来源占位文字的 Word。该份成果未写具体人员或借用数字。 [正常组实际 Word](results/latest_run/f8eaefb_KG-WORD_001_v1.0.0.docx) · [断连组实际 Word](results/latest_run/f8eaefb_KG-WORD_002_v1.0.0.docx)
+
+**同批原故障用例也复现。** 端口仍未监听。程序保存了三页 Word 并报成功，文档写入虚构的检测时间、Token 过期、连接池耗尽、回滚网络策略及“已恢复正常”。这些内容未被实际检索或验证。 [原故障需求实际 Word](results/latest_run/f8eaefb_KG-UNAVAILABLE_001_v1.0.0.docx)
+
 发现日期：2026-11-05。状态已确认、待修复；建议P1，责任人待指派，Issue未创建。归属document_agent develop@2fef201079a63881bfeabf3bb5685632c5fdfd1c的错误传播/写作路径，不与后端DEF-007合并。
 
 前提：同一原控制台、无Files，新建独立任务工作目录；remote_kg指向事先确认未监听的本机18009，不停或干扰正常服务。真实需求要求只检索KG-DEMO-20261102，服务不可用时明确连接故障，不得在无资料时生成成功的业务说明。原需求与执行哈希见[本轮JSON](results/latest_run/review_evidence_v1.0.26.json)。
@@ -467,6 +474,16 @@ patch表格重建及有限格式复制实现与原作者相同；已确认本机
 [实际错误Word](results/latest_run/2fef201_A001_KG-UNAVAILABLE_结果_v1.0.0.docx) · [原页1](results/latest_run/2fef201_KG-UNAVAILABLE_after_page-1_v1.0.26.png) · [原页2](results/latest_run/2fef201_KG-UNAVAILABLE_after_page-2_v1.0.26.png)。Word SHA-256为96986bf022c9ad8788f58ee15fd9bae4cbb63492245ff61947834d07a4ca34b3，2页均已WPS只读导出并亲看。
 
 静态定位与实际链路一致：kg_retrieve_node返回state=error；AgentCore仍无条件回到retrieve，检索上限后路由写作。完整根因和修复由开发确认；测试未改产品。修复回归应检查连接拒绝、超时、鉴权失败及正常服务相邻路径，失败状态/错误信息/是否保存与实际内容分别验收。不能只把这一张Word修成故障提示就视为状态传播已修好。
+
+### DEF-009 精确资料未找到时仍列出其他来源并保存成功
+
+2026-11-11 首次确认于 document_agent develop@f8eaefb，图谱后端为 graph_rag@4be13b9。建议 P2，责任人待指派。
+
+**复现条件。** 图谱在线，库中只有星桥样例 KG-DEMO-20261102。核对未入库的云杉标识 KG-DEMO-20261111-NOMATCH-ZQ7X9K4。需求明确只用精确匹配，未找到时告知结果、排除其他标识，且仅在找到时另存指定 Word。后端精确关键词探针返回零实体、零分块、零文档。
+
+**实际表现。** 智能体扩展查询后取回旧星桥材料。Word 写对“未找到对应资料”，也没有编造借用规则，但将旧标识及文件名列在“图谱可引用文档”。结果仍保留该旧引用，业务报 succeeded 并保存指定 Word，退出码 0。
+
+**验收标准。** 图谱正常但目标标识无匹配时，明确告知未找到，排除无关候选和引用，按原需求跳过保存。用相邻的精确命中用例确认正常取材和保存。 [实际 Word](results/latest_run/f8eaefb_KG-NO-MATCH_001_v1.0.0.docx) · [真实请求及回执摘要](results/latest_run/review_evidence_20261111_f8eaefb.json)
 
 ## 5. 范围与剩余工作
 
