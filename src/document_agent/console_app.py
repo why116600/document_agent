@@ -86,6 +86,8 @@ if __name__ == "__main__":
         print("文档已保存到：", result.get("save_path") or "")
     else:
         print("运行结果：", result.get("state") or "", result.get("error") or "")
+        if result.get("error_code") == "MAIN_ENTRY_MANAGEMENT_FORBIDDEN":
+            print("提示：Skill 管理请使用 /admin 或 python -m document_agent.skill_cli skill")
     if gdb is not None:
         gdb.close()
     if kg is not None:

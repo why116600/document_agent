@@ -1,11 +1,9 @@
 """文档 Skill 的独立命令行入口。
 
-设计边界：`console_app.py` 保持 develop 原版（自然语言交互 + 位置文件参数 + 原退出码），
-本模块不修改它，只提供命令行的两类能力，使「用 Skill 写文档」和「管理 Skill」都保有三入口：
-
-    控制台自然语言：python -m document_agent.console_app [文件...]   （develop 原版）
-    Web 自然语言：  POST /api/sessions/{sid}/messages                （未改动）
-    命令行：        python -m document_agent.skill_cli ...            （本模块）
+设计边界：
+- 本模块只负责「用 Skill 写文档」；
+- Skill 管理转发到 ``document_agent.skills.admin``，仅本机；支持结构化命令和自然语言创建/修改；
+- ``console_app.py`` 保持原有自然语言交互与退出码。
 
 命令行用法::
 
@@ -14,13 +12,15 @@
     python -m document_agent.skill_cli --skill D:/tmp/临时规范.yaml --request-file req.txt --output out.docx
     python -m document_agent.skill_cli --list-skills
 
-    # 管理 Skill（离线，不连模型/数据库）
+    # 管理 Skill（转发到管理 CLI）
     python -m document_agent.skill_cli skill list
-    python -m document_agent.skill_cli skill validate project_weekly
     python -m document_agent.skill_cli skill new my_standard --name 文档规范
-    python -m document_agent.skill_cli skill draft "定义项目周报规范" --id project_weekly
+    python -m document_agent.skill_cli skill draft "创建项目周报规范" --id project_weekly
+    python -m document_agent.skill_cli skill draft "把风格改简洁" --id project_weekly --update
+    python -m document_agent.skill_cli skill publish project_weekly
 
-也可直接用 `python -m document_agent.skills.commands <子命令>` 管理规范。
+也可直接用 ``python -m document_agent.skills.admin <子命令>`` 管理规范。
+自然语言管理只在管理入口提供，主入口仍然只读。
 """
 
 from __future__ import annotations
@@ -117,18 +117,21 @@ def main(argv=None) -> int:
 
     # 管理规范：离线路径，不加载 agent_core / 模型 / 数据库
     if arguments and arguments[0] == "skill":
-        from document_agent.skills.commands import run as run_skill_command
+        from document_agent.skills.admin.cli import run as run_skill_command
         return run_skill_command(arguments[1:], prog="document_agent.skill_cli skill")
 
     args = build_parser().parse_args(arguments)
     if args.list_skills:
-        from document_agent.skills.store import list_skills, resolve_skill_dir
-        skills, errors = list_skills()
+        from document_agent.skills.runtime_api import list_runtime_summaries, runtime_diagnostics
+        from document_agent.skills.store import resolve_skill_dir
+        summaries = list_runtime_summaries()
         print(f"Skill 目录：{resolve_skill_dir()}")
-        for skill in skills:
-            print(f"- {skill.id}｜{skill.name}｜{skill.summary()}")
-        for error in errors:
-            print(f"[跳过] {error}")
+        if not summaries:
+            print("（没有已发布且生产启用的 Skill）")
+            for item in runtime_diagnostics():
+                print(f"  ! {item['skill_id']}：{item['code']}｜{item['detail']}")
+        for item in summaries:
+            print(f"- {item['id']}｜{item['name']}｜适用：{item['doc_type']}｜{item['description']}")
         return 0
 
     # 写文档路径：此处才导入编排核心，避免 list/validate 等管理命令加载重依赖
@@ -148,11 +151,6 @@ def main(argv=None) -> int:
             print(f"[需求解析错误] {prepared.get('error')}")
             write_result_report(args.report_json, prepared)
             return 1
-        if prepared.get('user_intent') in ('skill_create', 'skill_update'):
-            result = core.manage_skill(prepared)
-            write_result_report(args.report_json, result)
-            print(result.get('message') or result.get('error'))
-            return 0 if result.get('state') == 'succeeded' else 1
         selected_skill = coerce_skill(prepared.get('skill'))
     except Exception as exc:
         import traceback

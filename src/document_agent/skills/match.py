@@ -16,13 +16,13 @@ from __future__ import annotations
 import re
 from typing import List, Optional, Tuple
 
+from .runtime_api import list_runtime_skills, load_runtime_skill
 from .schema import DocumentSkill
-from .store import SkillError, list_skills, load_skill
+from .store import SkillError
 
 
 def _enabled_skills() -> List[DocumentSkill]:
-    skills, _ = list_skills()
-    return [skill for skill in skills if skill.enabled]
+    return list_runtime_skills()
 
 
 def match_skill_for_text(user_text: str, llm_hint: Optional[str] = None, *,
@@ -90,7 +90,7 @@ def match_skill_for_text(user_text: str, llm_hint: Optional[str] = None, *,
 
     if llm_hint:
         try:
-            skill = load_skill(llm_hint)
+            skill = load_runtime_skill(llm_hint)
         except SkillError:
             if use_skill is True:
                 raise SkillError(f'用户要求使用的规范「{llm_hint}」不存在或未启用，请说明已配置的规范名称。') from None
@@ -110,7 +110,8 @@ def resolve_skill(user_text, *, explicit=None, llm_hint=None, use_skill=None,
                   excluded_skills=(), task_type=None):
     """CLI与工作流共用选择规则；显式参数覆盖自然语言选择。"""
     if explicit:
-        skill, reason = load_skill(explicit), f'显式指定 --skill={explicit}'
+        # 显式参数允许直接指向临时配置文件，便于预览未安装的规范
+        skill, reason = load_runtime_skill(explicit, allow_unpublished_path=True), f'显式指定 --skill={explicit}'
     else:
         skill, reason = match_skill_for_text(user_text, llm_hint, use_skill=use_skill,
                                              excluded_skills=excluded_skills, task_type=task_type)

@@ -168,8 +168,9 @@ def render_research_brief(value: Any) -> str:
     )
     if research.file.max_chars:
         lines.append(f"- 单个文件送入模型的最大字符数：{research.file.max_chars}")
-    lines.append(f"- 检索轮次上限：{research.max_rounds} 次工具调用")
-    lines.append(f"- 单个研究问题最多尝试 {research.per_question_attempts} 次（跨来源/文件）")
+    lines.append(f"- 逻辑检索尝试总预算：{research.max_rounds} 次（一次尝试可覆盖多个附件）")
+    lines.append(f"- 底层检索工具调用上限：{research.max_tool_calls} 次")
+    lines.append(f"- 单个研究问题最多尝试 {research.per_question_attempts} 次逻辑检索")
     if research.query_expansion:
         lines.append("- 结果不足时允许改写检索 query 继续检索")
     if research.on_empty:
@@ -217,11 +218,13 @@ def render_verification_brief(value: Any) -> str:
         "required_data": "所有必须收集的数据字段都在正文中出现",
         "citations": "需引用章节带有符合模板的来源标记",
         "citation_sources": "引用标记中的来源名称必须能对应到实际检索到的来源",
+        "citation_numbers": "引用段落中的数值必须能在对应来源原文中找到，不得改写或推算原文未列示的数字",
         "unsupported_claims": "含预测/判断措辞的段落必须带引用，或明确标注为未检索到依据",
         "terminology": "统一使用规范中给出的术语写法",
         "banned_expressions": "不得出现规范中列出的禁用表达",
         "no_placeholder": "不得出现「待补充」「TODO」「此处省略」等占位内容",
         "min_length": "全文篇幅符合最少/最多字数要求",
+        "format": "正文与各级标题的字体、字号、行距符合格式要求",
     }
     lines = ["【验收要求】生成内容必须满足："]
     for check in skill.verification.checks:

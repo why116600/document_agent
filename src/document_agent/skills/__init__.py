@@ -9,6 +9,12 @@ from .schema import (
 )
 from .match import match_skill_for_text, resolve_skill
 from .plan import build_retrieval_plan, finalize_report, new_progress, record_assessment
+from .runtime_api import (
+    RuntimeSkillError,
+    list_runtime_skills,
+    list_runtime_summaries,
+    load_runtime_skill,
+)
 from .store import (
     SkillError,
     list_skill_summaries,
@@ -27,6 +33,7 @@ __all__ = [
     "AVAILABLE_SOURCES",
     "VERIFICATION_CHECKS",
     "DocumentSkill",
+    "RuntimeSkillError",
     "SkillError",
     "SkillValidationError",
     "build_retrieval_plan",
@@ -34,6 +41,9 @@ __all__ = [
     "finalize_report",
     "list_skill_summaries",
     "list_skills",
+    "list_runtime_skills",
+    "list_runtime_summaries",
+    "load_runtime_skill",
     "load_skill",
     "load_skill_dir",
     "load_skill_file",

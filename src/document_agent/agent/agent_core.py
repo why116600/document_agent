@@ -33,6 +33,7 @@ class AgentState(TypedDict):
     document_citations: List[Dict[str, Any]]#远程知识图谱检索到的可引用文档：[{id, full_name, title, path}]，full_name 为完整文件名
     file_roles: Optional[Dict[str, str]]#文件角色标签映射（如待修改目标文档、辅助参考/风格模板）
     error: Optional[str]#错误结果
+    error_code: Optional[str]#错误码（如 MAIN_ENTRY_MANAGEMENT_FORBIDDEN）
     skill_id: Optional[str]#命令行显式指定的 Skill id 或文件路径
     skill_name: Optional[str]#意图模型根据用户需求选择的 Skill id 或名称
     skill: Optional[Dict[str, Any]]#已校验的 Skill 配置（DocumentSkill 的纯字典形式）
@@ -42,6 +43,9 @@ class AgentState(TypedDict):
     retrieval_plan: Optional[Dict[str, Any]]#计划驱动的检索队列（问题、来源、查询、预算）
     retrieval_progress: Optional[Dict[str, Any]]#检索进度（已覆盖/缺失问题、尝试记录）
     retrieval_report: Optional[Dict[str, Any]]#检索完成后的覆盖报告
+    retrieval_tool_calls: int#本次任务已执行的底层检索工具调用数
+    retrieval_context_chars: int#已送入模型的检索素材字符数
+    retrieval_skipped: List[Dict[str, Any]]#因预算未检索的文件及原因
     citations: List[Dict[str, Any]]#整理后的可引用来源清单
     unmet_requirements: List[str]#最终未满足的检索/验收要求
     generation_report: Optional[List[Dict[str, Any]]]#各章的生成尝试和检查失败记录
@@ -153,7 +157,6 @@ class AgentCore:
             "skill", create_skill_node(self.llm, gdb, kg, remote_kg_tool=self.remote_kg_tool)
         )
         self.graph.add_node("verify", create_verify_node(self.llm))
-        self.graph.add_node('manage_skill', self.manage_skill)
         #两个写作节点要按同一模式渲染检索资料（远程结果带来源标记）
         self.graph.add_node("new_docx", create_new_docx_node(self.llm, knowledge_mode=self.knowledge_mode))
         self.graph.add_node("rewrite_docx", create_rewrite_node(self.llm, knowledge_mode=self.knowledge_mode))
@@ -162,9 +165,8 @@ class AgentCore:
         self.graph.add_conditional_edges(
             "intent",
             route_after_intent,
-            {"continue":"skill","manage_skill":"manage_skill","end":END},
+            {"continue":"skill","end":END},
         )
-        self.graph.add_edge('manage_skill', END)
         #Skill 不存在时原样放行，结构与未启用 Skill 时保持一致
         self.graph.add_conditional_edges(
             "skill",
@@ -217,6 +219,7 @@ class AgentCore:
             "document_citations": [],
             "file_roles": {},
             "error": None,
+            "error_code": None,
             "skill_id": skill_id,
             "skill_name": None,
             "skill": None,
@@ -226,6 +229,9 @@ class AgentCore:
             "retrieval_plan": None,
             "retrieval_progress": None,
             "retrieval_report": None,
+            "retrieval_tool_calls": 0,
+            "retrieval_context_chars": 0,
+            "retrieval_skipped": [],
             "citations": [],
             "unmet_requirements": [],
             "generation_report": None,
@@ -246,17 +252,14 @@ class AgentCore:
         return create_intent_node(self.llm)(state)
 
     def manage_skill(self, state):
-        """控制台与图节点共用的规则管理入口，不检索或生成文档。"""
-        from document_agent.skills.commands import manage_skill_request
-        try:
-            operation = manage_skill_request(get_last_user_text(state.get('messages')), state.get('user_intent'),
-                                             target=state.get('skill_target'), llm=self.llm)
-            return {**state, 'state': 'succeeded', 'result_type': 'skill', 'skill_operation': operation,
-                    'message': operation['message'], 'save_path': '', 'error': None}
-        except Exception as exc:
-            import traceback
-            traceback.print_exc()
-            return {**state, 'state': 'error', 'result_type': 'skill', 'error': str(exc)}
+        """兼容存根：主入口不再提供 Skill 管理能力。"""
+        return {
+            **state,
+            'state': 'error',
+            'error_code': 'MAIN_ENTRY_MANAGEMENT_FORBIDDEN',
+            'result_type': 'skill',
+            'error': '主入口不支持 Skill 管理，请使用 /admin 或 python -m document_agent.skill_cli skill。',
+        }
 
     def invoke(self, user_input: str, input_file_path: Optional[List[str]] = None,
                session_id: str = "default_session", save_path: str = "", output_dir: Optional[str] = None,

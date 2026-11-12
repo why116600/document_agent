@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any, List, Tuple, Optional, Dict, Literal
 from pydantic import BaseModel, Field
@@ -8,7 +9,8 @@ from pydantic import BaseModel, Field
 from agent_core import AgentState, get_last_user_text
 from llm_client import llm_model_invoke
 from document_agent.file_types import SUPPORTED_REFERENCE_SUFFIXES
-from document_agent.skills.store import list_skill_summaries, SkillError
+from document_agent.skills.runtime_api import list_runtime_summaries
+from document_agent.skills.store import SkillError
 from document_agent.skills.match import resolve_skill
 from scope_contract import MODE_TO_ACTION, Scope, capability_text
 from new_doc_spec import NewDocSpec, normalize_spec
@@ -59,16 +61,25 @@ class DocumentTaskIntent(BaseModel):
     用于从用户自由输入的自然语言指令和传入的文件池中，
     自动识别写作意图（改写还是新建）、挑选修改目标文档、区分参考材料、推导改写模式与提取另存为目标。
     """
-    task_type: Literal["new", "rewrite", "skill_create", "skill_update"] = Field(
+    task_type: Literal["new", "rewrite"] = Field(
         description=(
             "任务类型：\n"
             "- 'rewrite': 用户希望对已有的某个 Word (.docx) 文档进行修改、改写、重写、局部修补、全文替换或公文润色；\n"
-            "- 'new': 用户希望从零起草一份文档；\n"
-            "- 'skill_create': 明确要求定义并保存可复用的一类文档规范，不是按已有规范写本次文档；\n"
-            "- 'skill_update': 明确要求修改已保存的写作/检索规范，不是修改某个文档。"
+            "- 'new': 用户希望从零起草一份文档。\n"
+            "注意：创建、修改、删除、发布可复用规范属于管理诉求，用 management_request 标记，不要作为 task_type。"
         )
     )
-    skill_target: Optional[str] = Field(default=None, description='修改规范时填写用户指定的规范id或完整名称；歧义或未指明时null。创建时仅当用户明确给出合法英文id才填写，否则null。不得填写文件路径')
+    management_request: bool = Field(
+        default=False,
+        description=(
+            "用户是否在要求创建、修改、删除或发布可复用写作规范（Skill）。"
+            "为 true 时 management_action 必须填写，且不得生成写作任务。"
+        ),
+    )
+    management_action: Optional[Literal["create", "update", "delete", "publish"]] = Field(
+        default=None,
+        description="管理动作类型；management_request=false 时必须为 null。",
+    )
     target_file: Optional[str] = Field(
         default=None,
         description=(
@@ -130,7 +141,7 @@ class DocumentTaskIntent(BaseModel):
     skill: Optional[str] = Field(
         default=None,
         description=(
-            "结合文档类型、任务目的与可用规范选择唯一适用的已启用 Skill id，不要求用户说出Skill一词；"
+            "结合文档类型、任务目的与可用规范选择唯一适用的已启用且已发布 Skill id，不要求用户说出Skill一词；"
             "没有适用项或存在歧义时为null，不得生成不存在的id。"
         )
     )
@@ -370,7 +381,7 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str],
         f"【用户指令内容】\n{user_prompt}\n\n"
         "【分析与槽位抽取规范】\n"
         "1. task_type 判断：\n"
-        "   - 明确要求创建、保存或修改可复用写作规范时选择skill_create/skill_update；skill_target为规范id或名称。\n"
+        "   - 若用户要求创建、修改、删除或发布可复用写作规范（Skill），management_request=true，management_action 填 create/update/delete/publish；task_type 仍按 new/rewrite 估计，但系统会拦截管理请求，不生成写作任务。\n"
         "   - ‘按规范写报告’属于new，‘按规范修改这份文档’属于rewrite，不得当成修改规范本身。\n"
         "   - 'rewrite'：用户希望对已有的某份 Word (.docx) 文档进行修改、改写、局部调整、全文重构、替换或润色（例如：'把xxx里的第三条改为'、'根据A修改B'、'对xxx进行公文润色'）；\n"
         "   - 'new'：用户希望全新起草、生成一份新文档（例如：'参考资料写一份报告'、'起草一份合作协议'），不以修改某份已有文档为目标。\n"
@@ -415,12 +426,16 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str],
         "（例如：原文件是'11_粗糙排版_各业务线自报数据与零散问题汇总.docx'，参考了'正式版2'，可智能拟定为'11_各业务线自报数据与零散问题汇总_正式版.docx'或'11_各业务线自报数据与零散问题汇总_规范排版版.docx'）；\n"
         "     * 若为 overwrite 模式：可填原文件名或保持为 null。\n"
         "7. skill 挑选：\n"
-        "   - 写文档时仅选择enabled=true且适用的规范，用户无需说出Skill一词；不适用或有歧义时skill=null，不猜选。管理规范可定位禁用项。\n"
+        "   - 写文档时仅选择enabled=true且已发布的规范，用户无需说出Skill一词；不适用或有歧义时skill=null，不猜选。不得选择禁用或未发布的规范。\n"
         "   - 用户拒绝所有规范时use_skill=false；明确要求规范时true；普通写作任务为null，由已有规则自动匹配。\n"
         "   - 被明确拒绝的具体规范放excluded_skills，其他规范仍可匹配；‘不用A，改用B’应排除A并选择B。列表为空时skill=null，不臆造。\n"
         "8. reasoning：简要阐述判断依据、是否为复合指令及步骤拆分理由、Skill 命中理由，以及文件名推导理由。\n"
         "9. new_doc_spec 提取（仅当 task_type 为 'new' 时；只提取用户原话中明确写出的约束）：\n"
         "   - title：用户明确指定的总标题；参考资料文件名不是标题；未指定必须为 null；\n"
+        "   - title_style：仅当用户对“总标题/文档标题/题目”提出排版要求时填写，"
+        "例如“总标题黑体二号加粗居中” → {font_name:'黑体', font_size:22, bold:true, alignment:'center'}；"
+        "“总标题段后18磅、左对齐” → {space_after:18, alignment:'left'}；"
+        "只写“一级标题16磅”“章节标题加粗”属于章节格式，不要填 title_style；未要求的字段留 null；\n"
         "   - max_body_chars：正文/全文字数上限的数字；未写数字必须为 null；\n"
         "   - counting_rule：非空白字符→non_whitespace，汉字/字→chinese_chars，全部字符→all_chars；\n"
         "   - table_policy：不用/禁止/不允许表格→forbid，明确允许/需要表格→allow，未提→unspecified；\n"
@@ -574,6 +589,9 @@ def create_intent_node(llm=None):
 
         user_prompt = get_last_user_text(state.get("messages")).strip()
 
+        if _looks_like_management_request(user_prompt):
+            return _management_forbidden(state)
+
         rewrite_file = None
         rewrite_mode = None
         rewrite_steps: List[Dict[str, Any]] = []
@@ -589,7 +607,7 @@ def create_intent_node(llm=None):
             print("【意图分析】正在分析用户指令与候选文件...")
             available_skills = []
             try:
-                available_skills = list_skill_summaries(include_disabled=True)
+                available_skills = list_runtime_summaries()
             except Exception as exc:
                 print(f"【Skill】读取 Skill 目录失败，本次不提供可选 Skill：{exc}")
             outline_block = build_intent_outline_block(valid_input_files)
@@ -598,10 +616,8 @@ def create_intent_node(llm=None):
 
             if task_intent:
                 print(f"【智能意图分析结果】任务类型: {task_intent.task_type.upper()} | 依据: {task_intent.reasoning}")
-                if task_intent.task_type in ('skill_create', 'skill_update'):
-                    return {**state, 'user_intent': task_intent.task_type,
-                            'skill_target': state.get('skill_id') or task_intent.skill_target,
-                            'skill': None, 'intent_prepared': True}
+                if task_intent.management_request:
+                    return _management_forbidden(state)
                 skill_name = (task_intent.skill or "").strip() or None
                 use_skill = task_intent.use_skill
                 excluded_skills = task_intent.excluded_skills
@@ -718,10 +734,33 @@ def create_intent_node(llm=None):
     return intent_node
 
 
+def _looks_like_management_request(text: str) -> bool:
+    """确定性兜底：明显在管理 Skill 的请求不进入写作流程。"""
+    compact = re.sub(r"\s+", "", text or "")
+    return bool(_MANAGEMENT_PATTERN.search(compact))
+
+
+def _management_forbidden(state: AgentState) -> AgentState:
+    return {
+        **state,
+        "state": "error",
+        "error_code": "MAIN_ENTRY_MANAGEMENT_FORBIDDEN",
+        "error": (
+            "主入口只支持使用 Skill 写作/改写，不支持创建、修改、删除或发布 Skill。"
+            "请使用 Skills 管理控制台（/admin）或 python -m document_agent.skill_cli skill。"
+        ),
+    }
+
+
+_MANAGEMENT_PATTERN = re.compile(
+    r"(创建|新建|定义|修改|更新|删除|发布|回滚)(一个|一份|个|份)?(?!.*文档)"
+    r"[^，。；\n]{0,8}(规范|Skill|skill)"
+    r"|(规范|Skill|skill)[^，。；\n]{0,6}(创建|新建|修改|更新|删除|发布|回滚)"
+)
+
+
 def route_after_intent(state: AgentState) -> str:
     """初始化/校验出错时直接结束流程。"""
     if state.get("state") == "error":
         return "end"
-    if state.get('user_intent') in ('skill_create', 'skill_update'):
-        return 'manage_skill'
     return "continue"

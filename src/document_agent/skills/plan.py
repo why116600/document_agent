@@ -65,6 +65,13 @@ def _question_items(skill: DocumentSkill) -> List[tuple]:
     return items
 
 
+def effective_attempts(skill: DocumentSkill, question_count: int) -> int:
+    """单个问题可用的逻辑尝试数：受总预算与单题上限共同约束。"""
+    total = max(1, int(skill.research.max_rounds))
+    share = max(1, total // max(1, question_count))
+    return max(1, min(int(skill.research.per_question_attempts), share))
+
+
 def build_retrieval_plan(
     skill: DocumentSkill,
     input_files: Sequence[str],
@@ -75,8 +82,9 @@ def build_retrieval_plan(
     """生成可顺序执行的检索计划。
 
     - 问题来自 research.questions；无问题但有 data_fields 时生成一条数据收集任务；
-    - 每个问题按来源优先级展开；file 来源会为每个候选文件生成一步；
-    - 单题最多 `per_question_attempts` 步，超出部分丢弃。
+    - 每个问题按来源优先级展开；一次逻辑尝试覆盖全部候选文件（``candidate_paths``），
+      由检索节点按预算与相关度决定实际调用哪些文件；
+    - 逻辑尝试数受 ``max_rounds`` 与 ``per_question_attempts`` 共同约束，不再截断文件列表。
     """
     questions: List[Dict[str, Any]] = []
     sources = [source for source in skill.research.source.priority if source in available_sources]
@@ -98,37 +106,37 @@ def build_retrieval_plan(
         if str(path).strip() and (not rewrite_file or str(path) != str(rewrite_file))
     ]
 
-    question_steps: List[List[Dict[str, Any]]] = []
-    limit = skill.research.per_question_attempts
+    attempts = effective_attempts(skill, len(questions))
+    per_question: List[List[List[Dict[str, Any]]]] = []
     for question in questions:
-        qsteps: List[Dict[str, Any]] = []
-        for attempt in range(limit):
+        by_attempt: List[List[Dict[str, Any]]] = []
+        for attempt in range(attempts):
             query = question["queries"][min(attempt, len(question["queries"]) - 1)]
+            group: List[Dict[str, Any]] = []
             for source in sources:
-                if source == "knowledge":
-                    qsteps.append({
-                        "question_id": question["id"],
-                        "question": question["question"],
-                        "source": "knowledge",
-                        "query": query,
-                        "path": "",
-                    })
-                elif source == "file":
-                    for path in files:
-                        qsteps.append({
-                            "question_id": question["id"],
-                            "question": question["question"],
-                            "source": "file",
-                            "query": query,
-                            "path": path,
-                        })
-            if len(qsteps) >= limit:
-                break
-        question_steps.append(qsteps[:limit])
+                if source == "file" and not files:
+                    continue
+                group.append({
+                    "question_id": question["id"],
+                    "question": question["question"],
+                    "source": source,
+                    "query": query,
+                    "attempt": attempt,
+                    "attempt_id": f"{question['id']}-A{attempt + 1}",
+                    "path": files[0] if source == "file" and files else "",
+                    "candidate_paths": list(files) if source == "file" else [],
+                })
+            by_attempt.append(group)
+        per_question.append(by_attempt)
 
     # 先让每个问题获得一次机会，再安排第二次尝试，避免早期问题耗尽全局预算。
-    steps = [qsteps[attempt] for attempt in range(limit)
-             for qsteps in question_steps if attempt < len(qsteps)]
+    steps = [
+        step
+        for attempt in range(attempts)
+        for by_attempt in per_question
+        if attempt < len(by_attempt)
+        for step in by_attempt[attempt]
+    ]
 
     for index, step in enumerate(steps):
         step["index"] = index
@@ -140,7 +148,13 @@ def build_retrieval_plan(
         "files": files,
         "steps": steps,
         "max_rounds": skill.research.max_rounds,
-        "per_question_attempts": limit,
+        "per_question_attempts": attempts,
+        "budgets": {
+            "max_rounds": skill.research.max_rounds,
+            "max_tool_calls": skill.research.max_tool_calls,
+            "max_total_context_chars": skill.research.max_total_context_chars,
+            "max_files_per_attempt": skill.research.file.max_files_per_attempt,
+        },
         "on_empty": skill.research.on_empty,
         "query_expansion": skill.research.query_expansion,
         "stop_after_no_new_evidence": skill.research.stop_after_no_new_evidence,
@@ -157,6 +171,9 @@ def new_progress() -> Dict[str, Any]:
         "overrides": {},
         "consecutive_empty": 0,
         "stop_reason": "",
+        "tool_calls": 0,
+        "context_chars": 0,
+        "skipped_paths": [],
     }
 
 
@@ -195,14 +212,18 @@ def record_assessment(
     steps = plan.get("steps") or []
     step = pending["step"]
     question_id = step["question_id"]
+    paths = list(step.get("candidate_paths") or ([step["path"]] if step.get("path") else []))
     covered_list = list(progress.get("covered") or [])
     missing_list = list(progress.get("missing") or [])
     attempts = list(progress.get("attempts") or [])
     attempts.append({
         "question_id": question_id,
+        "attempt": int(step.get("attempt") or 0),
+        "attempt_id": step.get("attempt_id", ""),
         "source": step["source"],
         "query": step["query"],
         "path": step["path"],
+        "paths": paths,
         "evidence_count": evidence_count,
         "covered": covered,
         "reason": reason,
@@ -224,25 +245,34 @@ def record_assessment(
                 if question_id not in missing_list:
                     missing_list.append(question_id)
             elif policy == "fallback_source":
-                # 一个文件也是一个独立来源；跳过同一来源的重复尝试。
-                ignored.update(index for index in question_indices if (
-                    steps[index]["source"], steps[index]["path"]
-                ) == (step["source"], step["path"]))
+                # 同一来源已在一次尝试中覆盖全部候选文件，后续同类步骤直接跳过。
+                ignored.update(
+                    index for index in question_indices if steps[index]["source"] == step["source"]
+                )
         if plan.get("query_expansion", True) and retry_query and question_indices:
             retry_index = question_indices[0]
             overrides[str(retry_index)] = {
-                **steps[retry_index], "source": step["source"], "path": step["path"],
+                **steps[retry_index], "source": step["source"],
+                "path": step["path"], "candidate_paths": list(paths),
                 "query": retry_query,
             }
 
-    tried = {(item["question_id"], item["source"], item["path"], item["query"]) for item in attempts}
+    tried = {
+        (item["question_id"], item["source"],
+         tuple(item.get("paths") or ([item["path"]] if item.get("path") else [])), item["query"])
+        for item in attempts
+    }
     eligible = []
     for index in range(next_index, len(steps)):
         candidate = overrides.get(str(index), steps[index])
         qid = candidate["question_id"]
         if index in ignored or qid in covered_list or qid in missing_list:
             continue
-        if (qid, candidate["source"], candidate["path"], candidate["query"]) in tried:
+        candidate_paths = tuple(
+            candidate.get("candidate_paths")
+            or ([candidate["path"]] if candidate.get("path") else [])
+        )
+        if (qid, candidate["source"], candidate_paths, candidate["query"]) in tried:
             ignored.add(index)
             continue
         eligible.append(index)
@@ -279,6 +309,7 @@ def finalize_report(
     covered = list(progress.get("covered") or [])
     missing = list(progress.get("missing") or [])
     attempts = list(progress.get("attempts") or [])
+    logical = {(item["question_id"], item.get("attempt", 0)) for item in attempts}
 
     question_reports = []
     for question in plan.get("questions") or []:
@@ -301,7 +332,15 @@ def finalize_report(
         "covered": covered,
         "missing": missing,
         "questions": question_reports,
-        "budget": {"total": budget_total, "used": budget_used},
+        "budget": {
+            "total": budget_total,
+            "used": budget_used,
+            "logical_attempts": len(logical),
+            "tool_calls": int(progress.get("tool_calls") or 0),
+            "context_chars": int(progress.get("context_chars") or 0),
+            "max_tool_calls": (plan.get("budgets") or {}).get("max_tool_calls"),
+        },
+        "skipped_paths": list(progress.get("skipped_paths") or []),
         "complete": not missing,
         "stop_reason": progress.get("stop_reason") or (
             "budget_exhausted" if budget_used >= budget_total else "plan_exhausted"

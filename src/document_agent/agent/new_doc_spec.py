@@ -29,9 +29,40 @@ class TextStyleSpec(BaseModel):
     )
 
 
+TitleAlignment = Literal["center", "left", "right", "justify"]
+
+
+class TitleStyleSpec(BaseModel):
+    """文档总标题的显式排版要求。
+
+    未填写的字段回落到默认值（22 磅 / 加粗 / 居中 / 段后 12 磅），
+    一旦用户提出要求就以用户为准；与章节标题（headings 作用域）互不影响。
+    """
+
+    font_name: Optional[str] = Field(default=None, description="字体名称，如宋体、黑体；None=未指定。")
+    font_color: Optional[str] = Field(default=None, description="六位十六进制颜色，如 000000；None=未指定。")
+    font_size: Optional[float] = Field(
+        default=None, ge=6, le=100, description="字号（磅）；None=未指定。"
+    )
+    bold: Optional[bool] = Field(default=None, description="是否加粗；None=未指定。")
+    alignment: Optional[TitleAlignment] = Field(
+        default=None, description="对齐方式：center/left/right/justify；None=未指定。"
+    )
+    space_before: Optional[float] = Field(
+        default=None, ge=0, le=100, description="段前间距（磅）；None=未指定。"
+    )
+    space_after: Optional[float] = Field(
+        default=None, ge=0, le=100, description="段后间距（磅）；None=未指定。"
+    )
+
+
 class NewDocSpec(BaseModel):
     title: Optional[str] = Field(
         default=None, description="用户明确指定的总标题；未指定为 null，不得自行推断。"
+    )
+    title_style: Optional[TitleStyleSpec] = Field(
+        default=None,
+        description="用户对总标题的字体/字号/加粗/对齐/段距要求；未提出为 null，由系统按默认版式生成。",
     )
     max_body_chars: Optional[int] = Field(
         default=None, description="正文长度上限；未指定为 null。"
@@ -39,6 +70,13 @@ class NewDocSpec(BaseModel):
     counting_rule: CountingRule = Field(
         default="non_whitespace",
         description="字数口径：non_whitespace=非空白字符，chinese_chars=汉字，all_chars=全部字符。",
+    )
+    count_include_title: bool = Field(
+        default=False,
+        description=(
+            "字数上限是否把总标题算进去。用户写“全文（包含总标题）不超过N字”为 true；"
+            "写“正文最多N字，不含文档标题”或未提及时为 false。"
+        ),
     )
     table_policy: Literal["allow", "forbid", "unspecified"] = Field(
         default="unspecified", description="表格策略：允许/禁止/未指定。"
@@ -292,6 +330,30 @@ def extract_body_limit(text: str):
     return int(match.group(1)), _count_rule_from_unit(match.group(2))
 
 
+TITLE_COUNT_EXCLUDE_PATTERN = re.compile(
+    r"(?:不包含|不含|不包括|不计入|不算|排除|不将)"
+    r"[^。；;\n]{0,8}?(?:总标题|文档标题|标题)"
+)
+TITLE_COUNT_INCLUDE_PATTERN = re.compile(
+    r"(?:包含|含|包括|连同|计入|算上|算入)"
+    r"[^。；;\n]{0,8}?(?:总标题|文档标题)"
+)
+
+
+def extract_count_scope(text: str) -> Optional[bool]:
+    """判断字数上限是否包含总标题。
+
+    只认“总标题/文档标题”这类无歧义说法，避免把“章节标题”“字段名称”误当成标题口径；
+    出现“不含/不包括”等否定说法时一律按不包含处理。
+    """
+    text = text or ""
+    if TITLE_COUNT_EXCLUDE_PATTERN.search(text):
+        return False
+    if TITLE_COUNT_INCLUDE_PATTERN.search(text):
+        return True
+    return None
+
+
 def extract_table_policy(text: str) -> Literal["allow", "forbid", "unspecified"]:
     compact = re.sub(r"\s+", "", text or "").lower()
     if any(token.lower() in compact for token in NO_TABLE_TOKENS):
@@ -402,6 +464,12 @@ def extract_text_styles(text: str) -> List[TextStyleSpec]:
         clause = clause.strip()
         if not clause:
             continue
+        # “总标题用黑体”这类要求由 title_style 承载；若同时点名章节标题才继续按 headings 处理
+        if any(marker in clause for marker in TITLE_STYLE_MARKERS) and not any(
+            word in clause
+            for word in ("章节标题", "各级标题", "所有标题", "一级标题", "二级标题", "三级标题")
+        ):
+            continue
         scope = _scope_from_clause(clause) or inherited_scope
         font_hit = _find_font(clause)
         color_hit = _find_color(clause)
@@ -427,6 +495,73 @@ def extract_text_styles(text: str) -> List[TextStyleSpec]:
             scope=scope,
         ))
     return merge_text_styles(styles)
+
+
+# 只认“总标题/文档标题/题目/大标题”，不认裸“标题”，避免把章节标题要求当成总标题
+TITLE_STYLE_MARKERS = ("总标题", "文档标题", "题目", "大标题")
+CN_FONT_SIZES = {
+    "初号": 42.0, "小初": 36.0, "一号": 26.0, "小一": 24.0,
+    "二号": 22.0, "小二": 18.0, "三号": 16.0, "小三": 15.0,
+    "四号": 14.0, "小四": 12.0, "五号": 10.5, "小五": 9.0, "六号": 7.5,
+}
+_TITLE_STYLE_CLAUSE_SPLIT = re.compile(r"[，,；;。\n]")
+_NUMBER_PT_PATTERN = re.compile(r"(\d+(?:\.\d+)?)\s*磅")
+_CN_SIZE_PATTERN = re.compile("|".join(sorted(CN_FONT_SIZES, key=len, reverse=True)))
+_NO_BOLD_PATTERN = re.compile(r"(?:不|不要|无需|不用|非|别)\s*加粗")
+_BOLD_PATTERN = re.compile(r"加粗|加黑")
+_ALIGN_PATTERNS = (
+    (re.compile(r"两端对齐"), "justify"),
+    (re.compile(r"(?:居中对齐|居中)"), "center"),
+    (re.compile(r"(?:左对齐|靠左)"), "left"),
+    (re.compile(r"(?:右对齐|靠右)"), "right"),
+)
+_SPACE_AFTER_PATTERN = re.compile(r"段后\s*(\d+(?:\.\d+)?)\s*磅")
+_SPACE_BEFORE_PATTERN = re.compile(r"段前\s*(\d+(?:\.\d+)?)\s*磅")
+
+
+def extract_title_style(text: str) -> Optional[TitleStyleSpec]:
+    """解析用户对“总标题”的排版要求；没写或只写章节标题时返回 None。
+
+    只处理含“总标题/文档标题/题目/大标题”的短句，“一级标题16磅”这类章节标题
+    要求不会被误当成总标题；一个短句内的多项要求（字体、字号、加粗、对齐、段距）
+    可以同时解析。
+    """
+    text = text or ""
+    merged: Dict[str, object] = {}
+    found = False
+    for clause in _TITLE_STYLE_CLAUSE_SPLIT.split(text):
+        clause = clause.strip()
+        if not clause or not any(marker in clause for marker in TITLE_STYLE_MARKERS):
+            continue
+        found = True
+        font_hit = _find_font(clause)
+        if font_hit and not _is_negated_at(clause, font_hit[1]):
+            merged.setdefault("font_name", font_hit[0])
+        color_hit = _find_color(clause)
+        if color_hit and not _is_negated_at(clause, color_hit[1]):
+            merged.setdefault("font_color", color_hit[0])
+        size_hit = _NUMBER_PT_PATTERN.search(clause)
+        if size_hit:
+            merged.setdefault("font_size", float(size_hit.group(1)))
+        elif _CN_SIZE_PATTERN.search(clause):
+            merged.setdefault("font_size", CN_FONT_SIZES[_CN_SIZE_PATTERN.search(clause).group(0)])
+        if _NO_BOLD_PATTERN.search(clause):
+            merged.setdefault("bold", False)
+        elif _BOLD_PATTERN.search(clause):
+            merged.setdefault("bold", True)
+        for pattern, alignment in _ALIGN_PATTERNS:
+            if pattern.search(clause):
+                merged.setdefault("alignment", alignment)
+                break
+        space_after = _SPACE_AFTER_PATTERN.search(clause)
+        if space_after:
+            merged.setdefault("space_after", float(space_after.group(1)))
+        space_before = _SPACE_BEFORE_PATTERN.search(clause)
+        if space_before:
+            merged.setdefault("space_before", float(space_before.group(1)))
+    if not found or not merged:
+        return None
+    return TitleStyleSpec(**merged)
 
 
 def extract_required_topics(text: str) -> List[str]:
@@ -514,8 +649,10 @@ def parse_new_doc_spec(text: str) -> NewDocSpec:
     document_form, include_section_titles, include_field_names = extract_document_form(text)
     return NewDocSpec(
         title=extract_doc_title(text),
+        title_style=extract_title_style(text),
         max_body_chars=max_body_chars,
         counting_rule=counting_rule,
+        count_include_title=bool(extract_count_scope(text)),
         table_policy=extract_table_policy(text),
         text_styles=extract_text_styles(text),
         required_topics=extract_required_topics(text),
@@ -599,6 +736,10 @@ def unparsed_constraint_warnings(text: str, spec: NewDocSpec) -> List[str]:
         for clause in CLAUSE_SPLIT_PATTERN.split(text):
             if not any(token in clause for token in SCOPE_COMPLETENESS_TOKENS):
                 continue
+            # 只有真的在这句里要求了字体/颜色的“全文/全部”，才谈作用域是否覆盖全文；
+            # “全文不超过300字”这类长度句不应触发该告警。
+            if not (_find_font(clause) or _find_color(clause)):
+                continue
             if _scope_from_clause(clause) in ("headings", "table", "body"):
                 continue
             if not any(style.scope == "all" for style in spec.text_styles):
@@ -637,6 +778,28 @@ def _prefer_fallback(model_value, fallback_value, label: str):
     return model_value
 
 
+def _merge_title_style(model: Optional[TitleStyleSpec],
+                       fallback: Optional[TitleStyleSpec]) -> Optional[TitleStyleSpec]:
+    """总标题版式逐字段合并：原话写了用原话，原话没写用模型，都没有返回 None。"""
+    if model is None:
+        return fallback
+    if fallback is None:
+        return model
+    return TitleStyleSpec(
+        font_name=fallback.font_name or model.font_name,
+        font_color=fallback.font_color or model.font_color,
+        font_size=fallback.font_size if fallback.font_size is not None else model.font_size,
+        bold=fallback.bold if fallback.bold is not None else model.bold,
+        alignment=fallback.alignment or model.alignment,
+        space_before=(
+            fallback.space_before if fallback.space_before is not None else model.space_before
+        ),
+        space_after=(
+            fallback.space_after if fallback.space_after is not None else model.space_after
+        ),
+    )
+
+
 def merge_new_doc_spec(model_spec: Optional[NewDocSpec],
                        fallback_spec: Optional[NewDocSpec]) -> NewDocSpec:
     """模型与兜底合并：可直接核对的原话值优先；作用域样式按 scope 合并。"""
@@ -649,8 +812,11 @@ def merge_new_doc_spec(model_spec: Optional[NewDocSpec],
     )
     return NewDocSpec(
         title=_prefer_fallback(model.title, fallback.title, "标题"),
+        title_style=_merge_title_style(model.title_style, fallback.title_style),
         max_body_chars=max_chars,
         counting_rule=counting_rule,
+        # 口径是“怎么数”，以原话的显式说法为准：模型漏填时按 false，原话写明包含才为 true。
+        count_include_title=bool(fallback.count_include_title or model.count_include_title),
         table_policy=_prefer_fallback(model.table_policy, fallback.table_policy, "表格策略"),
         text_styles=merge_text_styles(
             list(fallback.text_styles) + list(model.text_styles)

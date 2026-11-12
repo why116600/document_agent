@@ -578,15 +578,6 @@ class GenerationRuntime:
         state = result.get("state")
         save_path = str(result.get("save_path") or "").strip()
 
-        if state == 'succeeded' and result.get('result_type') == 'skill':
-            content = result.get('message') or '规范已保存'
-            operation = result.get('skill_operation') or {}
-            self.store.update_message(session_id, assistant_message_id, status='succeeded', content=content,
-                                      files=[], save_path=None, error=None, result_type='skill', skill_operation=operation)
-            job.finish({'state': 'succeeded', 'result_type': 'skill', 'file': None,
-                        'message': content, 'skill_operation': operation})
-            return
-
         if state == "succeeded" and save_path:
             produced = self._ensure_in_session(session_id, save_path)
             if produced is None:

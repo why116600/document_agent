@@ -1,13 +1,10 @@
 
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
-from pathlib import Path
-import traceback
 
 from llm_client import llm_invoke, llm_model_invoke
 from agent_core import AgentState
 from retrieval_material import build_end_material
-from document_agent.retrieve_tool.extract_document import extract_document_content
 from document_agent.skills.plan import (
     begin_step,
     current_step,
@@ -65,11 +62,11 @@ def _assess_coverage(llm, step: Dict[str, Any], records: List[Dict[str, Any]]) -
         return False, "未配置模型，无法判断证据是否覆盖研究问题", True
 
     lines = []
-    for record in records[:10]:
+    for record in records[:20]:
         source = str(record.get("source") or "未知来源")
         snippet = str(record.get("content") or record.get("snippet") or "").strip()
         lines.append(f"- 来源：{source}｜片段：{snippet}")
-    evidence_text = "\n".join(lines)[:3000]
+    evidence_text = "\n".join(lines)[:6000]
 
     prompt = (
         "你是检索结果审核助手。请判断下列资料是否足以回答给定的研究问题。\n"
@@ -127,10 +124,21 @@ def _evaluate_stop(llm, skill, progress):
 
 
 def _orchestrated_retrieve(llm, state: AgentState, skill: DocumentSkill, plan: Dict[str, Any]) -> AgentState:
-    """计划驱动检索：按队列逐条执行，评估覆盖情况，预算内继续或记录缺失。"""
+    """计划驱动检索：按逻辑尝试逐条执行，评估覆盖情况，预算内继续或记录缺失。"""
     progress = dict(state.get("retrieval_progress") or new_progress())
+    if state.get("retrieval_skipped"):
+        progress["skipped_paths"] = list(state["retrieval_skipped"])
     remaining = int(state.get("retrieve_count_limit") or 0)
     evidence = list(state.get("evidence_records") or [])
+    budgets = plan.get("budgets") or {}
+    tool_calls_used = int(state.get("retrieval_tool_calls") or progress.get("tool_calls") or 0)
+    context_used = int(state.get("retrieval_context_chars") or progress.get("context_chars") or 0)
+    progress["tool_calls"] = tool_calls_used
+    progress["context_chars"] = context_used
+    max_tool_calls = int(budgets.get("max_tool_calls") or 0)
+    max_context = int(budgets.get("max_total_context_chars") or 0)
+    tool_calls_left = max(0, max_tool_calls - tool_calls_used) if max_tool_calls else 10 ** 6
+    context_left = max(0, max_context - context_used) if max_context else 10 ** 9
 
     # 1. 先评估上一轮检索结果
     if progress.get("pending"):
@@ -142,29 +150,37 @@ def _orchestrated_retrieve(llm, state: AgentState, skill: DocumentSkill, plan: D
         retry_query = None
         next_attempt = next((item for item in plan["steps"] if item["index"] > pending["index"]
                              and item["question_id"] == step["question_id"]), None)
-        same_source = next_attempt and (next_attempt["source"], next_attempt["path"]) == (step["source"], step["path"])
+        same_source = bool(next_attempt) and next_attempt["source"] == step["source"]
         threshold = skill.research.stop_after_no_new_evidence
         threshold_reached = not has_evidence and threshold and progress.get("consecutive_empty", 0) + 1 >= threshold
         should_rewrite = (not has_evidence and skill.research.on_empty == "rewrite_query") or (has_evidence and same_source)
         if (not covered and should_rewrite and remaining > 0 and next_attempt and not threshold_reached
-                and skill.research.query_expansion):
+                and skill.research.query_expansion and tool_calls_left > 0):
             retry_query = _retry_query(llm, plan, progress, step, reason)
         progress = record_assessment(plan, progress, covered, len(new_records) if has_evidence else 0,
                                      retry_query=retry_query, reason=reason)
         progress = _evaluate_stop(llm, skill, progress)
         print(
-            f"【检索评估】{step['question_id']}｜{step['source']}｜"
+            f"【检索评估】{step.get('attempt_id') or step['question_id']}｜{step['source']}｜"
             f"{'已覆盖' if covered else '未覆盖'}｜{reason}"
         )
 
     # 2. 预算耗尽或计划执行完毕：输出检索报告并结束
     step = current_step(plan, progress)
+    if step is not None and tool_calls_left <= 0:
+        progress = {**progress, "stop_reason": "tool_calls_exhausted"}
     if step is None or remaining <= 0 or progress.get("stop_reason"):
-        budget_total = int(skill.research.max_rounds)
-        report = finalize_report(plan, progress, budget_total, budget_total - remaining)
+        logical_used = len({
+            (item["question_id"], item.get("attempt", 0))
+            for item in progress.get("attempts") or []
+        })
+        budget_total = int(plan.get("max_rounds") or skill.research.max_rounds)
+        report = finalize_report(plan, progress, budget_total, logical_used)
         print(f"【检索结果】覆盖 {len(report['covered'])}/{len(plan['questions'])} 个研究问题")
         if report["missing"]:
             print("【检索结果】未覆盖的问题：" + "、".join(report["missing"]))
+        if report["skipped_paths"]:
+            print(f"【检索结果】因预算跳过的文件 {len(report['skipped_paths'])} 个")
         return {
             **state,
             "state": "start",
@@ -175,11 +191,15 @@ def _orchestrated_retrieve(llm, state: AgentState, skill: DocumentSkill, plan: D
 
     # 3. 下发下一步检索
     progress = begin_step(progress, plan, len(evidence))
-    params: Dict[str, Any] = {"query": step["query"]}
+    params: Dict[str, Any] = {"query": step["query"], "attempt_id": step.get("attempt_id", "")}
+    scope = ""
     if step["source"] == "file":
-        params["path"] = step["path"]
-    scope = f"｜文件：{Path(step['path']).name}" if step.get("path") else ""
-    print(f"【检索计划】{step['question_id']}｜{step['source']}｜{step['query']}{scope}")
+        paths = list(step.get("candidate_paths") or ([step["path"]] if step.get("path") else []))
+        params["paths"] = paths
+        params["path"] = paths[0] if paths else ""
+        params["budget"] = {"max_tool_calls": tool_calls_left, "max_context_chars": context_left}
+        scope = f"｜候选文件 {len(paths)} 个"
+    print(f"【检索计划】{step.get('attempt_id') or step['question_id']}｜{step['source']}｜{step['query']}{scope}")
     return {
         **state,
         "state": "start",

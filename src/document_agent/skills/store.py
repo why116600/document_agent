@@ -338,7 +338,7 @@ def load_skill(ref: str, allow_disabled: bool = False) -> DocumentSkill:
 
     id 精确匹配优先；名称支持包含式模糊匹配，命中多个时要求用户指明具体 id。
     """
-    ref = (ref or "").strip()
+    ref = str(ref or "").strip()
     if not ref:
         raise SkillError("未提供 Skill 名称或 id")
 
@@ -554,6 +554,79 @@ def save_skill_update(source: Path, updated: DocumentSkill, snapshot):
         shutil.rmtree(stale, ignore_errors=True)
     _replace_files(writes)
     return updated, backup
+
+
+@_locked
+def set_skill_version(source: Path, version: int) -> DocumentSkill:
+    """只改版本号与更新时间，保持其余内容不变；用于恢复草稿后的版本分配。"""
+    source = source.resolve()
+    if not 1 <= int(version) <= 99:
+        raise SkillError("版本号必须在 1~99 之间")
+    current = _load_source(source, allow_disabled=True)
+    import yaml  # 包内配置与 frontmatter 以 YAML 写回，保持原有格式
+
+    if source.is_dir():
+        config = next(source / name for name in SKILL_CONFIG_NAMES if (source / name).is_file())
+        data = _read_mapping(config)
+        data.update(version=int(version), updated_at=datetime.now().isoformat())
+        for key in ("instructions", "references", "template_path"):
+            data.pop(key, None)
+        text = (
+            yaml.safe_dump(data, allow_unicode=True, sort_keys=False)
+            if config.suffix.lower() in (".yaml", ".yml")
+            else json.dumps(data, ensure_ascii=False, indent=2)
+        )
+        writes = {config: text.encode("utf-8")}
+        md = source / "SKILL.md"
+        if md.is_file():
+            meta, body = parse_skill_md(md.read_text(encoding="utf-8"), md)
+            meta.update(version=int(version))
+            md_text = "---\n" + yaml.safe_dump(meta, allow_unicode=True, sort_keys=False) + "---\n\n" + body + "\n"
+            writes[md] = md_text.encode("utf-8")
+        _replace_files(writes)
+    else:
+        data = _read_mapping(source)
+        data.update(version=int(version), updated_at=datetime.now().isoformat())
+        text = (
+            yaml.safe_dump(data, allow_unicode=True, sort_keys=False)
+            if source.suffix.lower() in (".yaml", ".yml")
+            else json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+        )
+        _atomic_write(source, text.encode("utf-8"))
+    return _load_source(source, allow_disabled=True)
+
+
+@_locked
+def locate_skill_source(skill_id: str) -> Path:
+    """按 id 精确定位活动目录或单文件，供管理服务与运行时门面共用。"""
+    target = (skill_id or "").strip().lower()
+    if not target:
+        raise SkillError("未提供 Skill id")
+    matches: List[Path] = []
+    for source in _iter_skill_sources(resolve_skill_dir()):
+        try:
+            skill = _load_source(source, allow_disabled=True)
+        except SkillError:
+            continue
+        if skill.id.lower() == target:
+            matches.append(source)
+    if len(matches) != 1:
+        raise SkillError(f"无法唯一定位 Skill「{skill_id}」")
+    return matches[0]
+
+
+@_locked
+def delete_skill(skill_id: str, purge: bool = False) -> Path:
+    """把 Skill 移到 .trash；purge=True 时彻底删除。"""
+    source = locate_skill_source(skill_id)
+    trash_root = _resolve_within(resolve_skill_dir(), ".trash")
+    trash_root.mkdir(parents=True, exist_ok=True)
+    target = trash_root / f"{skill_id}_{datetime.now():%Y%m%d_%H%M%S_%f}"
+    target.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(source), str(target / source.name))
+    if purge:
+        shutil.rmtree(target, ignore_errors=True)
+    return target
 
 
 @_locked

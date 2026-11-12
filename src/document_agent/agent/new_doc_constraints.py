@@ -1,7 +1,8 @@
 from docx import Document
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import RGBColor
+from docx.shared import Pt, RGBColor
 import difflib
 import json
 import os
@@ -68,8 +69,12 @@ COUNT_UNITS = {
     "chinese_chars": "个汉字",
     "all_chars": "个字符",
 }
+# 总标题版式：文档标题必须在视觉与大纲上都高于章标题，避免“有标题但不像标题”
+TITLE_FONT_SIZE = 22.0
+TITLE_MIN_FONT_SIZE = 16.0
+TITLE_SPACE_AFTER = 12.0
 # 方案要点：灰度开关；shadow 只记录计划，不影响写作。
-# 目标库默认关闭：源侧最新自然五例仅 3/5，约束链未收口，先保持现有生成行为。
+# 该开关只控制“字段计划/修复器”这类生成式增强；文档级硬约束由 docx_node 的入口判定控制。
 DOCUMENT_PLAN_MODE = os.environ.get("DOCUMENT_PLAN_MODE", "off").strip().lower()
 # 独立事实审校开关：on=阻断高/中置信度问题，shadow=只记录，off=关闭。
 DOCUMENT_VERIFIER_MODE = os.environ.get("DOCUMENT_VERIFIER_MODE", "off").strip().lower()
@@ -260,11 +265,19 @@ def _style_for_role(styles: List[TextStyleSpec], role: str):
     return font_name, font_color
 
 
-def apply_text_styles(doc, styles: List[TextStyleSpec], title: str = "") -> int:
-    """按作用域应用字体/颜色；只改指定字段，保留字号、加粗、对齐等格式。"""
+def apply_text_styles(doc, styles: List[TextStyleSpec], title: str = "",
+                      title_style=None) -> int:
+    """按作用域应用字体/颜色；只改指定字段，保留字号、加粗、对齐等格式。
+
+    ``title_style`` 显式指定了总标题字体/颜色时，跳过总标题那一段，
+    避免“全文宋体”把用户单独要求的“总标题黑体”覆盖掉。
+    """
     styles = merge_text_styles(styles or [])
     if not styles:
         return 0
+    protect_title = bool(
+        title and title_style and (title_style.font_name or title_style.font_color)
+    )
 
     role_items = list(_iter_paragraph_roles(doc, title))
     style_roles = {}
@@ -287,6 +300,8 @@ def apply_text_styles(doc, styles: List[TextStyleSpec], title: str = "") -> int:
 
     changed = 0
     for paragraph, role in role_items:
+        if protect_title and _normalize(paragraph.text) == _normalize(title):
+            continue
         font_name, font_color = _style_for_role(styles, role)
         for run in paragraph.runs:
             if not run.text:
@@ -350,11 +365,15 @@ def _count_text(text: str, rule: str = "non_whitespace") -> int:
     return len(_normalize(text))
 
 
-def _body_parts(doc, title: str = ""):
-    """返回总标题之外的正文段落与表格文字，供计数和空内容判断共用。"""
+def _body_parts(doc, title: str = "", include_title: bool = False):
+    """返回正文段落与表格文字，供计数和空内容判断共用。
+
+    include_title=False（默认）时只排除开头那一个总标题，保留章节标题与字段名；
+    include_title=True 时把总标题也算进去，用于“全文（含总标题）不超过 N”的口径。
+    """
     paragraphs = [p.text for p in doc.paragraphs]
     start = 0
-    if title and paragraphs and _normalize(paragraphs[0]) == _normalize(title):
+    if (not include_title) and title and paragraphs and _normalize(paragraphs[0]) == _normalize(title):
         start = 1
     parts = paragraphs[start:]
     for table in doc.tables:
@@ -363,14 +382,59 @@ def _body_parts(doc, title: str = ""):
     return parts
 
 
-def count_body_chars(doc, title: str = "", rule: str = "non_whitespace") -> int:
-    """按指定口径计数；只排除开头一个总标题，保留章节标题/字段名。"""
-    return sum(_count_text(text, rule) for text in _body_parts(doc, title))
+def count_body_chars(doc, title: str = "", rule: str = "non_whitespace",
+                     include_title: bool = False) -> int:
+    """按指定口径计数；默认排除开头一个总标题，include_title=True 时一并计入。"""
+    return sum(_count_text(text, rule) for text in _body_parts(doc, title, include_title))
 
 
 def _title_count(doc, title: str) -> int:
     target = _normalize(title)
     return sum(1 for paragraph in doc.paragraphs if _normalize(paragraph.text) == target)
+
+
+def _title_style_issues(doc, title: str, title_style=None) -> List[str]:
+    """核对总标题是否达到用户要求；用户没写的项按默认版式核对。
+
+    默认：字号不低于 16 磅、加粗、居中。用户显式给了字号/加粗/对齐时，
+    按用户值逐项比对——用户要“左对齐、不加粗、14 磅”也是合法要求。
+    只检查“文字完全等于总标题”的那一段；缺失由 title_count/first_is_title 负责。
+    """
+    if not title:
+        return []
+    target = _normalize(title)
+    paragraph = next(
+        (item for item in doc.paragraphs if _normalize(item.text) == target), None
+    )
+    if paragraph is None:
+        return []
+    issues: List[str] = []
+    sizes = [run.font.size.pt for run in paragraph.runs if run.font.size is not None]
+    expected_size = getattr(title_style, "font_size", None) if title_style else None
+    if expected_size:
+        if not sizes:
+            issues.append(f"title_font_size:inherit!={expected_size:g}")
+        elif abs(max(sizes) - float(expected_size)) > 0.2:
+            issues.append(f"title_font_size:{max(sizes):g}!={expected_size:g}")
+    elif not sizes:
+        issues.append("title_font_size:inherit")
+    elif max(sizes) < TITLE_MIN_FONT_SIZE:
+        issues.append(f"title_font_size:{max(sizes):g}")
+
+    expected_bold = getattr(title_style, "bold", None) if title_style else None
+    expected_bold = True if expected_bold is None else bool(expected_bold)
+    actual_bold = any(bool(run.bold) for run in paragraph.runs)
+    if expected_bold and not actual_bold:
+        issues.append("title_not_bold")
+    if not expected_bold and actual_bold:
+        issues.append("title_unexpected_bold")
+
+    expected_alignment = (
+        getattr(title_style, "alignment", None) if title_style else None
+    ) or "center"
+    if paragraph.alignment != TITLE_ALIGNMENT_MAP.get(expected_alignment):
+        issues.append(f"title_alignment:{expected_alignment}")
+    return issues
 
 
 def _is_heading_like(paragraph) -> bool:
@@ -468,15 +532,24 @@ def _repeated_clauses(doc, title: str = ""):
     return pairs
 
 
-def _font_scope_issues(doc, title: str, styles: List[TextStyleSpec]):
-    """检查指定作用域的文字 run 是否落到要求的字体/颜色。"""
+def _font_scope_issues(doc, title: str, styles: List[TextStyleSpec], title_style=None):
+    """检查指定作用域的文字 run 是否落到要求的字体/颜色。
+
+    ``title_style`` 单独声明了总标题字体/颜色时，总标题段落按 title_style 判定，
+    不再套用“全文/标题”作用域，避免“全文宋体 + 总标题黑体”被误报成冲突。
+    """
     if not styles:
         return []
     merged = merge_text_styles(styles)
     if not merged:
         return []
+    protect_title = bool(
+        title and title_style and (title_style.font_name or title_style.font_color)
+    )
     issues = []
     for paragraph_index, (paragraph, role) in enumerate(_iter_paragraph_roles(doc, title)):
+        if protect_title and _normalize(paragraph.text) == _normalize(title):
+            continue
         font_name, font_color = _style_for_role(merged, role)
         for run_index, run in enumerate(paragraph.runs):
             if not run.text.strip():
@@ -599,10 +672,12 @@ def validate_new_doc(doc, title: str = "", max_chars: Optional[int] = None,
         max_chars = spec.max_body_chars
         no_table = spec.table_policy == "forbid"
         counting_rule = spec.counting_rule
+        include_title = bool(spec.count_include_title)
         text_styles = spec.text_styles
         required_topics = spec.required_topics
     else:
         counting_rule = "non_whitespace"
+        include_title = False
         text_styles = []
         required_topics = []
 
@@ -612,7 +687,7 @@ def validate_new_doc(doc, title: str = "", max_chars: Optional[int] = None,
     first_is_title = bool(
         title and paragraphs and _normalize(paragraphs[0]) == _normalize(title)
     )
-    body_parts = _body_parts(doc, title)
+    body_parts = _body_parts(doc, title, include_title)
     body_chars = sum(_count_text(text, counting_rule) for text in body_parts)
 
     if title:
@@ -626,7 +701,15 @@ def validate_new_doc(doc, title: str = "", max_chars: Optional[int] = None,
         issues.append(f"body_too_long:{body_chars}>{max_chars}")
     if no_table and doc.tables:
         issues.append(f"tables_present:{len(doc.tables)}")
-    font_issues = _font_scope_issues(doc, title, text_styles)
+    title_style_issues = _title_style_issues(
+        doc, title, getattr(spec, "title_style", None) if spec is not None else None
+    )
+    if title_style_issues:
+        issues.append(f"title_style:{len(title_style_issues)}")
+    font_issues = _font_scope_issues(
+        doc, title, text_styles,
+        title_style=getattr(spec, "title_style", None) if spec is not None else None,
+    )
     missing_topics = _missing_topics(doc, required_topics)
     if font_issues:
         issues.append(f"font_mismatch:{len(font_issues)}")
@@ -657,9 +740,11 @@ def validate_new_doc(doc, title: str = "", max_chars: Optional[int] = None,
         "duplicate_headings": duplicate_headings,
         "similar_paragraphs": similar_paragraphs,
         "repeated_clauses": repeated_clauses,
+        "title_style_issues": title_style_issues,
         "font_issues": font_issues,
         "missing_topics": missing_topics,
         "counting_rule": counting_rule,
+        "count_include_title": include_title,
     }
 
 
@@ -671,25 +756,114 @@ def _new_document():
     return doc
 
 
-def insert_title(doc, title: str) -> None:
-    """在文档开头插入且只插入一次总标题。"""
+TITLE_ALIGNMENT_MAP = {
+    "center": WD_ALIGN_PARAGRAPH.CENTER,
+    "left": WD_ALIGN_PARAGRAPH.LEFT,
+    "right": WD_ALIGN_PARAGRAPH.RIGHT,
+    "justify": WD_ALIGN_PARAGRAPH.JUSTIFY,
+}
+
+
+def _title_text_style(spec: Optional[NewDocSpec]):
+    """取总标题的字体与颜色：title_style 优先，其次 headings 作用域，再次 all。"""
+    font_name, font_color = "宋体", "000000"
+    for style in merge_text_styles(spec.text_styles if spec is not None else []):
+        if style.scope not in ("all", "headings"):
+            continue
+        if style.font_name:
+            font_name = style.font_name
+        if style.font_color:
+            font_color = style.font_color
+    title_style = getattr(spec, "title_style", None) if spec is not None else None
+    if title_style is not None:
+        font_name = title_style.font_name or font_name
+        font_color = title_style.font_color or font_color
+    return font_name, font_color
+
+
+def title_format_issues(doc, title: str, title_style=None) -> List[str]:
+    """对外入口：按用户要求核对总标题版式，供 Skill 路径复用同一套判定。"""
+    return _title_style_issues(doc, title, title_style)
+
+
+def resolve_title_format(spec: Optional[NewDocSpec],
+                         base_heading_size: Optional[float] = None) -> dict:
+    """把用户要求与默认值合成一套总标题版式。
+
+    优先级：用户显式要求 > 默认值。默认字号 22 磅；若文档一级标题更大，
+    自动抬到“一级标题 + 2 磅”，保证标题层级不倒挂。
+    """
+    style = getattr(spec, "title_style", None) if spec is not None else None
+    default_size = TITLE_FONT_SIZE
+    if base_heading_size and float(base_heading_size) + 2 > default_size:
+        default_size = float(base_heading_size) + 2
+    font_name, font_color = _title_text_style(spec)
+    return {
+        "font_name": font_name,
+        "font_color": font_color,
+        "font_size": style.font_size if style and style.font_size else default_size,
+        "bold": style.bold if style and style.bold is not None else True,
+        "alignment": style.alignment if style and style.alignment else "center",
+        "space_before": (
+            style.space_before if style and style.space_before is not None else 0.0
+        ),
+        "space_after": (
+            style.space_after if style and style.space_after is not None else TITLE_SPACE_AFTER
+        ),
+    }
+
+
+def _style_title_paragraph(paragraph, title_format: dict) -> None:
+    """按解析出的版式写总标题；只改这一段，不影响章节标题。"""
+    paragraph.alignment = TITLE_ALIGNMENT_MAP.get(
+        str(title_format.get("alignment") or "center"), WD_ALIGN_PARAGRAPH.CENTER
+    )
+    paragraph.paragraph_format.space_before = Pt(float(title_format.get("space_before") or 0))
+    paragraph.paragraph_format.space_after = Pt(float(title_format.get("space_after") or 0))
+    paragraph.paragraph_format.first_line_indent = Pt(0)
+    paragraph.paragraph_format.keep_with_next = True
+    font_name = str(title_format.get("font_name") or "宋体")
+    for run in paragraph.runs:
+        run.font.name = font_name
+        run.font.size = Pt(float(title_format.get("font_size") or TITLE_FONT_SIZE))
+        run.font.bold = bool(title_format.get("bold", True))
+        try:
+            run.font.color.rgb = RGBColor.from_string(str(title_format.get("font_color") or "000000"))
+        except (ValueError, TypeError):
+            run.font.color.rgb = RGBColor(0, 0, 0)
+        r_pr = run._element.get_or_add_rPr()
+        r_fonts = r_pr.rFonts
+        if r_fonts is None:
+            r_fonts = OxmlElement("w:rFonts")
+            r_pr.append(r_fonts)
+        r_fonts.set(qn("w:eastAsia"), font_name)
+
+
+def insert_title(doc, title: str, spec: Optional[NewDocSpec] = None,
+                 base_heading_size: Optional[float] = None):
+    """在文档开头插入且只插入一次总标题，并按文档标题层级排版。
+
+    版式来自用户显式要求（spec.title_style），未要求时用默认值；首个段落已经是
+    同一标题时（模板自带标题、重复调用）只补版式，不再新增段落，保证“唯一总标题”
+    与“标题在最前”两个约束同时成立。
+    """
     if not title:
-        return
+        return None
+    title_format = resolve_title_format(spec, base_heading_size)
+    paragraphs = doc.paragraphs
+    if paragraphs and _normalize(paragraphs[0].text) == _normalize(title):
+        _style_title_paragraph(paragraphs[0], title_format)
+        return paragraphs[0]
+
     paragraph = doc.add_paragraph()
-    run = paragraph.add_run(title)
-    run.font.name = "宋体"
-    r_pr = run._element.get_or_add_rPr()
-    r_fonts = r_pr.rFonts
-    if r_fonts is None:
-        r_fonts = OxmlElement("w:rFonts")
-        r_pr.append(r_fonts)
-    r_fonts.set(qn("w:eastAsia"), "宋体")
-    run.font.color.rgb = RGBColor(0, 0, 0)
+    paragraph.add_run(title)
+    _style_title_paragraph(paragraph, title_format)
 
     # 无论文档首个元素是段落还是表格，都把总标题移动到 body 的最前面。
     body = doc.element.body
     body.remove(paragraph._p)
     body.insert(0, paragraph._p)
+    return paragraph
 
 
 def remove_duplicate_titles(doc, title: str) -> None:
@@ -932,12 +1106,13 @@ def _repair_new_doc(llm, dialog: str, retrieved_info: str, title: str,
     else:
         items = res.items
     skipped = _append_items(doc, items, policy)
-    insert_title(doc, title)
+    insert_title(doc, title, spec)
     if field_plan is not None:
         strip_redundant_section_labels(doc, field_plan, policy)
     remove_duplicate_titles(doc, title)
     if text_styles:
-        apply_text_styles(doc, text_styles, title)
+        apply_text_styles(doc, text_styles, title,
+                          title_style=getattr(spec, "title_style", None))
     validation = validate_new_doc(
         doc, title, max_chars, no_table, check_duplicates=check_duplicates, spec=spec
     )
@@ -1159,7 +1334,8 @@ def _repaired_doc_issues(doc, document_plan, sections, source_counts, protected_
 def _build_field_plan_fallback(plan: DocumentPlan, title: str,
                                max_chars: Optional[int] = None,
                                counting_rule: str = "non_whitespace",
-                               policy: Optional[PresentationPolicy] = None):
+                               policy: Optional[PresentationPolicy] = None,
+                               include_title: bool = False):
     """修复仍不合格时的预算化兜底：章节标题 + 必写事实。"""
     def build(include_labels: bool):
         doc = _new_document()
@@ -1189,7 +1365,9 @@ def _build_field_plan_fallback(plan: DocumentPlan, title: str,
     if policy is not None:
         labels_allowed = policy.body_label_mode() != "none"
     doc = build(labels_allowed)
-    if max_chars is not None and count_body_chars(doc, title, counting_rule) > max_chars:
+    if max_chars is not None and count_body_chars(
+        doc, title, counting_rule, include_title=include_title
+    ) > max_chars:
         doc = build(False)
     return doc
 
@@ -1407,20 +1585,22 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                 return {**state, "state": "error", "error": message}
 
         doc = _new_document()
-        insert_title(doc, title)
+        insert_title(doc, title, spec)
 
         unit = _count_unit(spec.counting_rule)
+        scope_text = "全文（含总标题）" if spec.count_include_title else "正文（不含总标题）"
         total_sections = len(sections)
         invalid_items = 0
         written_fact_keys = set()
         for index, section in enumerate(sections, start=1):
             print(f"编写{section}章节（{index}/{total_sections}）")
             remaining = (
-                max_chars - count_body_chars(doc, title, spec.counting_rule)
+                max_chars - count_body_chars(doc, title, spec.counting_rule,
+                                             include_title=spec.count_include_title)
                 if max_chars is not None else None
             )
             budget_rule = (
-                f"全文正文（不含总标题）最多 {max_chars} {unit}，当前剩余约 {max(remaining, 0)} 个。"
+                f"{scope_text}最多 {max_chars} {unit}，当前剩余约 {max(remaining, 0)} 个。"
                 if max_chars is not None else ""
             )
             table_rule = "本次禁止输出表格，所有信息用段落表达。" if no_table else ""
@@ -1473,14 +1653,16 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
             invalid_items += _append_items(doc, items, policy)
             if document_plan is not None:
                 written_fact_keys = matching_fact_keys(document_plan, _document_text(doc))
-            print(f"【结构】本章节后正文{unit}={count_body_chars(doc, title, spec.counting_rule)}")
+            print(f"【结构】本章节后正文{unit}="
+                  f"{count_body_chars(doc, title, spec.counting_rule, include_title=spec.count_include_title)}")
 
         prefix_fixed = strip_redundant_section_labels(doc, document_plan, policy)
         if prefix_fixed:
             print(f"【格式】去除正文重复章节/字段前缀={prefix_fixed}")
         remove_duplicate_titles(doc, title)
         if spec.text_styles:
-            changed = apply_text_styles(doc, spec.text_styles, title)
+            changed = apply_text_styles(doc, spec.text_styles, title,
+                                        title_style=spec.title_style)
             print(f"【格式】按作用域应用字体/颜色，修改Run数={changed}")
         validation = validate_new_doc(
             doc, title, max_chars, no_table, check_duplicates=check_duplicates, spec=spec
@@ -1504,7 +1686,7 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
 
         # 标题缺失/不在开头：先做确定性修复
         if title and (validation["title_count"] == 0 or not validation["first_is_title"]):
-            insert_title(doc, title)
+            insert_title(doc, title, spec)
             remove_duplicate_titles(doc, title)
             validation = validate_new_doc(
                 doc, title, max_chars, no_table, check_duplicates=check_duplicates,
@@ -1580,7 +1762,10 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
             ):
                 extra_parts = []
                 if any(issue.startswith("body_too_long:") for issue in repair_issues):
-                    current_count = count_body_chars(repaired, title, spec.counting_rule)
+                    current_count = count_body_chars(
+                        repaired, title, spec.counting_rule,
+                        include_title=spec.count_include_title,
+                    )
                     over = max(current_count - max_chars, 1) if max_chars is not None else 1
                     print(f"【结构修复】修复后仍超长：{current_count}>{max_chars}，再压缩一次")
                     extra_parts.append(
@@ -1633,10 +1818,12 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                 fallback = None
                 if document_plan is not None:
                     fallback = _build_field_plan_fallback(
-                        document_plan, title, max_chars, spec.counting_rule, policy
+                        document_plan, title, max_chars, spec.counting_rule, policy,
+                        include_title=spec.count_include_title,
                     )
                     if spec.text_styles:
-                        apply_text_styles(fallback, spec.text_styles, title)
+                        apply_text_styles(fallback, spec.text_styles, title,
+                                          title_style=spec.title_style)
                     fallback_validation = validate_new_doc(
                         fallback, title, max_chars, no_table,
                         check_duplicates=check_duplicates, spec=spec,

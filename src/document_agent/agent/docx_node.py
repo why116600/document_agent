@@ -11,8 +11,10 @@ from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
 
 from llm_client import llm_invoke, llm_model_invoke, extract_json_from_text
-from agent_core import AgentState
+from agent_core import AgentState, get_last_user_text
 from retrieved_context import build_retrieved_info, enforce_full_document_names
+from new_doc_spec import spec_from_state
+from new_doc_constraints import count_body_chars, insert_title, title_format_issues
 from retrieval_material import (
     FIDELITY_RULES,
     collect_writing_material,
@@ -245,26 +247,77 @@ def _legacy_docx_node(state: AgentState, llm, knowledge_mode: str) -> AgentState
     return {**state, "state": "succeeded", "save_path": str(save_path)}
 
 
-def _constrained_new_doc_enabled() -> bool:
-    """DEF-004 结构化约束链默认关闭。
+def _constraint_mode() -> str:
+    """文档级硬约束的入口模式：auto（默认，有显式约束就启用）/ on / off。
 
-    源侧最新自然五例仅 3/5，约束、事实计划与渲染职责尚未收口；保持 off 时
-    新建流程与 develop/Skill 基线逐项一致，启用后再按五例回归结果评估。
+    与 ``DOCUMENT_PLAN_MODE`` 的分工：后者只控制字段计划、修复器、独立审校这些
+    “生成式增强”，默认 off；本开关控制“总标题/字数/表格”这类可机械校验的硬约束。
+    旧变量 ``DOCUMENT_PLAN_MODE`` 仍可整体强制 on/off，作为应急回退。
     """
-    return (os.environ.get("DOCUMENT_PLAN_MODE") or "off").strip().lower() != "off"
+    for name in ("DOCUMENT_CONSTRAINT_MODE", "DOCUMENT_PLAN_MODE"):
+        value = (os.environ.get(name) or "").strip().lower()
+        if value in ("on", "shadow", "force", "1", "true", "yes"):
+            return "on"
+        if value in ("off", "legacy", "0", "false", "no"):
+            return "off"
+    return "auto"
+
+
+def _hard_constraints_required(state: AgentState) -> bool:
+    """用户是否提出了可机械校验的文档级约束（总标题 / 字数上限 / 禁用表格）。
+
+    判定只看用户原话与意图模型给出的 spec，不做语义猜测；没有显式约束时
+    仍走原有流程，避免把无约束任务也拖进约束链。
+    """
+    mode = _constraint_mode()
+    if mode == "off":
+        return False
+    if mode == "on":
+        return True
+    spec = spec_from_state(state, get_last_user_text(state.get("messages")))
+    return bool(
+        spec.title or spec.max_body_chars is not None or spec.table_policy == "forbid"
+    )
+
+
+def _skill_structure_issues(doc, spec) -> List[str]:
+    """Skill 路径的全篇硬约束复核：只检查用户显式提出的要求。"""
+    issues: List[str] = []
+    if spec.max_body_chars is not None:
+        chars = count_body_chars(
+            doc, spec.title or "", spec.counting_rule,
+            include_title=spec.count_include_title,
+        )
+        if chars > spec.max_body_chars:
+            scope = "全文（含总标题）" if spec.count_include_title else "正文（不含总标题）"
+            issues.append(f"{scope}{chars}字符，超过用户上限{spec.max_body_chars}")
+    if spec.table_policy == "forbid" and doc.tables:
+        issues.append(f"用户要求不用表格，实际有{len(doc.tables)}张表")
+    if spec.title:
+        normalized = normalize_heading(spec.title)
+        titles = [p for p in doc.paragraphs if normalize_heading(p.text) == normalized]
+        if len(titles) != 1:
+            issues.append(f"总标题应出现且只出现一次，实际{len(titles)}次")
+        elif doc.paragraphs and normalize_heading(doc.paragraphs[0].text) != normalized:
+            issues.append("总标题不在文档开头")
+        style_issues = title_format_issues(doc, spec.title, spec.title_style)
+        if style_issues:
+            issues.append(f"总标题版式未达到要求（{'；'.join(style_issues)}）")
+    return issues
 
 
 def create_new_docx_node(llm, knowledge_mode: str = "local"):
     """按 Skill 或模型规划逐章生成；未启用 Skill 时走 develop 版原始流程。"""
     def docx_node(state: AgentState) -> AgentState:
         skill = coerce_skill(state.get("skill"))
-        # 可选 DEF-004 约束链：默认关闭；启用时仅无 Skill 路径接入，Skill 双路径保持原样。
-        if skill is None and _constrained_new_doc_enabled():
+        # 有显式文档级约束时走约束链（auto 模式）；Skill 路径在下方单独补标题与复核。
+        if skill is None and _hard_constraints_required(state):
             from new_doc_constraints import create_new_docx_node as create_constrained_docx_node
             return create_constrained_docx_node(llm, knowledge_mode=knowledge_mode)(state)
         if skill is None:
             return _legacy_docx_node(state, llm, knowledge_mode)
         messages = state["messages"]
+        spec = spec_from_state(state, get_last_user_text(messages))
         retrieved_info = build_retrieved_info(state.get("retrieved_content") or [], mode=knowledge_mode)
         skill_blocks = "\n\n".join(block for block in (
             render_full_brief(skill), render_retrieval_gaps(state.get("retrieval_report"))
@@ -290,6 +343,11 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):
         outline = "\n".join(section["title"] for section in sections)
         doc = _base_document(skill)
         _apply_base_format(doc, skill)
+        # 用户明确指定总标题时由系统写入，避免 Skill 只给章节、整篇没有标题
+        if spec.title:
+            heading1 = skill.structure.format.heading_sizes.get(1)
+            insert_title(doc, spec.title, spec, base_heading_size=heading1)
+            print(f"【结构】写入总标题：{spec.title}")
         source_evidence = render_source_evidence(state.get('evidence_records') or [])
         generation_report = []
         for index, section in enumerate(sections, 1):
@@ -303,7 +361,10 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):
                 "仅生成当前章节，不要重复生成其他章节；标题必须原样出现。\n"
                 "标题段落设置 heading_level 为指定大纲级别，正文不设置。正文默认不加粗，标题加粗。\n"
                 "优先遵循用户及 Skill 格式要求；未指定时按文档用途设计一致的字体字号。\n"
-                f"用户输入：{messages}\n整个文档的大纲：\n{outline}\n"
+                + ("总标题已由系统写入，正文中不要再输出总标题。\n" if spec.title else "")
+                + ("用户要求不用表格，本章不得输出表格，所有信息用段落表达。\n"
+                   if spec.table_policy == "forbid" else "")
+                + f"用户输入：{messages}\n整个文档的大纲：\n{outline}\n"
                 f"当前要编写的章节：\n{_section_requirement(section)}\n"
                 f"本章最多字符数（含标题、引用、表格，去空白）：{budget if budget is not None else '未设上限'}；为后续章节合理分配篇幅。\n"
                 f"{retrieved_info}\n{skill_blocks}"
@@ -352,7 +413,18 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):
         format_report_tables(doc, skill)
         if skill and skill.task.length_target.max_chars is not None and document_length(doc) > skill.task.length_target.max_chars:
             return {**state, 'state': 'error', 'error': '最终全文字符数超过上限，未保存文档', 'generation_report': generation_report}
+        # 用户显式提出的文档级硬约束：Skill 自身的长度检查之外再复核一次
+        structure_issues = _skill_structure_issues(doc, spec)
+        if structure_issues:
+            print("【结构校验】" + "；".join(structure_issues))
+            if (os.environ.get("NEW_DOC_GATE_MODE") or "report").strip().lower() == "block":
+                return {**state, 'state': 'error',
+                        'error': "未保存文档：不符合用户文档级约束（" + "；".join(structure_issues) + "）",
+                        'unmet_requirements': structure_issues,
+                        'generation_report': generation_report}
         save_path = save_document(doc, resolve_save_path(state.get("save_path")))
         print("保存到：", str(save_path))
-        return {**state, "state": "succeeded", "save_path": str(save_path), 'generation_report': generation_report}
+        unmet = list(state.get("unmet_requirements") or []) + structure_issues
+        return {**state, "state": "succeeded", "save_path": str(save_path),
+                'generation_report': generation_report, 'unmet_requirements': unmet}
     return docx_node

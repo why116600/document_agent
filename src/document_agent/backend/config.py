@@ -162,6 +162,15 @@ def _as_port(value: Any) -> Optional[int]:
     return port if 0 < port < 65536 else None
 
 
+def admin_settings() -> Dict[str, Any]:
+    """Skills 管理入口配置；默认启用，但只接受本机访问。"""
+    settings = load_settings()
+    raw = settings.get("admin")
+    if not isinstance(raw, dict):
+        raw = {}
+    return {"enabled": _as_bool(raw.get("enabled"), True)}
+
+
 def set_port_override(port: Optional[int]) -> None:
     """记录命令行传入的端口（若合法），供应用启动时使用。"""
     global _port_override

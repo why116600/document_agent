@@ -232,7 +232,7 @@ export MODEL_API_KEY="你的密钥"
   `--host` / `--port` 临时覆盖监听地址与端口，`--show-config` / `--print-endpoint` 用于查看最终监听配置。
 
 ## 工作流
-创建或修改可复用规范时：`intent` → `manage_skill`（生成配置或局部补丁、校验并保存）→ 结束。
+
 文档写作时：
 
 `intent`（参数校验、任务识别与规范选择）→ `skill`（按选定规范准备检索，未匹配时放行）→ `summary`（参考文件摘要）
@@ -241,6 +241,8 @@ export MODEL_API_KEY="你的密钥"
 - `rewrite_docx`：解析原文档结构，由模型给出"逐元素修改方案"并改写文档结构（保留未改动部分的原始格式、表格与页面设置），默认另存为新文件
 → `verify`（按 Skill 验收，未配置 Skill 时直接放行）
 
+创建/修改/删除/发布 Skill 不再进入写作图；主入口会拦截管理诉求并提示使用 `/admin` 或管理 CLI。
+
 使用以下命令将文档录入知识库中（需先启动本地 Memgraph 图数据库，连接配置见 `src/setting.json`）：
 ```bash
 python -m document_agent.knowledge_base_record <file1> <file2> ...
@@ -248,56 +250,14 @@ python -m document_agent.knowledge_base_record <file1> <file2> ...
 
 ## 文档 Skill
 
-用户可以手工编写 Skill，也可以用自然语言描述要求，由模型生成一类文档的写作规范、检索问题、来源限制及验收配置。
-保存规则后，系统在写作任务中从用户自然语言选择适用的已启用规范，用户不必指定 `--skill`。
-普通控制台与 Web 对话均支持直接创建和修改规范，例如：
+Skill 是一类文档的声明式写作规范：结构、检索、证据与验收配置。系统把 Skill 分成两个入口：
 
-- “创建项目周报规范：包含进展、风险和下周计划，仅检索用户附件，关键结论注明来源。id 为 project_weekly。”
-- “修改 project_weekly 规范，将行文风格改为简洁，其他要求保持不变。”
+- **主入口（写作）**：只读已发布 Skill，负责自动匹配、加载、执行与验收；不提供创建/修改/删除/发布。
+- **管理入口（管理）**：结构化 CRUD、启停、校验、发布、回滚、附件与审计；支持自然语言创建/修改，但仅本机可用。
 
-创建和修改需要模型；保存前校验配置，创建时不覆盖已有规则，修改时保留未涉及的字段、参考附件和模板，
-版本号递增，原文件备份到规则目录的 `.history/`。规范保存在共享规则目录，后续会话可使用；未明确修改对象时要求补充名称或 id。
+### 主入口：用 Skill 写作
 
-结构化约束字段表示必须满足的要求；模型按经验补充的篇幅、指标等放在 `recommendations` 字符串数组中，
-作为该项未明确指定时的推荐默认值；用户有明确要求时以明确要求为准，未达到推荐值不影响验收。
-只有用户明确要求时才将推荐值升为硬性约束；修改时保留未涉及的要求和推荐默认值。
-旧 Skill 保持原有约束，不自动降级。术语写法由语义评估核对，不要求所有术语都出现在正文中。
-
-### 配置与管理
-
-规则目录由 `DOCUMENT_SKILLS_DIR` 指定；未设置时依次查找当前目录的 `skills/`、
-`src/skills/` 和源码旁的 `src/skills/`。具体规则由用户创建，不随核心代码预置。
-
-每个规则包包含 `skill.yaml`（结构、检索和验收配置）与 `SKILL.md`（写作指令），
-可选添加 `references/` 参考规范和 `assets/template.docx` 文档模板；也支持单文件 JSON/YAML 配置。
-
-管理规范有三个入口：控制台自然语言、Web 自然语言、命令行。命令行入口是独立模块
-`document_agent.skill_cli`（`console_app.py` 保持 develop 原版，不带参数解析），也可直接用
-`document_agent.skills.commands`。在 `src` 目录执行：
-
-```bash
-python -m document_agent.skill_cli skill new my_standard --name 文档规范
-# 编辑生成的 skill.yaml 和 SKILL.md，定义适用场景、章节、检索问题与来源
-python -m document_agent.skill_cli skill validate my_standard
-python -m document_agent.skill_cli skill list
-
-# 或用自然语言生成规则包（需要模型配置），生成后可继续编辑和校验
-python -m document_agent.skill_cli skill draft "定义项目周报规范：包含进展、风险、下周计划；仅检索用户附件中的进度、问题和负责人，关键结论注明来源" --id project_weekly
-python -m document_agent.skill_cli skill validate project_weekly
-
-# 等价的独立管理入口
-python -m document_agent.skills.commands list
-```
-
-其他管理操作可通过 `python -m document_agent.skill_cli skill --help` 查看。
-`new` 创建可编辑的规则模板，`show/list/validate` 查看、列举和校验规则，均无需连接模型或数据库；
-`draft` 及普通对话中的自然语言创建、修改需要模型。
-控制台（`python -m document_agent.console_app`）与 Web 对话里直接说「创建一份……规范」「修改 project_weekly 规范」，
-由 `intent` 识别为 `skill_create` / `skill_update` 后进入 `manage_skill` 节点保存。
-
-### 使用方式
-
-使用规范写文档同样有三个入口：
+使用规范写文档有三个入口：
 
 | 入口 | 用法 |
 | --- | --- |
@@ -305,8 +265,8 @@ python -m document_agent.skills.commands list
 | Web 自然语言 | 在会话中发送需求，同样自动匹配 |
 | 命令行 | `python -m document_agent.skill_cli --skill <id/名称/目录/配置文件> --request "需求" [文件...]`，支持显式指定、非交互、临时配置文件 |
 
-系统结合文档类型、规范用途、名称和触发词匹配；明确要求不使用规范时不启用，没有适用项时按普通流程执行，
-多个候选无法区分时默认不启用规范并说明原因；只有明确要求"必须使用规范"却找不到唯一一本时才会报错。
+主入口只匹配 **enabled + published** 的 Skill。草稿编辑不会影响生产；发布后才生效。
+没有 `.state` 的旧 Skill 视为已发布，行为与改造前一致。
 
 ```bash
 # 控制台 / Web：自然语言自动匹配
@@ -319,15 +279,84 @@ python -m document_agent.skill_cli --skill D:/tmp/临时规范.yaml --request-fi
 python -m document_agent.skill_cli --list-skills
 ```
 
-命令行入口的 `--skill` 可直接传目录或配置文件路径，用未安装到规则目录的临时规范；自然语言入口只能匹配已安装的规范。
+命令行入口的 `--skill` 可直接传目录或配置文件路径，用未安装到规则目录的临时规范；自然语言入口只能匹配已安装且已发布的规范。
+
+### 管理入口：管理 Skill
+
+管理入口有两种等价用法：
+
+- HTTP：`/admin/api/*`，仅接受本机来源；支持结构化 JSON 与自然语言创建/修改。
+- CLI：`python -m document_agent.skill_cli skill ...`，或 `python -m document_agent.skills.admin ...`。
+
+常用命令：
+
+```bash
+python -m document_agent.skill_cli skill list
+python -m document_agent.skill_cli skill new my_standard --name 文档规范
+python -m document_agent.skill_cli skill show my_standard
+python -m document_agent.skill_cli skill validate my_standard
+python -m document_agent.skill_cli skill update my_standard --patch '{"name":"新名称"}'
+python -m document_agent.skill_cli skill draft "创建项目周报规范，包含进展、风险和下周计划" --id project_weekly
+python -m document_agent.skill_cli skill draft "把行文风格改简洁，保留章节和检索要求" --id project_weekly --update
+python -m document_agent.skill_cli skill publish project_weekly
+python -m document_agent.skill_cli skill versions project_weekly
+python -m document_agent.skill_cli skill rollback project_weekly 1
+python -m document_agent.skill_cli skill disable project_weekly
+python -m document_agent.skill_cli skill enable project_weekly
+python -m document_agent.skill_cli skill delete project_weekly
+python -m document_agent.skill_cli skill audit
+```
+
+- `new` 创建 Skill 并立即发布，保持旧行为；管理 API 创建默认是草稿，需要显式发布。
+- `draft` 用自然语言创建；加 `--update` 用自然语言修改已有 Skill；生成后仍是草稿，发布后生效。
+- `update` 接受结构化 JSON 补丁；`draft` 接受自然语言，两者都只在管理入口可用。
+- `delete` 默认软删除到 `.trash/`；彻底删除需要 `--purge --confirm <id>`。
+
+HTTP 示例：
+
+```bash
+curl http://127.0.0.1:8000/admin/api/skills
+curl -X POST http://127.0.0.1:8000/admin/api/skills \
+  -H "Content-Type: application/json" \
+  -d '{"config": {"id": "my_standard", "name": "文档规范"}, "publish": true}'
+
+# 自然语言创建草稿
+curl -X POST http://127.0.0.1:8000/admin/api/skills/draft \
+  -H "Content-Type: application/json" \
+  -d '{"description": "创建项目周报规范，包含进展、风险和下周计划", "id": "project_weekly"}'
+
+# 自然语言修改草稿
+curl -X POST http://127.0.0.1:8000/admin/api/skills/project_weekly/draft \
+  -H "Content-Type: application/json" \
+  -d '{"description": "把行文风格改简洁，保留章节和检索要求", "version": 3}'
+```
+
+管理入口只接受 `127.0.0.1`/`::1`；跨入口访问统一返回 403。管理写操作会记录到 `.audit/`。
+
+### 发布态与数据布局
+
+```
+<skills_dir>/
+├── <id>/                      # 活动目录（当前可编辑版本）
+├── <id>.json|yaml             # 单文件配置
+├── .state/<id>.json           # 发布态：draft / published
+├── .releases/<id>/v<n>/       # 发布快照，运行时只读这里
+├── .history/<id>_<ts>_<rand>/ # 修改前备份
+├── .audit/audit-YYYYMM.jsonl  # 管理操作审计
+└── .trash/<id>_<ts>/          # 软删除
+```
+
+- 修改 Skill 会递增版本号，并把改动前的文件备份到 `.history/`（每本保留最近 20 份）。
+- 发布时把活动目录复制为 `.releases/<id>/v<n>/`，主入口只读该快照。
+- 没有 `.state` 的旧 Skill 视为已发布；没有 `.releases` 时运行时回退到活动目录。
+- 删除默认移到 `.trash/`；`--purge` 才彻底删除，并清理发布态与快照。
 
 ### 执行与边界
 
-- `intent` 分析任务并确定规范，`skill` 校验来源能力和检索计划，`verify` 在保存后输出验收结果。
-- 意图模型区分四类任务：`new`（新写文档）、`rewrite`（改写已有文档）、`skill_create`（建立规范）、`skill_update`（修改规范）。
-  "按规范写报告"属于 `new`，"按规范修改这份文档"属于 `rewrite`，都不会改动规范本身。
-- 修改规范时需给出规范的 id 或完整名称（`skill_target`），定位不唯一或找不到时会要求补充说明；
-  命令行的 `--skill` 也可用于显式指定本次任务要使用的规范。
+- `intent` 只区分 `new`（新写文档）和 `rewrite`（改写已有文档），并根据可用 Skill 选择规范。
+- 创建、修改、删除、发布 Skill 属于管理诉求：主入口会确定性拦截并返回
+  `MAIN_ENTRY_MANAGEMENT_FORBIDDEN`，不生成文档、不写 Skill 文件。
+- `skill` 节点校验来源能力与检索计划，`verify` 在保存后输出验收结果。
 - `skill_cli` 中仅允许文件来源的 Skill 会跳过知识库初始化；知识库任务仍使用已有本地或远程配置。
   `console_app` 保持 develop 原版行为，始终按 `setting.json` 初始化知识库。
 - 章节、来源白名单、检索次数及篇幅由程序约束；业务事实与计算仍需模型审核或人工核对，引用存在不等于事实正确。
@@ -359,8 +388,9 @@ python -m document_agent.skill_cli --list-skills
 ### 备份、恢复与版本兼容
 
 - 每次修改规范会递增版本号，并把改动前的 `skill.yaml`、`SKILL.md` 整份备份到规则目录的
-  `.history/<id>_<时间戳>_<随机串>/`。需要回退时，把该目录里的文件复制回规则包即可。
-  每本规范只保留最近 20 份备份。
+  `.history/<id>_<时间戳>_<随机串>/`。每本规范只保留最近 20 份备份。
+- 发布快照保存在 `.releases/<id>/v<n>/`；`rollback` 会先把当前活动目录备份到 `.history/`，
+  再用快照覆盖活动目录，并更新 `.state` 的 `published_version`。
 - `SKILL.md` 开头的 frontmatter 中除 `id/name/version/description/enabled` 外的自定义键会原样保留。
 - 空的 `recommendations` 不会写进配置文件，因此普通规则包可被旧版本程序读取；
   **若填写了 `recommendations`，旧版本不认识该字段会拒绝加载**，混合部署时需统一版本。

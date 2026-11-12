@@ -21,6 +21,7 @@ from llm_client import llm_model_invoke
 from document_agent.skills.render import citation_name_pattern, citation_pattern
 from document_agent.skills.schema import DocumentSkill, coerce_skill
 from document_agent.skills.content_checks import normalize_heading, placeholder_hits, unsupported_assertions
+from document_agent.skills.evidence import ensure_evidence_ids, numbers_in
 
 PLACEHOLDER_PATTERN = re.compile(
     r"(待补充|待完善|待填写|待确认|此处省略|后续补充|TODO|TBD|XXX)", re.IGNORECASE
@@ -253,17 +254,14 @@ def _check_must_include(blocks, skill: DocumentSkill) -> Dict[str, Any]:
     }
 
 
-def _check_required_data(blocks, skill: DocumentSkill, fields=None) -> Dict[str, Any]:
-    fields = skill.research.data_fields if fields is None else fields
-    if not fields:
-        return {"name": "required_data", "passed": True, "detail": "未配置必须收集的数据字段"}
-    # 仅有字段名或缺失说明不算取得数据；表格按行及表头/值配对检查。
+def _missing_fields(blocks, skill: DocumentSkill, fields) -> List[str]:
+    """仅有字段名或缺失说明不算取得数据；表格按行及表头/值配对检查。"""
     candidates = []
+    pattern = citation_pattern(skill)
     for block in blocks:
         if block.get("level"):
             continue
         for text in block.get("data_texts", [block["text"]]):
-            pattern = citation_pattern(skill)
             text = pattern.sub("", text) if pattern else text
             candidates.extend(re.split(r"[。！？\n；;，,]", text))
     missing = []
@@ -284,11 +282,41 @@ def _check_required_data(blocks, skill: DocumentSkill, fields=None) -> Dict[str,
             break
         if not found:
             missing.append(field)
+    return missing
+
+
+def _check_required_data(blocks, skill: DocumentSkill, fields=None) -> Dict[str, Any]:
+    """全局字段按全文检查；章节声明的 data_fields 只在该章正文内检查。"""
+    fields = skill.research.data_fields if fields is None else fields
+    scoped = [
+        (section, list(section.data_fields))
+        for section in skill.structure.sections if section.data_fields
+    ]
+    if not fields and not scoped:
+        return {"name": "required_data", "passed": True, "detail": "未配置必须收集的数据字段"}
+
+    problems: List[str] = []
+    missing = _missing_fields(blocks, skill, fields) if fields else []
+    if missing:
+        problems.append("全文缺少有效数据内容：" + "、".join(missing))
+    section_missing: List[str] = []
+    for section, section_fields in scoped:
+        index = _match_heading(blocks, section.title)
+        if index is None:
+            continue
+        start, end = _section_range(blocks, index)
+        absent = _missing_fields(blocks[start:end + 1], skill, section_fields)
+        if absent:
+            section_missing.append(f"{section.title}：{'、'.join(absent)}")
+    if section_missing:
+        problems.append("章节数据字段未满足：" + "；".join(section_missing))
     return {
         "name": "required_data",
-        "passed": not missing,
+        "passed": not problems,
         "missing_fields": missing,
-        "detail": "必需字段均有内容（数值准确性仍需语义或人工核对）" if not missing else "正文缺少有效数据内容：" + "、".join(missing),
+        "section_missing": section_missing,
+        "detail": ("必需字段均有内容（数值准确性仍需语义或人工核对）" if not problems
+                   else "；".join(problems)),
     }
 
 
@@ -380,6 +408,111 @@ def _check_citation_sources(blocks, skill: DocumentSkill, known_sources: Optiona
     }
 
 
+def _check_citation_numbers(blocks, skill: DocumentSkill, records) -> Dict[str, Any]:
+    """L2 确定性核对：引用段落中的数值必须能在对应来源的检索证据中找到。"""
+    pattern = citation_name_pattern(skill)
+    if pattern is None:
+        return {"name": "citation_numbers", "passed": True, "skipped": True,
+                "detail": "未配置引用模板，跳过数值核对"}
+
+    pools = []
+    for record in records or []:
+        sources = [str(item) for item in (record.get("sources") or []) if str(item).strip()]
+        if record.get("source"):
+            sources.append(str(record["source"]))
+        if not sources:
+            continue
+        text = " ".join(str(record.get(field) or "") for field in ("content", "snippet", "source_excerpt"))
+        pools.append((_known_source_tokens(sources), set(numbers_in(text))))
+    if not pools:
+        return {"name": "citation_numbers", "passed": True, "skipped": True,
+                "detail": "没有可核对的检索证据"}
+
+    problems: List[str] = []
+    for item in blocks:
+        if item.get("level"):
+            continue
+        text = item["text"]
+        names = [match.group(1).strip() for match in pattern.finditer(text)]
+        if not names:
+            continue
+        clean = pattern.sub("", text)
+        numbers = [
+            number for number in numbers_in(clean)
+            if "%" in number or "." in number or len(number) >= 2
+        ]
+        if not numbers:
+            continue
+        pool = set()
+        for tokens, values in pools:
+            if any(_source_matches(name, tokens, False) for name in names):
+                pool.update(values)
+        if not pool:
+            continue
+        absent = [number for number in numbers if number not in pool]
+        if absent:
+            problems.append(f"「{clean.strip()[:20]}」中的 {'、'.join(absent[:3])} 未在来源原文中找到")
+    return {
+        "name": "citation_numbers",
+        "passed": not problems,
+        "detail": ("引用段落数值均可在来源中找到" if not problems
+                   else "；".join(problems[:3])),
+    }
+
+
+def _check_format(doc, skill: DocumentSkill) -> Dict[str, Any]:
+    """导出后复核字体字号；模板版式优先，配置不覆盖模板时跳过。"""
+    fmt = skill.structure.format
+    configured = any([
+        fmt.body_font, fmt.body_size, fmt.heading_font, fmt.heading_sizes,
+        fmt.heading_bold is not None, fmt.line_spacing, fmt.first_line_indent,
+    ])
+    if not configured:
+        return {"name": "format", "passed": True, "skipped": True, "detail": "未配置格式要求，跳过格式复核"}
+    if skill.template_path:
+        return {"name": "format", "passed": True, "skipped": True, "detail": "使用模板版式，跳过格式复核"}
+
+    problems: List[str] = []
+    style = doc.styles["Normal"]
+    rpr = style.element.rPr
+    east = None
+    if rpr is not None and rpr.rFonts is not None:
+        east = rpr.rFonts.get(qn("w:eastAsia"))
+    actual_font = east or style.font.name
+    if fmt.body_font and actual_font != fmt.body_font:
+        problems.append(f"正文字体为 {actual_font or '未设置'}，要求 {fmt.body_font}")
+    if fmt.body_size:
+        if style.font.size is None:
+            problems.append(f"正文字号未设置，要求 {fmt.body_size:g} 磅")
+        elif abs(style.font.size.pt - float(fmt.body_size)) > 0.5:
+            problems.append(f"正文字号为 {style.font.size.pt:g} 磅，要求 {fmt.body_size:g} 磅")
+    if fmt.line_spacing and style.paragraph_format.line_spacing is not None:
+        if abs(float(style.paragraph_format.line_spacing) - float(fmt.line_spacing)) > 0.01:
+            problems.append("正文行距与要求不一致")
+
+    for paragraph in doc.paragraphs:
+        level = heading_level(paragraph)
+        if not level:
+            continue
+        required_size = fmt.heading_sizes.get(level)
+        if required_size:
+            sizes = [run.font.size.pt for run in paragraph.runs if run.font.size]
+            if sizes and all(abs(size - float(required_size)) > 0.5 for size in sizes):
+                problems.append(
+                    f"{level} 级标题「{paragraph.text[:10]}」字号 {sizes[0]:g} 磅，要求 {required_size:g} 磅"
+                )
+        if fmt.heading_font:
+            names = [run.font.name for run in paragraph.runs if run.font.name]
+            if names and all(name != fmt.heading_font for name in names):
+                problems.append(f"{level} 级标题「{paragraph.text[:10]}」字体不符合要求")
+
+    return {
+        "name": "format",
+        "passed": not problems,
+        "detail": "正文与标题格式符合要求" if not problems else "；".join(problems[:3]),
+    }
+
+
 def _check_unsupported_claims(blocks, skill: DocumentSkill) -> Dict[str, Any]:
     pattern = citation_pattern(skill)
     flagged: List[str] = []
@@ -460,9 +593,21 @@ CHECK_FUNCTIONS = {
 SEMANTIC_ONLY_CHECKS = {"terminology"}
 
 
+def _finalize_check(item: Dict[str, Any], name: str, skill: DocumentSkill) -> Dict[str, Any]:
+    """统一补 method / enforcement / check_status，避免"已执行"和"仅提示"混淆。"""
+    item.setdefault("skipped", False)
+    item["method"] = "model" if name in SEMANTIC_ONLY_CHECKS else "deterministic"
+    item["enforcement"] = skill.verification.strength(name)
+    item["check_status"] = (
+        "skipped" if item.get("skipped") else "passed" if item["passed"] else "failed"
+    )
+    return item
+
+
 def run_verification(path: str, skill: DocumentSkill, user_intent: str = "new",
                      known_sources: Optional[List[str]] = None,
-                     has_knowledge: bool = False) -> Dict[str, Any]:
+                     has_knowledge: bool = False,
+                     records: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     """对已保存的 docx 执行程序化检查；术语实际用法交由语义评估。建议仅展示。"""
     file_path = Path(path)
     base = {"skill_id": skill.id, "file": str(file_path), "user_intent": user_intent,
@@ -472,7 +617,10 @@ def run_verification(path: str, skill: DocumentSkill, user_intent: str = "new",
         return {
             **base,
             "passed": False,
-            "checks": [{"name": "file_exists", "passed": False, "detail": f"文件不存在：{file_path}"}],
+            "checks": [{
+                "name": "file_exists", "passed": False, "detail": f"文件不存在：{file_path}",
+                "method": "deterministic", "enforcement": "hard", "check_status": "failed",
+            }],
             "skipped_checks": [],
             "summary": "0/1 项检查通过",
         }
@@ -483,7 +631,10 @@ def run_verification(path: str, skill: DocumentSkill, user_intent: str = "new",
         return {
             **base,
             "passed": False,
-            "checks": [{"name": "file_readable", "passed": False, "detail": f"无法打开文档：{exc}"}],
+            "checks": [{
+                "name": "file_readable", "passed": False, "detail": f"无法打开文档：{exc}",
+                "method": "deterministic", "enforcement": "hard", "check_status": "failed",
+            }],
             "skipped_checks": [],
             "summary": "0/1 项检查通过",
         }
@@ -492,34 +643,47 @@ def run_verification(path: str, skill: DocumentSkill, user_intent: str = "new",
     checks: List[Dict[str, Any]] = []
     for name in skill.verification.checks:
         if name == "citation_sources":
-            checks.append(_check_citation_sources(blocks, skill, known_sources, has_knowledge))
-            continue
-        if name == "unsupported_claims":
-            checks.append(_check_unsupported_claims(blocks, skill))
-            continue
-        if name in SEMANTIC_ONLY_CHECKS:
-            checks.append({
+            item = _check_citation_sources(blocks, skill, known_sources, has_knowledge)
+        elif name == "citation_numbers":
+            item = _check_citation_numbers(blocks, skill, records)
+        elif name == "unsupported_claims":
+            item = _check_unsupported_claims(blocks, skill)
+        elif name == "format":
+            item = _check_format(doc, skill)
+        elif name in SEMANTIC_ONLY_CHECKS:
+            item = {
                 "name": name,
                 "passed": True,
                 "skipped": True,
                 "detail": "该项由语义评估处理，未做程序化检查",
-            })
-            continue
-        func = CHECK_FUNCTIONS.get(name)
-        if func is None:
-            checks.append({"name": name, "passed": False,
-                           "detail": f"未实现的验收项：{name}"})
-            continue
-        checks.append(func(blocks, skill))
+            }
+        else:
+            func = CHECK_FUNCTIONS.get(name)
+            item = func(blocks, skill) if func else {
+                "name": name, "passed": False, "detail": f"未实现的验收项：{name}"
+            }
+        checks.append(_finalize_check(item, name, skill))
 
-    counted = [item for item in checks if not item.get("skipped")]
-    passed_count = sum(1 for item in counted if item["passed"])
+    counted = [item for item in checks if item["check_status"] != "skipped"]
+    failed = [item for item in counted if not item["passed"]]
+    hard_failures = [item["name"] for item in failed if item["enforcement"] == "hard"]
+    soft_failures = [item["name"] for item in failed if item["enforcement"] == "soft"]
+    advisory = [item["name"] for item in failed if item["enforcement"] == "advisory"]
+    passed_count = len(counted) - len(failed)
+    status = "failed" if hard_failures else "incomplete" if soft_failures else "passed"
     return {
         **base,
-        "passed": passed_count == len(counted),
+        "passed": not hard_failures,
+        "status": status,
         "checks": checks,
-        "skipped_checks": [item["name"] for item in checks if item.get("skipped")],
-        "summary": f"{passed_count}/{len(counted)} 项检查通过",
+        "skipped_checks": [item["name"] for item in checks if item["check_status"] == "skipped"],
+        "hard_failures": hard_failures,
+        "soft_unconfirmed": soft_failures,
+        "advisory_findings": advisory,
+        "summary": (
+            f"{passed_count}/{len(counted)} 项检查通过；"
+            f"硬约束失败 {len(hard_failures)} 项，软约束未确认 {len(soft_failures)} 项"
+        ),
     }
 
 
@@ -535,13 +699,18 @@ def _build_citations(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 continue
             seen.add(key)
             citations.append({
+                "evidence_id": record.get("evidence_id") or "",
                 "source": str(source),
                 "source_type": record.get("source_type") or "",
+                "source_id": record.get("source_id") or "",
                 "title": record.get("title") or Path(str(source)).stem,
                 "snippet": str(record.get("snippet") or "")[:200],
                 "query": str(record.get("query") or ""),
                 "node_ids": list(record.get("node_ids") or []),
                 "file_mtime": record.get("file_mtime") or "",
+                "paragraph_index": record.get("paragraph_index"),
+                "char_start": record.get("char_start"),
+                "char_end": record.get("char_end"),
             })
     return citations[:50]
 
@@ -714,7 +883,16 @@ def _finalize_report(report: Dict[str, Any], citations: List[Dict[str, Any]],
                      semantic: Optional[Dict[str, Any]],
                      retrieval_report: Optional[Dict[str, Any]], research_required=False) -> Dict[str, Any]:
     """合并程序化检查、语义评估与检索缺失，生成最终未满足项清单。"""
-    report["programmatic_passed"] = bool(report.get("passed", False))
+    checks = report.get("checks") or []
+    hard_unmet = [
+        item for item in checks
+        if not item.get("skipped") and not item["passed"] and item.get("enforcement", "hard") == "hard"
+    ]
+    soft_unmet = [
+        item for item in checks
+        if not item.get("skipped") and not item["passed"] and item.get("enforcement") == "soft"
+    ]
+    report["programmatic_passed"] = not hard_unmet
     report["citations"] = citations[:20]
     report["semantic_review"] = semantic or {
         "executed": False, "passed": None, "summary": "未执行语义评估", "issues": []
@@ -727,9 +905,11 @@ def _finalize_report(report: Dict[str, Any], citations: List[Dict[str, Any]],
     report["data_complete"] = data_check["passed"] if data_check else None
 
     unmet: List[str] = []
-    for item in report.get("checks") or []:
-        if not item["passed"]:
-            unmet.append(f"{item['name']}：{item['detail']}")
+    for item in checks:
+        if item.get("skipped") or item["passed"]:
+            continue
+        suffix = "（需人工确认）" if item.get("enforcement") == "soft" else ""
+        unmet.append(f"{item['name']}：{item['detail']}{suffix}")
     for question in (retrieval_report or {}).get("questions") or []:
         if not question.get("covered"):
             unmet.append(f"检索缺失（{question['id']}）：{question['question']}")
@@ -747,7 +927,12 @@ def _finalize_report(report: Dict[str, Any], citations: List[Dict[str, Any]],
         unmet.append("语义检查未完成：" + semantic.get("summary", ""))
     semantic_failed = bool(semantic and semantic.get("executed") and semantic.get("passed") is False)
     failed = not report["programmatic_passed"] or semantic_failed
-    incomplete = report["retrieval_complete"] is False or semantic_incomplete or retrieval_unknown
+    incomplete = (
+        report["retrieval_complete"] is False
+        or semantic_incomplete
+        or retrieval_unknown
+        or bool(soft_unmet)
+    )
     report["passed"] = not failed and not incomplete
     report["status"] = "failed" if failed else "incomplete" if incomplete else "passed"
     report["summary"] += "；综合验收：" + {"failed": "未通过", "incomplete": "未完成", "passed": "通过"}[report["status"]]
@@ -769,7 +954,7 @@ def create_verify_node(llm=None):
             print("【验收】没有可验收的输出文档，跳过")
             return {**state, "verification_report": None}
 
-        records = list(state.get("evidence_records") or [])
+        records = ensure_evidence_ids(list(state.get("evidence_records") or []))
         known_sources: List[str] = []
         has_knowledge = False
         for record in records:
@@ -785,6 +970,7 @@ def create_verify_node(llm=None):
             user_intent=str(state.get("user_intent") or "new"),
             known_sources=known_sources,
             has_knowledge=has_knowledge,
+            records=records,
         )
         citations = _build_citations(records)
         semantic = _run_semantic_review(
@@ -795,8 +981,13 @@ def create_verify_node(llm=None):
 
         print(f"【验收】{skill.name}｜{report['summary']}｜文件：{report['file']}")
         for item in report["checks"]:
-            mark = "跳过" if item.get("skipped") else ("通过" if item["passed"] else "未通过")
-            print(f"    - {item['name']}：{mark}｜{item['detail']}")
+            mark = {"skipped": "跳过", "passed": "通过", "failed": "未通过"}.get(
+                item.get("check_status", ""), "未通过"
+            )
+            level = {"hard": "硬约束", "soft": "软约束", "advisory": "提示"}.get(
+                item.get("enforcement", ""), ""
+            )
+            print(f"    - {item['name']}（{level}/{item.get('method', '')}）：{mark}｜{item['detail']}")
         review = report["semantic_review"]
         if review.get("executed"):
             mark = '通过' if review.get('passed') is True else '未通过' if review.get('passed') is False else '待核实'
@@ -816,6 +1007,7 @@ def create_verify_node(llm=None):
             "verification_report": report,
             "citations": citations,
             "unmet_requirements": report["unmet_requirements"],
+            "evidence_records": records,
         }
 
     return verify_node

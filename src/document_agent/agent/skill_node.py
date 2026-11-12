@@ -106,7 +106,7 @@ def _check_capabilities(skill: DocumentSkill, state: AgentState, gdb: Any,
         },
         "permissions": {
             "available": True,
-            "detail": "本地进程运行，系统未实现权限模型",
+            "detail": "运行时只读；Skill 管理仅限本机管理入口",
         },
     }
 
@@ -197,8 +197,8 @@ def create_skill_node(llm=None, gdb: Any = None, kg: Any = None, remote_kg_tool:
             **state,
             "skill": skill.to_state_dict(),
             "skill_id": skill.id,
-            # 检索轮次预算由 Skill 接管，避免默认的 3 轮限制覆盖技能配置
-            "retrieve_count_limit": skill.research.max_rounds,
+            # 步骤预算与计划一致；逻辑尝试上限已在生成计划时按 max_rounds 约束
+            "retrieve_count_limit": len(plan["steps"]) or skill.research.max_rounds,
             "capabilities": capabilities,
             "retrieval_plan": plan,
             "retrieval_progress": new_progress(),

@@ -38,12 +38,31 @@ VERIFICATION_CHECKS = (
     "required_data",
     "citations",
     "citation_sources",
+    "citation_numbers",
     "unsupported_claims",
     "terminology",
     "banned_expressions",
     "no_placeholder",
     "min_length",
+    "format",
 )
+
+# 默认执行强度：程序可判定项按硬约束，受口径影响或需人工确认的项按软约束
+DEFAULT_ENFORCEMENT = {
+    "required_sections": "hard",
+    "section_order": "hard",
+    "must_include": "soft",
+    "required_data": "hard",
+    "citations": "hard",
+    "citation_sources": "hard",
+    "citation_numbers": "soft",
+    "unsupported_claims": "soft",
+    "banned_expressions": "hard",
+    "no_placeholder": "hard",
+    "min_length": "soft",
+    "format": "soft",
+    "terminology": "advisory",
+}
 
 # 变更摘要里使用的字段中文标签；新增字段时只在此处补充
 SKILL_FIELD_LABELS = {
@@ -219,10 +238,21 @@ class KnowledgeRetrievalSpec(_StrictModel):
 
 
 class FileRetrievalSpec(_StrictModel):
-    """文件检索参数，直接作用于 file_retrieve_node 的正文截断。"""
+    """文件检索参数：候选文件上限、分块粒度与单文件字符上限。"""
 
     max_chars: int = Field(
-        default=0, ge=0, le=200000, description="送入模型的单个文件最大字符数，0 表示不限制"
+        default=0, ge=0, le=200000,
+        description="单个文件送入模型的最大字符数；0 表示按分块策略自动控制",
+    )
+    max_files_per_attempt: int = Field(
+        default=0, ge=0, le=50,
+        description="一次逻辑尝试最多检索几个候选文件；0 表示全部候选，超出时按相关度取前 N 并记录未检索文件",
+    )
+    chunk_chars: int = Field(
+        default=1200, ge=200, le=6000, description="分块检索的单块目标字符数"
+    )
+    top_k_chunks: int = Field(
+        default=6, ge=1, le=30, description="每次检索送入模型的相关块数量上限"
     )
 
 
@@ -241,9 +271,19 @@ class ResearchSpec(_StrictModel):
         default="", max_length=100, description="检索时间范围（知识库无时间字段，仅作为提示词与写作依据）"
     )
     region: str = Field(default="", max_length=100, description="地域范围（同为提示词约束）")
-    max_rounds: int = Field(default=3, ge=1, le=10, description="检索工具调用轮次上限")
+    max_rounds: int = Field(
+        default=3, ge=1, le=10,
+        description="逻辑检索尝试总预算（跨问题共享）；一次尝试可覆盖多个候选文件",
+    )
+    max_tool_calls: int = Field(
+        default=12, ge=1, le=100,
+        description="底层检索工具调用上限：文件按个计，知识库按次计",
+    )
+    max_total_context_chars: int = Field(
+        default=60000, ge=1000, le=500000, description="检索素材送入模型的总字符预算"
+    )
     per_question_attempts: int = Field(
-        default=2, ge=1, le=5, description="单个研究问题最多尝试几次（跨来源/文件），用尽后记为缺失"
+        default=2, ge=1, le=5, description="单个研究问题最多尝试几次逻辑检索（跨查询式），用尽后记为缺失"
     )
     source: SourcePolicy = Field(default_factory=SourcePolicy)
     knowledge: KnowledgeRetrievalSpec = Field(default_factory=KnowledgeRetrievalSpec)
@@ -324,11 +364,13 @@ class VerificationSpec(_StrictModel):
             "required_data",
             "citations",
             "citation_sources",
+            "citation_numbers",
             "unsupported_claims",
             "terminology",
             "banned_expressions",
             "no_placeholder",
             "min_length",
+            "format",
         ]
     ] = Field(
         default_factory=lambda: [
@@ -339,6 +381,10 @@ class VerificationSpec(_StrictModel):
             "min_length",
         ],
         description="生成后需要执行的验收检查项",
+    )
+    enforcement: Dict[str, Literal["hard", "soft", "advisory"]] = Field(
+        default_factory=dict,
+        description="覆盖单个验收项的执行强度：hard 失败即不通过，soft 未确认记为未完成，advisory 仅提示",
     )
     semantic_review: bool = Field(
         default=True, description="是否在程序化检查后调用模型做语义补充评估（术语口径、交叉验证、数据一致性等）"
@@ -354,6 +400,18 @@ class VerificationSpec(_StrictModel):
         if len(value) != len(set(value)):
             raise ValueError("verification.checks 中存在重复检查项")
         return value
+
+    @field_validator("enforcement")
+    @classmethod
+    def _check_enforcement(cls, value: Dict[str, str]) -> Dict[str, str]:
+        unknown = sorted(set(value) - set(VERIFICATION_CHECKS))
+        if unknown:
+            raise ValueError("verification.enforcement 只能覆盖已支持的验收项：" + "、".join(unknown))
+        return value
+
+    def strength(self, name: str) -> str:
+        """返回某个验收项的执行强度；未显式配置时取内置默认值。"""
+        return self.enforcement.get(name) or DEFAULT_ENFORCEMENT.get(name, "hard")
 
 
 class ReferenceDoc(_StrictModel):
