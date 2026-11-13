@@ -39,5 +39,5 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 # 前端页面随 Web 后端一起安装（源码运行时直接读取 static 目录）
-"document_agent.backend" = ["static/*"]
+"document_agent.backend" = ["static/*", "static/*/*"]
 

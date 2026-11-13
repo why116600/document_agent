@@ -128,6 +128,53 @@ def knowledge_mode() -> str:
     return remote_kg_settings().mode
 
 
+def feishu_settings() -> Dict[str, str]:
+    """飞书应用配置（``setting.json`` 的 ``feishu`` 段，环境变量可覆盖）。
+
+    未配置时（app_id/app_secret 为空）飞书版页面会提示管理员配置，不影响本地版。
+    app_secret 建议用环境变量 ``DOC_AGENT_FEISHU_APP_SECRET`` 提供，避免写进配置文件。
+    """
+    raw = load_settings().get("feishu")
+    data = raw if isinstance(raw, dict) else {}
+
+    def text(key: str, default: str = "") -> str:
+        value = data.get(key, default)
+        if value is None:
+            return default
+        return str(value).strip()
+
+    def env(name: str) -> str:
+        return (os.getenv(name) or "").strip()
+
+    return {
+        "app_id": env("DOC_AGENT_FEISHU_APP_ID") or text("app_id"),
+        "app_secret": env("DOC_AGENT_FEISHU_APP_SECRET") or text("app_secret"),
+        # 授权页/令牌服务（accounts.feishu.cn；Lark 国际版 accounts.larksuite.com）
+        "accounts_base": (
+            env("DOC_AGENT_FEISHU_ACCOUNTS_BASE")
+            or text("accounts_base")
+            or "https://accounts.feishu.cn"
+        ).rstrip("/"),
+        # OpenAPI 地址，用于读取用户信息（open.feishu.cn；Lark 国际版 open.larksuite.com）
+        "api_base": (
+            env("DOC_AGENT_FEISHU_API_BASE")
+            or text("api_base")
+            or "https://open.feishu.cn"
+        ).rstrip("/"),
+        "redirect_uri": env("DOC_AGENT_FEISHU_REDIRECT_URI") or text("redirect_uri"),
+        "base_url": (env("DOC_AGENT_FEISHU_BASE_URL") or text("base_url")).rstrip("/"),
+        "session_secret": env("DOC_AGENT_FEISHU_SECRET") or text("session_secret"),
+        # 需要用户额外授权的权限（空格分隔），基础姓名/头像不需要
+        "scope": env("DOC_AGENT_FEISHU_SCOPE") or text("scope"),
+    }
+
+
+def feishu_configured() -> bool:
+    """是否已经配置飞书应用（app_id 与 app_secret 均已填写）。"""
+    settings = feishu_settings()
+    return bool(settings["app_id"] and settings["app_secret"])
+
+
 def cors_origins() -> Optional[list]:
     """可选的跨域白名单，默认不开放（前端与后端同源部署）。"""
     raw = os.getenv("DOC_AGENT_CORS_ORIGINS", "").strip()

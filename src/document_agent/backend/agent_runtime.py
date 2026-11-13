@@ -392,11 +392,16 @@ class KnowledgeRuntime:
 
 # --------------------------------------------------------------------------- 生成运行时
 class GenerationRuntime:
-    """会话级的智能体实例与任务执行器。"""
+    """会话级的智能体实例与任务执行器。
 
-    def __init__(self, store: SessionStore):
+    ``knowledge`` 可由外部注入（飞书多用户场景共用一个知识库运行时，避免每个
+    用户重复连接图数据库），此时本实例不负责关闭它。
+    """
+
+    def __init__(self, store: SessionStore, knowledge: Optional[KnowledgeRuntime] = None):
         self.store = store
-        self.knowledge = KnowledgeRuntime()
+        self._owns_knowledge = knowledge is None
+        self.knowledge = knowledge if knowledge is not None else KnowledgeRuntime()
         self._cores: Dict[str, Any] = {}
         self._locks: Dict[str, threading.Lock] = {}
         self._guard = threading.Lock()
@@ -440,7 +445,8 @@ class GenerationRuntime:
             print(f"[预热] 写作智能体依赖加载失败（首次生成时会重试）：{exc}")
 
     def close(self) -> None:
-        self.knowledge.close()
+        if self._owns_knowledge:
+            self.knowledge.close()
         with self._guard:
             self._cores.clear()
             self._locks.clear()

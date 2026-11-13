@@ -17,6 +17,9 @@
 
 管理入口（仅本机）：
     /admin/api/skills 等，详见 ``backend/admin_routes.py``。
+
+飞书版：页面 ``/feishu``，接口 ``/api/feishu/*``（登录、按用户隔离的会话/文件/任务，
+实现见 ``feishu.py``）。
 """
 
 from __future__ import annotations
@@ -31,6 +34,7 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__, config
 from .admin_app import create_admin_app
 from .entry_guard import EntryGuardMiddleware
+from .feishu import router as feishu_router
 from .jobs import install_stdout_router
 from .request_context import RequestContextMiddleware
 from .responses import UTF8JSONResponse
@@ -45,7 +49,9 @@ async def lifespan(app: FastAPI):
     install_stdout_router()
     state = backend_state()
     recovered = state.store.recover_interrupted()
+    recovered_feishu = state.feishu.recover_interrupted()
     state.runtime.start()
+    app.state.feishu = state.feishu
     web = state.web
     mode = "允许远程访问" if web["allow_remote"] else "仅本机访问"
     source = "命令行 --host 指定" if web.get("host_source") == "command-line" else "setting.json 配置"
@@ -62,6 +68,15 @@ async def lifespan(app: FastAPI):
     elif web.get("host_source") != "command-line":
         print('  提示：如需其他主机访问，请在 setting.json 中设置 "web_allow_remote": true 后重启')
     print(f"  工作区：  {state.store.root}")
+    feishu_ready = config.feishu_configured()
+    feishu_settings = config.feishu_settings()
+    print(f"  飞书版：  {web['local_url']}feishu （{'已配置飞书应用' if feishu_ready else '未配置 feishu.app_id/app_secret'}）")
+    if feishu_ready:
+        if feishu_settings["redirect_uri"]:
+            print(f"  飞书回调：{feishu_settings['redirect_uri']}（需与飞书后台登记完全一致）")
+        else:
+            print(f"  飞书回调：按访问地址自动推导，例如 {web['local_url']}api/feishu/auth/callback")
+            print("            请把浏览器实际访问地址对应的回调 URL 添加到飞书应用 → 安全设置 → 重定向 URL")
     print(f"  大模型：  {'已配置' if config.llm_configured() else '未配置 MODEL_API_KEY'}")
     print(f"  管理入口：{'/admin（仅本机）' if config.admin_settings()['enabled'] else '已关闭'}")
     knowledge = state.runtime.knowledge.status()
@@ -70,12 +85,15 @@ async def lifespan(app: FastAPI):
         print("            模式：远程（setting.json 的 remote_kg.enabled=true）")
     if recovered:
         print(f"  已处理 {recovered} 个因上次退出而中断的任务")
+    if recovered_feishu:
+        print(f"  已处理 {recovered_feishu} 个飞书用户的中断任务")
     print("=" * 72)
     try:
         yield
     finally:
         for task in list(state.tasks):
             task.cancel()
+        state.feishu.close()
         state.runtime.close()
 
 
@@ -106,6 +124,10 @@ async def _session_error(request: Request, exc: SessionError):
 # --------------------------------------------------------------------------- 路由装配
 app.include_router(runtime_router, prefix="/api")
 
+# 飞书版接口（/api/feishu）：登录、用户隔离的会话/文件/任务
+app.include_router(feishu_router)
+
+
 if config.admin_settings()["enabled"]:
     app.mount("/admin", create_admin_app())
 
@@ -115,6 +137,12 @@ app.mount("/static", StaticFiles(directory=str(config.STATIC_DIR)), name="static
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
     return FileResponse(config.STATIC_DIR / "index.html")
+
+
+@app.get("/feishu", include_in_schema=False)
+def feishu_index() -> FileResponse:
+    """飞书版桌面网页（独立页面，登录后才能使用）。"""
+    return FileResponse(config.STATIC_DIR / "feishu" / "index.html")
 
 
 @app.get("/favicon.ico", include_in_schema=False)

@@ -8,6 +8,7 @@ from typing import Set
 
 from . import config
 from .agent_runtime import GenerationRuntime
+from .feishu import FeishuService
 from .jobs import JobManager
 from .store import SessionStore
 
@@ -19,6 +20,12 @@ class BackendState:
         self.runtime = GenerationRuntime(self.store)
         # 监听配置在启动时解析一次：是否允许远程访问由 setting.json 决定
         self.web = config.resolve_web_settings()
+        # 飞书版：独立用户工作区，共享同一个知识库运行时
+        self.feishu = FeishuService(
+            root=config.workspace_root() / "feishu",
+            knowledge=self.runtime.knowledge,
+            web=self.web,
+        )
         self.tasks: Set[asyncio.Task] = set()
 
 

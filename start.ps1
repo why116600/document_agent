@@ -304,6 +304,12 @@ function Start-Server {
 
     $running = Get-ServerProcess
     if ($null -ne $running) {
+        $health = Get-Health $url
+        if ($null -eq $health) {
+            Write-Warn "检测到已有服务进程（PID $($running.Id)），但 $url 没有响应。"
+            Write-Warn '可能是用其它端口启动的实例；请先执行 .\start.ps1 stop，或用正确端口查看状态。'
+            exit 1
+        }
         Write-Info "服务已在运行（PID $($running.Id)）：$url"
         Open-BrowserIfDesktop $url
         return
