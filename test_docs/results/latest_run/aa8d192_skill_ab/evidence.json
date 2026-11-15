@@ -1,0 +1,295 @@
+{
+  "candidate_branch": "feature/skills-system",
+  "candidate_commit": "aa8d192f0e7b4a58d9dd49a1656d92ee9af4659c",
+  "develop_parent": "f8eaefbe0ecb0300cc5e82848fd29ee134ff9ce3",
+  "execution_entry": "document_agent.skill_cli",
+  "fixture_kind": "虚构资料；四次共享同一冻结短 TXT 与自然语言需求，Skill 组显式指定 qa_borrowing_ab v1。",
+  "input_sha256": {
+    "source": "ec34dfa3c39f8848c4aa1b096412c68535a2bbfdf4a6b45cbf9ce4ccbb65c74e",
+    "request": "1a10cf985bee76aef8290f8a35fc6dab874bbe2f9672f0b2c52d7bb2e4555885",
+    "skill_config": "647f785c11eb1ba2f5c8a1626320969fcb304e21bcc9aff463a4bd3560536a37",
+    "skill_instruction": "9ddfb79200fa675aad9494c2e27a5d9e2ef9ddd844bff513a5379140469beab7"
+  },
+  "runs": [
+    {
+      "id": "SK-003",
+      "model_requested": "hy3",
+      "mode": "ordinary",
+      "completed_at": "2026-11-14T00:05:42+08:00",
+      "exit_code": 0,
+      "business_status": "succeeded",
+      "independent_acceptance": "failed",
+      "skill_id": null,
+      "model_http_status_counts": {
+        "200": 21
+      },
+      "inputs_unchanged": true,
+      "candidate_tree_clean": true,
+      "intent_parse": "fallback_new",
+      "intent_validation": {
+        "attempts_rejected": 3,
+        "field": "management_action",
+        "observed": "字符串 \"null\" 无法通过字段校验"
+      },
+      "retrieval": {
+        "knowledge_queries_observed": 0,
+        "private_startup_graph_probe": "controlled endpoint timeout",
+        "executed_file_queries": [
+          "适用范围",
+          "借用期限",
+          "预约要求"
+        ],
+        "limit_reached": true
+      },
+      "word_created": true,
+      "word": {
+        "file": "hy3_ordinary.docx",
+        "sha256": "edb45b44655dddf259abb0cc41ad9eac522075ca132c3492aba2905d89e99288",
+        "page_file": "hy3_ordinary_page-1.png",
+        "page_sha256": "ed0bae3734ae2a13865bcd9b426791cf1c97ae3104737a19c0ffa992ab2bcca6",
+        "full_non_whitespace_chars": 107,
+        "checks": {
+          "actual_output_readable_ooxml": true,
+          "specified_document_title_exactly_once": true,
+          "specified_document_title_first_visible_paragraph": true,
+          "full_non_whitespace_chars_at_most_300": true,
+          "no_tables_anywhere_in_body": true,
+          "at_least_one_exact_full_filename_citation": false,
+          "resolved_required_format": false
+        },
+        "fonts_mismatching": [
+          "微软雅黑"
+        ],
+        "mismatching_font_runs": 2
+      },
+      "independent_fact_review": {
+        "correct": [
+          "适用范围",
+          "借用期限",
+          "预约要求"
+        ],
+        "incorrectly_claimed_not_stated": [
+          "审批角色及批准条件",
+          "归还要求",
+          "纯虚构材料声明"
+        ]
+      }
+    },
+    {
+      "id": "SK-004",
+      "model_requested": "hy3",
+      "mode": "skill",
+      "completed_at": "2026-11-13T23:59:59+08:00",
+      "exit_code": 0,
+      "business_status": "succeeded",
+      "independent_acceptance": "passed",
+      "skill_id": "qa_borrowing_ab",
+      "model_http_status_counts": {
+        "200": 12
+      },
+      "inputs_unchanged": true,
+      "candidate_tree_clean": true,
+      "intent_parse": "fallback_new",
+      "intent_validation": {
+        "attempts_rejected": 3,
+        "field": "management_action",
+        "observed": "字符串 \"null\" 无法通过字段校验"
+      },
+      "retrieval": {
+        "sources": [
+          "file"
+        ],
+        "covered": [
+          "Q1"
+        ],
+        "missing": [],
+        "complete": true,
+        "stop_reason": "plan_exhausted",
+        "total": 3,
+        "used": 1,
+        "tool_calls": 1
+      },
+      "word_created": true,
+      "word": {
+        "file": "hy3_skill.docx",
+        "sha256": "2b594cb84932a8b7a842acf9b2b83da37c1b5801290e785b42a6f89fcb7ad7da",
+        "page_file": "hy3_skill_page-1.png",
+        "page_sha256": "d339f78b4eb59d4be7f998a6783f8f2ac44232b2b8ca3f6f3a4febacd2e8d328",
+        "full_non_whitespace_chars": 209,
+        "checks": {
+          "actual_output_readable_ooxml": true,
+          "specified_document_title_exactly_once": true,
+          "specified_document_title_first_visible_paragraph": true,
+          "full_non_whitespace_chars_at_most_300": true,
+          "no_tables_anywhere_in_body": true,
+          "at_least_one_exact_full_filename_citation": true,
+          "resolved_required_format": true,
+          "exact_two_section_headings_in_order": true,
+          "both_section_titles_outline_level_1": true,
+          "each_section_exact_filename_citation": true
+        },
+        "fonts_mismatching": [],
+        "mismatching_font_runs": 0
+      },
+      "independent_fact_review": {
+        "correct": [
+          "适用范围",
+          "借用期限",
+          "预约要求",
+          "审批角色及批准条件",
+          "归还要求",
+          "纯虚构材料声明"
+        ]
+      },
+      "verification": {
+        "checks_passed": 8,
+        "checks_total": 8
+      }
+    },
+    {
+      "id": "SK-003",
+      "model_requested": "deepseek-v4.1-flash",
+      "mode": "ordinary",
+      "completed_at": "2026-11-16T00:44:43+08:00",
+      "exit_code": 1,
+      "business_status": "error",
+      "independent_acceptance": "failed",
+      "skill_id": null,
+      "model_http_status_counts": {
+        "200": 16
+      },
+      "inputs_unchanged": true,
+      "candidate_tree_clean": true,
+      "intent_parse": "parsed_new",
+      "retrieval": {
+        "knowledge_queries_observed": 0,
+        "private_startup_graph_probe": "controlled endpoint timeout",
+        "retrieved_text_includes": [
+          "审批角色及批准条件",
+          "归还要求"
+        ]
+      },
+      "word_created": false,
+      "error": "文档结构校验失败且修复未通过：invalid_items:2"
+    },
+    {
+      "id": "SK-004",
+      "model_requested": "deepseek-v4.1-flash",
+      "mode": "skill",
+      "completed_at": "2026-11-16T00:44:19+08:00",
+      "exit_code": 1,
+      "business_status": "error",
+      "independent_acceptance": "failed",
+      "skill_id": "qa_borrowing_ab",
+      "model_http_status_counts": {
+        "200": 7
+      },
+      "inputs_unchanged": true,
+      "candidate_tree_clean": true,
+      "intent_parse": "parsed_new",
+      "retrieval": {
+        "sources": [
+          "file"
+        ],
+        "covered": [],
+        "missing": [
+          "Q1"
+        ],
+        "complete": false,
+        "stop_reason": "plan_exhausted",
+        "total": 3,
+        "used": 1,
+        "tool_calls": 1,
+        "missing_facts": [
+          "审批角色及批准条件",
+          "归还要求"
+        ],
+        "second_step": "关闭查询扩展后复用了同一查询，重复步骤被去重。"
+      },
+      "word_created": false,
+      "error": "章节「借用与申请」在3次内仍未通过检查，未保存文档：以下要点未出现：借用与申请：适用范围、借用期限、预约要求、审批角色",
+      "section_generation": [
+        {
+          "section": "借用与申请",
+          "attempts": 3,
+          "failures": [
+            [
+              "节点类型 <class 'docx.text.paragraph.Paragraph'> 与数据 <class 'NoneType'> 不匹配"
+            ],
+            [
+              "节点类型 <class 'docx.text.paragraph.Paragraph'> 与数据 <class 'NoneType'> 不匹配"
+            ],
+            [
+              "以下要点未出现：借用与申请：适用范围、借用期限、预约要求、审批角色"
+            ]
+          ],
+          "passed": false
+        }
+      ]
+    }
+  ],
+  "offline_sk007": {
+    "scope": "基准、指令、补充规范和 Word 模板四组加载、发布与首轮文件分派检查；未用这些变体生成 Word。",
+    "variants": [
+      {
+        "variant": "baseline",
+        "before_publication": "NOT_PUBLISHED",
+        "published_skill_version": 1,
+        "allowed_tools": [
+          "file",
+          "end"
+        ],
+        "first_tool": "file",
+        "knowledge_available": false,
+        "instruction_loaded": false,
+        "references_loaded": false,
+        "template_detected": false
+      },
+      {
+        "variant": "instruction",
+        "before_publication": "NOT_PUBLISHED",
+        "published_skill_version": 1,
+        "allowed_tools": [
+          "file",
+          "end"
+        ],
+        "first_tool": "file",
+        "knowledge_available": false,
+        "instruction_loaded": true,
+        "references_loaded": false,
+        "template_detected": false
+      },
+      {
+        "variant": "reference",
+        "before_publication": "NOT_PUBLISHED",
+        "published_skill_version": 1,
+        "allowed_tools": [
+          "file",
+          "end"
+        ],
+        "first_tool": "file",
+        "knowledge_available": false,
+        "instruction_loaded": false,
+        "references_loaded": true,
+        "template_detected": false
+      },
+      {
+        "variant": "template",
+        "before_publication": "NOT_PUBLISHED",
+        "published_skill_version": 1,
+        "allowed_tools": [
+          "file",
+          "end"
+        ],
+        "first_tool": "file",
+        "knowledge_available": false,
+        "instruction_loaded": false,
+        "references_loaded": false,
+        "template_detected": true
+      }
+    ],
+    "disabled_skill_rejection": "SKILL_DISABLED",
+    "network_attempts": 0,
+    "inputs_unchanged": true
+  }
+}

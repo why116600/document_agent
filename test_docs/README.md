@@ -1,18 +1,20 @@
 # 文档测试入口 v1.0.28
 
-更新日期 2026-11-11。用虚构样例运行指定提交、核对成果、登记问题，再交给开发者修复。顶层保留三份主要文档。
+更新日期 2026-11-16。用虚构样例运行指定提交、核对成果、登记问题，再交给开发者修复。顶层保留三份主要文档。
 
 | 入口 | 用途 |
 | --- | --- |
 | 本页README | 看入口、格式和提交边界 |
 | [测试计划](test_plan_v1.0.28.md) | 测什么、步骤和判定 |
-| [缺陷登记表](defect_register_v1.0.28.md) | DEF-001～DEF-009的正确/错误及回归状态，不设条数上限 |
+| [缺陷登记表](defect_register_v1.0.28.md) | DEF-001～DEF-012 的正误及回归状态，不设条数上限 |
 | [本轮报告与真实Word](results/latest_run/README.md) | 历史失败和当前候选对照 |
 | [samples](samples/README.md) | 12项虚构输入、中文任务、步骤与运行前预期 |
 | [results](results/README.md) | 实际测试及两项历史探索 |
 | start本机菜单 | 日常本机启动，团队资料不含该菜单 |
 
-**日常回归以 `develop` 为主。** 11 月 11 日核对的远程提交为 `f8eaefb`，下一批执行前锁定实际提测提交。知识图谱正常命中、缺字段、无匹配与断连共执行五次，复现 DEF-008，新登记 DEF-009。 [图谱回归](results/latest_run/README.md#2026-11-11-develop-图谱回归与-skill-样例)。`feature/add-rewrite-function` 暂停独立测试。`feature/skills-system` 由开发方继续完善需求，合入 `develop` 后按合入提交正式验收。 [执行安排](test_plan_v1.0.28.md#当前基线与后续执行)
+**最近一轮提测。** 在已同步 `develop` 的 `feature/skills-system@aa8d192` 上，用同一份虚构规则和请求做四次实际写作。Hy3 的 Skill 组通过本样例，Hy3 普通组内容不全，DeepSeek 两组都未生成 Word。本轮合入验收未通过。 [四次测试报告](results/latest_run/README.md#2026-11-16-skill-候选合入前测试)
+
+日常回归以 `develop` 为主。11 月 11 日图谱回归在 `f8eaefb` 执行五次，复现 DEF-008，新登记 DEF-009。`feature/add-rewrite-function` 暂停单独测。 [图谱回归](results/latest_run/README.md#2026-11-11-develop-图谱回归与-skill-样例) · [执行安排](test_plan_v1.0.28.md#当前基线与后续执行)
 
 | 格式 | 怎么用 |
 | --- | --- |
@@ -37,11 +39,11 @@
 
 真实任务需要网络及有效现有接入，只用授权虚构材料。共享Python只读，安装、升级或卸载包需用户确认。测试不为了跑通而修改产品代码。
 
-11 月 6 日的两组新建测试使用独立测试库，每例前验证空数据，执行后已停止。11 月 11 日的图谱联调复用隔离的虚构资料，固定后端版本，执行后已停止本批服务。第 6 项的四组对照材料已备好，等待 Skill 合入。 [第 6 项样例](samples/skill_template_checks_20261111/README.md)
+11 月 6 日和 11 月 11 日使用的隔离服务均已停止。第 6 项四组样例已在 `aa8d192` 验证发布、加载及首次文件检索分派，Word 模板套用待实测。 [第 6 项样例](samples/skill_template_checks_20261111/README.md)
 
 ## 提交与记录
 
-v1.0.26已由8b63f4d提交并推送到test/test-plan。本v1.0.28为本轮审阅快照；实际提交、推送和合入状态以Git历史为准。36条正式主用例整体验收未完成。Git保存每次提交和当时文件：[测试分支提交历史](https://github.com/why116600/document_agent/commits/test/test-plan/)。不另建逐次提交记录文件，不改写旧提交。
+测试资料按批次提交给 `test/test-plan`，以 Git 保存每次报告、样例与证据。36 条正式主用例整体验收待完成。 [测试分支提交历史](https://github.com/why116600/document_agent/commits/test/test-plan/)
 
 可审阅范围为测试文档、样例包、实际 Word 和脱敏证据。已有源码/根配置改动、个人脚本、.runtime、环境、模型、数据库、密钥、原始模型往来及外部备份不纳入本次提交。逐文件审查，用户审核后逐条暂存、提交和推送测试分支，合入develop另行处理。
 
