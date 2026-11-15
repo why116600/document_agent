@@ -1,0 +1,1336 @@
+{
+  "date": "2026-11-10",
+  "candidate_commit": "f5bde52bdc450ab4125383531d40700be5ac42ee",
+  "original_test_plan_version": "1.0.28",
+  "sequence": {
+    "sk005_initial_report_written_at": "2026-11-10T13:28:06.664+08:00",
+    "sk002_started_at": "2026-11-10T13:28:38.430+08:00",
+    "presentation_review_then_sk005_recheck": true
+  },
+  "sk005": {
+    "frozen_expected": {
+      "candidate_commit": "f5bde52bdc450ab4125383531d40700be5ac42ee",
+      "skill_id": "qa_borrowing_ab",
+      "skill_config_sha256": "647f785c11eb1ba2f5c8a1626320969fcb304e21bcc9aff463a4bd3560536a37",
+      "skill_instructions_sha256": "9ddfb79200fa675aad9494c2e27a5d9e2ef9ddd844bff513a5379140469beab7",
+      "known_source_name": "星桥演示设备借用规则_v1.0.0.txt",
+      "known_source_sha256": "ec34dfa3c39f8848c4aa1b096412c68535a2bbfdf4a6b45cbf9ce4ccbb65c74e",
+      "expected_checks": [
+        "required_sections",
+        "section_order",
+        "must_include",
+        "required_data",
+        "citations",
+        "citation_sources",
+        "no_placeholder",
+        "min_length"
+      ],
+      "expected_semantic_review_executed": false,
+      "cases": [
+        {
+          "id": "compliant",
+          "file": "01_compliant.docx",
+          "change": "合格正例",
+          "paragraphs": [
+            [
+              "Title",
+              "设备借用须知 v1.0.0"
+            ],
+            [
+              "Heading 1",
+              "借用与申请"
+            ],
+            [
+              "Normal",
+              "适用范围：仅适用于星桥演示设备的内部借用。"
+            ],
+            [
+              "Normal",
+              "借用期限：每次借用最多3天。"
+            ],
+            [
+              "Normal",
+              "预约要求：借用申请需提前2个工作日提交。"
+            ],
+            [
+              "Normal",
+              "审批角色：由演示设备管理员确认设备可用后批准。"
+            ],
+            [
+              "Normal",
+              "【来源：星桥演示设备借用规则_v1.0.0.txt】"
+            ],
+            [
+              "Heading 1",
+              "归还与依据"
+            ],
+            [
+              "Normal",
+              "归还要求：归还前完成外观检查，并登记归还时间。"
+            ],
+            [
+              "Normal",
+              "资料性质：纯虚构演示资料。"
+            ],
+            [
+              "Normal",
+              "【来源：星桥演示设备借用规则_v1.0.0.txt】"
+            ]
+          ],
+          "failed_checks": [],
+          "detail_contains": {}
+        },
+        {
+          "id": "missing_section",
+          "file": "02_missing_section.docx",
+          "change": "删除归还与依据整章，包括章标题、正文、资料性质与本章引用",
+          "paragraphs": [
+            [
+              "Title",
+              "设备借用须知 v1.0.0"
+            ],
+            [
+              "Heading 1",
+              "借用与申请"
+            ],
+            [
+              "Normal",
+              "适用范围：仅适用于星桥演示设备的内部借用。"
+            ],
+            [
+              "Normal",
+              "借用期限：每次借用最多3天。"
+            ],
+            [
+              "Normal",
+              "预约要求：借用申请需提前2个工作日提交。"
+            ],
+            [
+              "Normal",
+              "审批角色：由演示设备管理员确认设备可用后批准。"
+            ],
+            [
+              "Normal",
+              "【来源：星桥演示设备借用规则_v1.0.0.txt】"
+            ]
+          ],
+          "failed_checks": [
+            "required_sections",
+            "must_include",
+            "required_data",
+            "citations"
+          ],
+          "detail_contains": {
+            "required_sections": "归还与依据",
+            "must_include": "归还与依据（章节缺失）",
+            "required_data": "归还要求",
+            "citations": "归还与依据（章节缺失）"
+          }
+        },
+        {
+          "id": "missing_required_field",
+          "file": "03_missing_required_field.docx",
+          "change": "仅删除预约要求整行，包括字段名和提前2个工作日的事实",
+          "paragraphs": [
+            [
+              "Title",
+              "设备借用须知 v1.0.0"
+            ],
+            [
+              "Heading 1",
+              "借用与申请"
+            ],
+            [
+              "Normal",
+              "适用范围：仅适用于星桥演示设备的内部借用。"
+            ],
+            [
+              "Normal",
+              "借用期限：每次借用最多3天。"
+            ],
+            [
+              "Normal",
+              "审批角色：由演示设备管理员确认设备可用后批准。"
+            ],
+            [
+              "Normal",
+              "【来源：星桥演示设备借用规则_v1.0.0.txt】"
+            ],
+            [
+              "Heading 1",
+              "归还与依据"
+            ],
+            [
+              "Normal",
+              "归还要求：归还前完成外观检查，并登记归还时间。"
+            ],
+            [
+              "Normal",
+              "资料性质：纯虚构演示资料。"
+            ],
+            [
+              "Normal",
+              "【来源：星桥演示设备借用规则_v1.0.0.txt】"
+            ]
+          ],
+          "failed_checks": [
+            "must_include",
+            "required_data"
+          ],
+          "detail_contains": {
+            "must_include": "预约要求",
+            "required_data": "预约要求"
+          }
+        },
+        {
+          "id": "false_source",
+          "file": "04_false_source.docx",
+          "change": "仅把归还与依据章末的文件名换成无关的虚假来源，保留引用标记",
+          "paragraphs": [
+            [
+              "Title",
+              "设备借用须知 v1.0.0"
+            ],
+            [
+              "Heading 1",
+              "借用与申请"
+            ],
+            [
+              "Normal",
+              "适用范围：仅适用于星桥演示设备的内部借用。"
+            ],
+            [
+              "Normal",
+              "借用期限：每次借用最多3天。"
+            ],
+            [
+              "Normal",
+              "预约要求：借用申请需提前2个工作日提交。"
+            ],
+            [
+              "Normal",
+              "审批角色：由演示设备管理员确认设备可用后批准。"
+            ],
+            [
+              "Normal",
+              "【来源：星桥演示设备借用规则_v1.0.0.txt】"
+            ],
+            [
+              "Heading 1",
+              "归还与依据"
+            ],
+            [
+              "Normal",
+              "归还要求：归还前完成外观检查，并登记归还时间。"
+            ],
+            [
+              "Normal",
+              "资料性质：纯虚构演示资料。"
+            ],
+            [
+              "Normal",
+              "【来源：qa_unrelated_fabricated_policy.txt】"
+            ]
+          ],
+          "failed_checks": [
+            "citation_sources"
+          ],
+          "detail_contains": {
+            "citation_sources": "qa_unrelated_fabricated_policy.txt"
+          }
+        }
+      ]
+    },
+    "initial_run": {
+      "candidate_commit": "f5bde52bdc450ab4125383531d40700be5ac42ee",
+      "skill_id": "qa_borrowing_ab",
+      "skill_config_sha256": "647f785c11eb1ba2f5c8a1626320969fcb304e21bcc9aff463a4bd3560536a37",
+      "skill_instructions_sha256": "9ddfb79200fa675aad9494c2e27a5d9e2ef9ddd844bff513a5379140469beab7",
+      "known_source_name": "星桥演示设备借用规则_v1.0.0.txt",
+      "known_source_sha256": "ec34dfa3c39f8848c4aa1b096412c68535a2bbfdf4a6b45cbf9ce4ccbb65c74e",
+      "expectations_sha256": "0f7ed9ace3881b85e40f09906fca540c209b640543879da2642538fdfbf1befd",
+      "execution": "run_verification and create_verify_node(llm=None), same four saved Word controls",
+      "denied_network_events": [],
+      "all_cases_match_frozen_expectations": true,
+      "cases": [
+        {
+          "id": "compliant",
+          "sample": "01_compliant.docx",
+          "sample_sha256": "4329a49ce06b366b843c4ebe62c205ed304d925bb1ef15fe1e0b15410926c16c",
+          "change": "合格正例",
+          "non_whitespace_characters": 188,
+          "expected_failed_checks": [],
+          "actual_failed_checks": [],
+          "passed": true,
+          "programmatic_passed": true,
+          "summary": "8/8 项检查通过",
+          "checks": [
+            {
+              "name": "required_sections",
+              "passed": true,
+              "detail": "必填章节齐全"
+            },
+            {
+              "name": "section_order",
+              "passed": true,
+              "detail": "章节顺序符合规范"
+            },
+            {
+              "name": "must_include",
+              "passed": true,
+              "detail": "章节要点均已覆盖"
+            },
+            {
+              "name": "required_data",
+              "passed": true,
+              "detail": "必需数据字段均已出现"
+            },
+            {
+              "name": "citations",
+              "passed": true,
+              "detail": "引用标记共 2 条，需引用章节均达标"
+            },
+            {
+              "name": "citation_sources",
+              "passed": true,
+              "detail": "引用 2 条，均能对应到已检索来源"
+            },
+            {
+              "name": "no_placeholder",
+              "passed": true,
+              "detail": "未发现占位内容"
+            },
+            {
+              "name": "min_length",
+              "passed": true,
+              "detail": "全文 188 字"
+            }
+          ],
+          "unmet_requirements": [],
+          "semantic_review": {
+            "executed": false,
+            "passed": null,
+            "summary": "未配置模型，跳过语义评估",
+            "issues": []
+          },
+          "matches_frozen_expectations": true
+        },
+        {
+          "id": "missing_section",
+          "sample": "02_missing_section.docx",
+          "sample_sha256": "f521788cd1096f1ac3a50c8d62b73fb6c585726ad0626915937021eeda44d640",
+          "change": "删除归还与依据整章，包括章标题、正文、资料性质与本章引用",
+          "non_whitespace_characters": 121,
+          "expected_failed_checks": [
+            "required_sections",
+            "must_include",
+            "required_data",
+            "citations"
+          ],
+          "actual_failed_checks": [
+            "required_sections",
+            "must_include",
+            "required_data",
+            "citations"
+          ],
+          "passed": false,
+          "programmatic_passed": false,
+          "summary": "4/8 项检查通过",
+          "checks": [
+            {
+              "name": "required_sections",
+              "passed": false,
+              "detail": "缺少必填章节：归还与依据"
+            },
+            {
+              "name": "section_order",
+              "passed": true,
+              "detail": "章节顺序符合规范"
+            },
+            {
+              "name": "must_include",
+              "passed": false,
+              "detail": "以下要点未出现：归还与依据（章节缺失）"
+            },
+            {
+              "name": "required_data",
+              "passed": false,
+              "detail": "正文缺少数据字段：归还要求"
+            },
+            {
+              "name": "citations",
+              "passed": false,
+              "detail": "引用不足：归还与依据（章节缺失）"
+            },
+            {
+              "name": "citation_sources",
+              "passed": true,
+              "detail": "引用 1 条，均能对应到已检索来源"
+            },
+            {
+              "name": "no_placeholder",
+              "passed": true,
+              "detail": "未发现占位内容"
+            },
+            {
+              "name": "min_length",
+              "passed": true,
+              "detail": "全文 121 字"
+            }
+          ],
+          "unmet_requirements": [
+            "required_sections：缺少必填章节：归还与依据",
+            "must_include：以下要点未出现：归还与依据（章节缺失）",
+            "required_data：正文缺少数据字段：归还要求",
+            "citations：引用不足：归还与依据（章节缺失）"
+          ],
+          "semantic_review": {
+            "executed": false,
+            "passed": null,
+            "summary": "未配置模型，跳过语义评估",
+            "issues": []
+          },
+          "matches_frozen_expectations": true
+        },
+        {
+          "id": "missing_required_field",
+          "sample": "03_missing_required_field.docx",
+          "sample_sha256": "a9d53fcab21669a8e0763652a4d4b24b03a057e414bfd07be41f5e4be107d783",
+          "change": "仅删除预约要求整行，包括字段名和提前2个工作日的事实",
+          "non_whitespace_characters": 168,
+          "expected_failed_checks": [
+            "must_include",
+            "required_data"
+          ],
+          "actual_failed_checks": [
+            "must_include",
+            "required_data"
+          ],
+          "passed": false,
+          "programmatic_passed": false,
+          "summary": "6/8 项检查通过",
+          "checks": [
+            {
+              "name": "required_sections",
+              "passed": true,
+              "detail": "必填章节齐全"
+            },
+            {
+              "name": "section_order",
+              "passed": true,
+              "detail": "章节顺序符合规范"
+            },
+            {
+              "name": "must_include",
+              "passed": false,
+              "detail": "以下要点未出现：借用与申请：预约要求"
+            },
+            {
+              "name": "required_data",
+              "passed": false,
+              "detail": "正文缺少数据字段：预约要求"
+            },
+            {
+              "name": "citations",
+              "passed": true,
+              "detail": "引用标记共 2 条，需引用章节均达标"
+            },
+            {
+              "name": "citation_sources",
+              "passed": true,
+              "detail": "引用 2 条，均能对应到已检索来源"
+            },
+            {
+              "name": "no_placeholder",
+              "passed": true,
+              "detail": "未发现占位内容"
+            },
+            {
+              "name": "min_length",
+              "passed": true,
+              "detail": "全文 168 字"
+            }
+          ],
+          "unmet_requirements": [
+            "must_include：以下要点未出现：借用与申请：预约要求",
+            "required_data：正文缺少数据字段：预约要求"
+          ],
+          "semantic_review": {
+            "executed": false,
+            "passed": null,
+            "summary": "未配置模型，跳过语义评估",
+            "issues": []
+          },
+          "matches_frozen_expectations": true
+        },
+        {
+          "id": "false_source",
+          "sample": "04_false_source.docx",
+          "sample_sha256": "7b5012626d63905d484f2a6d6bc3184376c57552690c671e5e5304ab8395052b",
+          "change": "仅把归还与依据章末的文件名换成无关的虚假来源，保留引用标记",
+          "non_whitespace_characters": 201,
+          "expected_failed_checks": [
+            "citation_sources"
+          ],
+          "actual_failed_checks": [
+            "citation_sources"
+          ],
+          "passed": false,
+          "programmatic_passed": false,
+          "summary": "7/8 项检查通过",
+          "checks": [
+            {
+              "name": "required_sections",
+              "passed": true,
+              "detail": "必填章节齐全"
+            },
+            {
+              "name": "section_order",
+              "passed": true,
+              "detail": "章节顺序符合规范"
+            },
+            {
+              "name": "must_include",
+              "passed": true,
+              "detail": "章节要点均已覆盖"
+            },
+            {
+              "name": "required_data",
+              "passed": true,
+              "detail": "必需数据字段均已出现"
+            },
+            {
+              "name": "citations",
+              "passed": true,
+              "detail": "引用标记共 2 条，需引用章节均达标"
+            },
+            {
+              "name": "citation_sources",
+              "passed": false,
+              "detail": "以下引用无法对应到已检索来源：qa_unrelated_fabricated_policy.txt"
+            },
+            {
+              "name": "no_placeholder",
+              "passed": true,
+              "detail": "未发现占位内容"
+            },
+            {
+              "name": "min_length",
+              "passed": true,
+              "detail": "全文 201 字"
+            }
+          ],
+          "unmet_requirements": [
+            "citation_sources：以下引用无法对应到已检索来源：qa_unrelated_fabricated_policy.txt"
+          ],
+          "semantic_review": {
+            "executed": false,
+            "passed": null,
+            "summary": "未配置模型，跳过语义评估",
+            "issues": []
+          },
+          "matches_frozen_expectations": true
+        }
+      ]
+    },
+    "final_samples_run": {
+      "candidate_commit": "f5bde52bdc450ab4125383531d40700be5ac42ee",
+      "skill_id": "qa_borrowing_ab",
+      "skill_config_sha256": "647f785c11eb1ba2f5c8a1626320969fcb304e21bcc9aff463a4bd3560536a37",
+      "skill_instructions_sha256": "9ddfb79200fa675aad9494c2e27a5d9e2ef9ddd844bff513a5379140469beab7",
+      "known_source_name": "星桥演示设备借用规则_v1.0.0.txt",
+      "known_source_sha256": "ec34dfa3c39f8848c4aa1b096412c68535a2bbfdf4a6b45cbf9ce4ccbb65c74e",
+      "expectations_sha256": "0f7ed9ace3881b85e40f09906fca540c209b640543879da2642538fdfbf1befd",
+      "execution": "run_verification and create_verify_node(llm=None), same four saved Word controls",
+      "fixture_revision": "Removed only the inherited Title style w:pBdr after first page review. Rechecked the four revised copies using the original frozen expectations.",
+      "denied_network_events": [],
+      "all_cases_match_frozen_expectations": true,
+      "cases": [
+        {
+          "id": "compliant",
+          "sample": "01_compliant.docx",
+          "sample_sha256": "db84f2e22b19d87c5495f632b0c21fefd08c2b74768bc15a6097103f2b0ae00f",
+          "initial_sample_sha256": "4329a49ce06b366b843c4ebe62c205ed304d925bb1ef15fe1e0b15410926c16c",
+          "changed_package_members": [
+            "word/styles.xml"
+          ],
+          "change": "合格正例",
+          "non_whitespace_characters": 188,
+          "expected_failed_checks": [],
+          "actual_failed_checks": [],
+          "passed": true,
+          "programmatic_passed": true,
+          "summary": "8/8 项检查通过",
+          "checks": [
+            {
+              "name": "required_sections",
+              "passed": true,
+              "detail": "必填章节齐全"
+            },
+            {
+              "name": "section_order",
+              "passed": true,
+              "detail": "章节顺序符合规范"
+            },
+            {
+              "name": "must_include",
+              "passed": true,
+              "detail": "章节要点均已覆盖"
+            },
+            {
+              "name": "required_data",
+              "passed": true,
+              "detail": "必需数据字段均已出现"
+            },
+            {
+              "name": "citations",
+              "passed": true,
+              "detail": "引用标记共 2 条，需引用章节均达标"
+            },
+            {
+              "name": "citation_sources",
+              "passed": true,
+              "detail": "引用 2 条，均能对应到已检索来源"
+            },
+            {
+              "name": "no_placeholder",
+              "passed": true,
+              "detail": "未发现占位内容"
+            },
+            {
+              "name": "min_length",
+              "passed": true,
+              "detail": "全文 188 字"
+            }
+          ],
+          "unmet_requirements": [],
+          "semantic_review": {
+            "executed": false,
+            "passed": null,
+            "summary": "未配置模型，跳过语义评估",
+            "issues": []
+          },
+          "matches_frozen_expectations": true
+        },
+        {
+          "id": "missing_section",
+          "sample": "02_missing_section.docx",
+          "sample_sha256": "e934427249ee2de148071eb546a43fae2609dcdbfe3f80e1ee0521a0d0865380",
+          "initial_sample_sha256": "f521788cd1096f1ac3a50c8d62b73fb6c585726ad0626915937021eeda44d640",
+          "changed_package_members": [
+            "word/styles.xml"
+          ],
+          "change": "删除归还与依据整章，包括章标题、正文、资料性质与本章引用",
+          "non_whitespace_characters": 121,
+          "expected_failed_checks": [
+            "required_sections",
+            "must_include",
+            "required_data",
+            "citations"
+          ],
+          "actual_failed_checks": [
+            "required_sections",
+            "must_include",
+            "required_data",
+            "citations"
+          ],
+          "passed": false,
+          "programmatic_passed": false,
+          "summary": "4/8 项检查通过",
+          "checks": [
+            {
+              "name": "required_sections",
+              "passed": false,
+              "detail": "缺少必填章节：归还与依据"
+            },
+            {
+              "name": "section_order",
+              "passed": true,
+              "detail": "章节顺序符合规范"
+            },
+            {
+              "name": "must_include",
+              "passed": false,
+              "detail": "以下要点未出现：归还与依据（章节缺失）"
+            },
+            {
+              "name": "required_data",
+              "passed": false,
+              "detail": "正文缺少数据字段：归还要求"
+            },
+            {
+              "name": "citations",
+              "passed": false,
+              "detail": "引用不足：归还与依据（章节缺失）"
+            },
+            {
+              "name": "citation_sources",
+              "passed": true,
+              "detail": "引用 1 条，均能对应到已检索来源"
+            },
+            {
+              "name": "no_placeholder",
+              "passed": true,
+              "detail": "未发现占位内容"
+            },
+            {
+              "name": "min_length",
+              "passed": true,
+              "detail": "全文 121 字"
+            }
+          ],
+          "unmet_requirements": [
+            "required_sections：缺少必填章节：归还与依据",
+            "must_include：以下要点未出现：归还与依据（章节缺失）",
+            "required_data：正文缺少数据字段：归还要求",
+            "citations：引用不足：归还与依据（章节缺失）"
+          ],
+          "semantic_review": {
+            "executed": false,
+            "passed": null,
+            "summary": "未配置模型，跳过语义评估",
+            "issues": []
+          },
+          "matches_frozen_expectations": true
+        },
+        {
+          "id": "missing_required_field",
+          "sample": "03_missing_required_field.docx",
+          "sample_sha256": "2c404d263d1f2faff2376595596ddfffff9925a8f259d9324cf1939046e7a9d6",
+          "initial_sample_sha256": "a9d53fcab21669a8e0763652a4d4b24b03a057e414bfd07be41f5e4be107d783",
+          "changed_package_members": [
+            "word/styles.xml"
+          ],
+          "change": "仅删除预约要求整行，包括字段名和提前2个工作日的事实",
+          "non_whitespace_characters": 168,
+          "expected_failed_checks": [
+            "must_include",
+            "required_data"
+          ],
+          "actual_failed_checks": [
+            "must_include",
+            "required_data"
+          ],
+          "passed": false,
+          "programmatic_passed": false,
+          "summary": "6/8 项检查通过",
+          "checks": [
+            {
+              "name": "required_sections",
+              "passed": true,
+              "detail": "必填章节齐全"
+            },
+            {
+              "name": "section_order",
+              "passed": true,
+              "detail": "章节顺序符合规范"
+            },
+            {
+              "name": "must_include",
+              "passed": false,
+              "detail": "以下要点未出现：借用与申请：预约要求"
+            },
+            {
+              "name": "required_data",
+              "passed": false,
+              "detail": "正文缺少数据字段：预约要求"
+            },
+            {
+              "name": "citations",
+              "passed": true,
+              "detail": "引用标记共 2 条，需引用章节均达标"
+            },
+            {
+              "name": "citation_sources",
+              "passed": true,
+              "detail": "引用 2 条，均能对应到已检索来源"
+            },
+            {
+              "name": "no_placeholder",
+              "passed": true,
+              "detail": "未发现占位内容"
+            },
+            {
+              "name": "min_length",
+              "passed": true,
+              "detail": "全文 168 字"
+            }
+          ],
+          "unmet_requirements": [
+            "must_include：以下要点未出现：借用与申请：预约要求",
+            "required_data：正文缺少数据字段：预约要求"
+          ],
+          "semantic_review": {
+            "executed": false,
+            "passed": null,
+            "summary": "未配置模型，跳过语义评估",
+            "issues": []
+          },
+          "matches_frozen_expectations": true
+        },
+        {
+          "id": "false_source",
+          "sample": "04_false_source.docx",
+          "sample_sha256": "8e0f2530d4b2e802b890c97993966ce5dd73d78768e3859d4a53d851773b6c2d",
+          "initial_sample_sha256": "7b5012626d63905d484f2a6d6bc3184376c57552690c671e5e5304ab8395052b",
+          "changed_package_members": [
+            "word/styles.xml"
+          ],
+          "change": "仅把归还与依据章末的文件名换成无关的虚假来源，保留引用标记",
+          "non_whitespace_characters": 201,
+          "expected_failed_checks": [
+            "citation_sources"
+          ],
+          "actual_failed_checks": [
+            "citation_sources"
+          ],
+          "passed": false,
+          "programmatic_passed": false,
+          "summary": "7/8 项检查通过",
+          "checks": [
+            {
+              "name": "required_sections",
+              "passed": true,
+              "detail": "必填章节齐全"
+            },
+            {
+              "name": "section_order",
+              "passed": true,
+              "detail": "章节顺序符合规范"
+            },
+            {
+              "name": "must_include",
+              "passed": true,
+              "detail": "章节要点均已覆盖"
+            },
+            {
+              "name": "required_data",
+              "passed": true,
+              "detail": "必需数据字段均已出现"
+            },
+            {
+              "name": "citations",
+              "passed": true,
+              "detail": "引用标记共 2 条，需引用章节均达标"
+            },
+            {
+              "name": "citation_sources",
+              "passed": false,
+              "detail": "以下引用无法对应到已检索来源：qa_unrelated_fabricated_policy.txt"
+            },
+            {
+              "name": "no_placeholder",
+              "passed": true,
+              "detail": "未发现占位内容"
+            },
+            {
+              "name": "min_length",
+              "passed": true,
+              "detail": "全文 201 字"
+            }
+          ],
+          "unmet_requirements": [
+            "citation_sources：以下引用无法对应到已检索来源：qa_unrelated_fabricated_policy.txt"
+          ],
+          "semantic_review": {
+            "executed": false,
+            "passed": null,
+            "summary": "未配置模型，跳过语义评估",
+            "issues": []
+          },
+          "matches_frozen_expectations": true
+        }
+      ]
+    }
+  },
+  "sk002": {
+    "candidate_commit": "f5bde52bdc450ab4125383531d40700be5ac42ee",
+    "mode": "offline_skill_node_and_route",
+    "started_at": "2026-11-10T13:28:38.430+08:00",
+    "finished_at": "2026-11-10T13:28:38.468+08:00",
+    "entry_points": [
+      "create_skill_node",
+      "route_after_skill"
+    ],
+    "scope": "实际选择节点与条件路由。上游意图状态由夹具提供，llm/gdb/kg/remote_kg_tool 均为 None。",
+    "expected_sha256": "d35721681afd55242842f8b8f319f618a9e86dc5dc863e3749cc33eb784189ea",
+    "fixture_sha256": {
+      "qa_select_basic.json": "350e7dc23102df61971e07f7178ed46023ac7378dadb406f79426d0201f8b211",
+      "qa_select_detailed.json": "e9b94630a5a3b719f4f5f79a932939bed1dffc13c6cc9920d774d8c089d4615b",
+      "qa_select_disabled.json": "78e94a86b152bc7ec1f5fd483d362b2bbf8de63d39c0ddcc98cc584776185c70",
+      "qa_select_review_a.json": "41e708bbea6f7d62caa3eaff64ccb93676b4a303759778f74f70d64629e82056",
+      "qa_select_review_b.json": "731a9f10c4f7ac27db551cd754c217c76cb61ced7161cc642a7c65957eae2607"
+    },
+    "fixture_configs": {
+      "qa_select_basic.json": {
+        "id": "qa_select_basic",
+        "name": "基础借用规范",
+        "enabled": true,
+        "task": {
+          "doc_type": "new",
+          "triggers": [
+            "设备借用"
+          ]
+        },
+        "research": {
+          "source": {
+            "priority": [
+              "file"
+            ]
+          }
+        },
+        "verification": {
+          "semantic_review": false
+        }
+      },
+      "qa_select_detailed.json": {
+        "id": "qa_select_detailed",
+        "name": "详细登记规范",
+        "enabled": true,
+        "task": {
+          "doc_type": "new",
+          "triggers": [
+            "设备借用登记"
+          ]
+        },
+        "research": {
+          "source": {
+            "priority": [
+              "file"
+            ]
+          }
+        },
+        "verification": {
+          "semantic_review": false
+        }
+      },
+      "qa_select_disabled.json": {
+        "id": "qa_select_disabled",
+        "name": "已停用演示规范",
+        "enabled": false,
+        "task": {
+          "doc_type": "new",
+          "triggers": [
+            "设备借用登记留痕",
+            "停用独立触发"
+          ]
+        },
+        "research": {
+          "source": {
+            "priority": [
+              "file"
+            ]
+          }
+        },
+        "verification": {
+          "semantic_review": false
+        }
+      },
+      "qa_select_review_a.json": {
+        "id": "qa_select_review_a",
+        "name": "复核甲规范",
+        "enabled": true,
+        "task": {
+          "doc_type": "new",
+          "triggers": [
+            "共同复核口径"
+          ]
+        },
+        "research": {
+          "source": {
+            "priority": [
+              "file"
+            ]
+          }
+        },
+        "verification": {
+          "semantic_review": false
+        }
+      },
+      "qa_select_review_b.json": {
+        "id": "qa_select_review_b",
+        "name": "复核乙规范",
+        "enabled": true,
+        "task": {
+          "doc_type": "new",
+          "triggers": [
+            "共同复核口径"
+          ]
+        },
+        "research": {
+          "source": {
+            "priority": [
+              "file"
+            ]
+          }
+        },
+        "verification": {
+          "semantic_review": false
+        }
+      }
+    },
+    "product_origins": {
+      "document_agent.agent.skill_node": "src/document_agent/agent/skill_node.py",
+      "document_agent.skills.match": "src/document_agent/skills/match.py",
+      "document_agent.skills.store": "src/document_agent/skills/store.py",
+      "agent_core": "src/document_agent/agent/agent_core.py",
+      "llm_client": "src/document_agent/agent/llm_client.py"
+    },
+    "candidate_tracked_files": 64,
+    "product_module_sha256": {
+      "src/document_agent/agent/agent_core.py": "01f82989968231e0c73c08d79b1ee09b450d93f70b37f8feb36a3f06cb45847b",
+      "src/document_agent/agent/llm_client.py": "18b53b49bc7510359860ee8484e22f78080e3d7fd234b568214644bc835c749a",
+      "src/document_agent/agent/skill_node.py": "ca7ba25f3ffe4ca864e60fcb928e8fa6c919921fe5e8dba68ec3d00204bb04a6",
+      "src/document_agent/skills/match.py": "62bf82b79c82f3b9288cb68eec074edd1c7b8fe453f23d79457952ac2fb2a570",
+      "src/document_agent/skills/store.py": "67ac370a3e4f057deaf1ed7695aa43106a3152b473daea37b3125b1bafa47b6d"
+    },
+    "product_tree_manifest_sha256": "8d93679f23ebee4530c77dac74513cc2324171535a48156437d0105fededeb6a",
+    "candidate_files_unchanged": true,
+    "inputs_unchanged": true,
+    "blocked_unexpected_network_events": [],
+    "blocked_import_capability_probes": [
+      "blocked_urllib3_loopback_ipv6_capability_probe"
+    ],
+    "selection_cases": [
+      {
+        "case": "SEL-01",
+        "purpose": "显式指定覆盖原话和意图提示中的另一项",
+        "input": {
+          "message": "请用 qa_select_basic 写设备借用须知。",
+          "skill_id": "qa_select_detailed",
+          "skill_name_hint": "qa_select_basic"
+        },
+        "expected": {
+          "selected_skill_id": "qa_select_detailed",
+          "returned_skill_id": "qa_select_detailed",
+          "state": "start",
+          "route": "continue",
+          "log_contains": [
+            "命令行指定 --skill=qa_select_detailed"
+          ],
+          "error_contains": null
+        },
+        "actual": {
+          "selected_skill_id": "qa_select_detailed",
+          "returned_skill_id": "qa_select_detailed",
+          "state": "start",
+          "route": "continue",
+          "error": null,
+          "log": "【Skill】已加载 详细登记规范（qa_select_detailed v1，启用）｜适用：new｜章节：0｜检索轮次：3｜来源：file｜匹配依据：命令行指定 --skill=qa_select_detailed\n    - file：不可用｜用户未提供可检索的参考文件\n    - knowledge：不可用｜Skill 未启用知识库来源\n    - template：不可用｜未配置文档模板\n【Skill 能力】file 不可用，本次跳过该来源：用户未提供可检索的参考文件\n"
+        },
+        "matches_expected": true,
+        "mismatches": []
+      },
+      {
+        "case": "SEL-02",
+        "purpose": "唯一触发词自动命中",
+        "input": {
+          "message": "请写设备借用须知。",
+          "skill_id": null,
+          "skill_name_hint": null
+        },
+        "expected": {
+          "selected_skill_id": "qa_select_basic",
+          "returned_skill_id": "qa_select_basic",
+          "state": "start",
+          "route": "continue",
+          "log_contains": [
+            "命中触发词「设备借用」"
+          ],
+          "error_contains": null
+        },
+        "actual": {
+          "selected_skill_id": "qa_select_basic",
+          "returned_skill_id": "qa_select_basic",
+          "state": "start",
+          "route": "continue",
+          "error": null,
+          "log": "【Skill 匹配】命中触发词「设备借用」（qa_select_basic）\n【Skill】已加载 基础借用规范（qa_select_basic v1，启用）｜适用：new｜章节：0｜检索轮次：3｜来源：file｜匹配依据：命中触发词「设备借用」（qa_select_basic）\n    - file：不可用｜用户未提供可检索的参考文件\n    - knowledge：不可用｜Skill 未启用知识库来源\n    - template：不可用｜未配置文档模板\n【Skill 能力】file 不可用，本次跳过该来源：用户未提供可检索的参考文件\n"
+        },
+        "matches_expected": true,
+        "mismatches": []
+      },
+      {
+        "case": "SEL-03",
+        "purpose": "重叠触发词取最长者",
+        "input": {
+          "message": "请写设备借用登记须知。",
+          "skill_id": null,
+          "skill_name_hint": null
+        },
+        "expected": {
+          "selected_skill_id": "qa_select_detailed",
+          "returned_skill_id": "qa_select_detailed",
+          "state": "start",
+          "route": "continue",
+          "log_contains": [
+            "命中触发词「设备借用登记」"
+          ],
+          "error_contains": null
+        },
+        "actual": {
+          "selected_skill_id": "qa_select_detailed",
+          "returned_skill_id": "qa_select_detailed",
+          "state": "start",
+          "route": "continue",
+          "error": null,
+          "log": "【Skill 匹配】命中触发词「设备借用登记」（qa_select_detailed）\n【Skill】已加载 详细登记规范（qa_select_detailed v1，启用）｜适用：new｜章节：0｜检索轮次：3｜来源：file｜匹配依据：命中触发词「设备借用登记」（qa_select_detailed）\n    - file：不可用｜用户未提供可检索的参考文件\n    - knowledge：不可用｜Skill 未启用知识库来源\n    - template：不可用｜未配置文档模板\n【Skill 能力】file 不可用，本次跳过该来源：用户未提供可检索的参考文件\n"
+        },
+        "matches_expected": true,
+        "mismatches": []
+      },
+      {
+        "case": "SEL-04",
+        "purpose": "同长度触发词并列，意图提示不能消除歧义",
+        "input": {
+          "message": "请按共同复核口径写说明。",
+          "skill_id": null,
+          "skill_name_hint": "qa_select_review_a"
+        },
+        "expected": {
+          "selected_skill_id": null,
+          "returned_skill_id": null,
+          "state": "start",
+          "route": "continue",
+          "log_contains": [
+            "触发词同时匹配多个 Skill",
+            "qa_select_review_a",
+            "qa_select_review_b",
+            "请用 --skill 明确指定"
+          ],
+          "error_contains": null
+        },
+        "actual": {
+          "selected_skill_id": null,
+          "returned_skill_id": null,
+          "state": "start",
+          "route": "continue",
+          "error": null,
+          "log": "【Skill 匹配】触发词同时匹配多个 Skill（qa_select_review_a、qa_select_review_b），请用 --skill 明确指定\n"
+        },
+        "matches_expected": true,
+        "mismatches": []
+      },
+      {
+        "case": "SEL-05",
+        "purpose": "原话同时提及两个 ID 时不选",
+        "input": {
+          "message": "请参考 qa_select_basic 和 qa_select_detailed 写说明。",
+          "skill_id": null,
+          "skill_name_hint": null
+        },
+        "expected": {
+          "selected_skill_id": null,
+          "returned_skill_id": null,
+          "state": "start",
+          "route": "continue",
+          "log_contains": [
+            "用户原话同时提到多个 Skill id",
+            "qa_select_basic",
+            "qa_select_detailed",
+            "请用 --skill 明确指定"
+          ],
+          "error_contains": null
+        },
+        "actual": {
+          "selected_skill_id": null,
+          "returned_skill_id": null,
+          "state": "start",
+          "route": "continue",
+          "error": null,
+          "log": "【Skill 匹配】用户原话同时提到多个 Skill id（qa_select_basic、qa_select_detailed），请用 --skill 明确指定\n"
+        },
+        "matches_expected": true,
+        "mismatches": []
+      },
+      {
+        "case": "SEL-06",
+        "purpose": "更长的停用触发词不参与竞争",
+        "input": {
+          "message": "请写设备借用登记留痕说明。",
+          "skill_id": null,
+          "skill_name_hint": null
+        },
+        "expected": {
+          "selected_skill_id": "qa_select_detailed",
+          "returned_skill_id": "qa_select_detailed",
+          "state": "start",
+          "route": "continue",
+          "log_contains": [
+            "命中触发词「设备借用登记」"
+          ],
+          "error_contains": null
+        },
+        "actual": {
+          "selected_skill_id": "qa_select_detailed",
+          "returned_skill_id": "qa_select_detailed",
+          "state": "start",
+          "route": "continue",
+          "error": null,
+          "log": "【Skill 匹配】命中触发词「设备借用登记」（qa_select_detailed）\n【Skill】已加载 详细登记规范（qa_select_detailed v1，启用）｜适用：new｜章节：0｜检索轮次：3｜来源：file｜匹配依据：命中触发词「设备借用登记」（qa_select_detailed）\n    - file：不可用｜用户未提供可检索的参考文件\n    - knowledge：不可用｜Skill 未启用知识库来源\n    - template：不可用｜未配置文档模板\n【Skill 能力】file 不可用，本次跳过该来源：用户未提供可检索的参考文件\n"
+        },
+        "matches_expected": true,
+        "mismatches": []
+      },
+      {
+        "case": "SEL-07",
+        "purpose": "原话和意图提示都指向停用规范时继续默认流程",
+        "input": {
+          "message": "请用 qa_select_disabled 写停用独立触发说明。",
+          "skill_id": null,
+          "skill_name_hint": "qa_select_disabled"
+        },
+        "expected": {
+          "selected_skill_id": null,
+          "returned_skill_id": null,
+          "state": "start",
+          "route": "continue",
+          "log_contains": [
+            "未找到或已禁用，已忽略"
+          ],
+          "error_contains": null
+        },
+        "actual": {
+          "selected_skill_id": null,
+          "returned_skill_id": null,
+          "state": "start",
+          "route": "continue",
+          "error": null,
+          "log": "【Skill 匹配】意图识别建议的 Skill「qa_select_disabled」未找到或已禁用，已忽略\n"
+        },
+        "matches_expected": true,
+        "mismatches": []
+      },
+      {
+        "case": "SEL-08",
+        "purpose": "显式指定停用规范时拒绝，保留错误原因",
+        "input": {
+          "message": "请写设备借用须知。",
+          "skill_id": "qa_select_disabled",
+          "skill_name_hint": null
+        },
+        "expected": {
+          "selected_skill_id": null,
+          "returned_skill_id": "qa_select_disabled",
+          "state": "error",
+          "route": "end",
+          "log_contains": [
+            "Skill 加载错误",
+            "已禁用"
+          ],
+          "error_contains": "已禁用"
+        },
+        "actual": {
+          "selected_skill_id": null,
+          "returned_skill_id": "qa_select_disabled",
+          "state": "error",
+          "route": "end",
+          "error": "Skill「已停用演示规范」（qa_select_disabled）已禁用，请先在配置中把 enabled 设为 true",
+          "log": "[Skill 加载错误] Skill「已停用演示规范」（qa_select_disabled）已禁用，请先在配置中把 enabled 设为 true\n"
+        },
+        "matches_expected": true,
+        "mismatches": []
+      },
+      {
+        "case": "SEL-09",
+        "purpose": "显式指定不存在的规范时拒绝，保留错误原因",
+        "input": {
+          "message": "请写设备借用须知。",
+          "skill_id": "qa_select_missing",
+          "skill_name_hint": null
+        },
+        "expected": {
+          "selected_skill_id": null,
+          "returned_skill_id": "qa_select_missing",
+          "state": "error",
+          "route": "end",
+          "log_contains": [
+            "Skill 加载错误",
+            "未找到 Skill「qa_select_missing」"
+          ],
+          "error_contains": "未找到 Skill「qa_select_missing」"
+        },
+        "actual": {
+          "selected_skill_id": null,
+          "returned_skill_id": "qa_select_missing",
+          "state": "error",
+          "route": "end",
+          "error": "未找到 Skill「qa_select_missing」。目录：[isolated-skill-fixtures]；可用：qa_select_basic、qa_select_detailed、qa_select_disabled、qa_select_review_a、qa_select_review_b",
+          "log": "[Skill 加载错误] 未找到 Skill「qa_select_missing」。目录：[isolated-skill-fixtures]；可用：qa_select_basic、qa_select_detailed、qa_select_disabled、qa_select_review_a、qa_select_review_b\n"
+        },
+        "matches_expected": true,
+        "mismatches": []
+      },
+      {
+        "case": "SEL-10",
+        "purpose": "原话未命中时采用有效的预置意图提示",
+        "input": {
+          "message": "请写一份说明。",
+          "skill_id": null,
+          "skill_name_hint": "qa_select_review_b"
+        },
+        "expected": {
+          "selected_skill_id": "qa_select_review_b",
+          "returned_skill_id": "qa_select_review_b",
+          "state": "start",
+          "route": "continue",
+          "log_contains": [
+            "采用意图识别建议"
+          ],
+          "error_contains": null
+        },
+        "actual": {
+          "selected_skill_id": "qa_select_review_b",
+          "returned_skill_id": "qa_select_review_b",
+          "state": "start",
+          "route": "continue",
+          "error": null,
+          "log": "【Skill 匹配】采用意图识别建议「复核乙规范」（qa_select_review_b）\n【Skill】已加载 复核乙规范（qa_select_review_b v1，启用）｜适用：new｜章节：0｜检索轮次：3｜来源：file｜匹配依据：采用意图识别建议「复核乙规范」（qa_select_review_b）\n    - file：不可用｜用户未提供可检索的参考文件\n    - knowledge：不可用｜Skill 未启用知识库来源\n    - template：不可用｜未配置文档模板\n【Skill 能力】file 不可用，本次跳过该来源：用户未提供可检索的参考文件\n"
+        },
+        "matches_expected": true,
+        "mismatches": []
+      }
+    ]
+  },
+  "visual_review": {
+    "renderer": "WPS read-only PDF export and Poppler PNG rasterization",
+    "initial_fixture_finding": "Title style inherited a blue paragraph border",
+    "final_pages_inspected": 4,
+    "final_pages": [
+      {
+        "sample": "01_compliant.docx",
+        "sample_sha256": "db84f2e22b19d87c5495f632b0c21fefd08c2b74768bc15a6097103f2b0ae00f",
+        "page_sha256": [
+          "29c8c3014a919318de20a2d418d961d02916ba177aeb0e181b526cc97bb41b59"
+        ]
+      },
+      {
+        "sample": "02_missing_section.docx",
+        "sample_sha256": "e934427249ee2de148071eb546a43fae2609dcdbfe3f80e1ee0521a0d0865380",
+        "page_sha256": [
+          "acdf773cfe442d90506534cc3265c1ade41fcb8fd74ae142f524bc8cbca56d80"
+        ]
+      },
+      {
+        "sample": "03_missing_required_field.docx",
+        "sample_sha256": "2c404d263d1f2faff2376595596ddfffff9925a8f259d9324cf1939046e7a9d6",
+        "page_sha256": [
+          "4f6e12ae31266c7fb7f75e69b5a8d8192b6760ab6aa0aa92059902d74a050ef2"
+        ]
+      },
+      {
+        "sample": "04_false_source.docx",
+        "sample_sha256": "8e0f2530d4b2e802b890c97993966ce5dd73d78768e3859d4a53d851773b6c2d",
+        "page_sha256": [
+          "af947d26c3858002db0791df8b66a3d32f9f16d7dd21e5d238520b20a55c025d"
+        ]
+      }
+    ],
+    "final_visual_review_passed": true
+  },
+  "preservation": {
+    "candidate_files_sha256_equal": 64,
+    "original_product_and_config_sha256_equal": 28,
+    "repository_head": "14005cf06c5f87627be2e9b058812347e9045dc5"
+  }
+}
