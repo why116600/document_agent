@@ -84,7 +84,12 @@ def _assess_coverage(llm, step: Dict[str, Any], records: List[Dict[str, Any]]) -
     return bool(result.covered and result.has_evidence), result.reason, bool(result.has_evidence)
 
 
-def _retry_query(llm, plan, progress, step, reason):
+def _retry_query(llm, plan, progress, step, reason, data_fields=None, query_expansion=True):
+    """为未覆盖问题生成一条与已尝试查询不同的补查式。
+
+    优先使用计划中尚未尝试的查询；没有时用未覆盖的数据字段做确定性补查；
+    最后才在允许 query_expansion 时调用模型改写，避免同一查询重复消耗预算。
+    """
     used = {item["query"] for item in progress.get("attempts", [])
             if item["question_id"] == step["question_id"]}
     used.add(step["query"])
@@ -92,7 +97,15 @@ def _retry_query(llm, plan, progress, step, reason):
     for query in question["queries"]:
         if query not in used:
             return query
-    if llm is None:
+    fields = [str(field).strip() for field in (data_fields or []) if str(field).strip()]
+    used_text = " ".join(used)
+    missing_fields = [field for field in fields if field not in used_text]
+    if missing_fields:
+        base = str(step.get("query") or question["question"] or "").strip()
+        candidate = (base + " " + " ".join(missing_fields)).strip()
+        if candidate and candidate not in used:
+            return candidate[:500]
+    if not query_expansion or llm is None:
         return None
     draft = llm_model_invoke(llm, (
         f"为没有结果的检索改写一条查询，不要编造事实。研究问题：{step['question']}\n"
@@ -155,9 +168,15 @@ def _orchestrated_retrieve(llm, state: AgentState, skill: DocumentSkill, plan: D
         threshold = skill.research.stop_after_no_new_evidence
         threshold_reached = not has_evidence and threshold and progress.get("consecutive_empty", 0) + 1 >= threshold
         should_rewrite = (not has_evidence and skill.research.on_empty == "rewrite_query") or (has_evidence and same_source)
-        if (not covered and should_rewrite and remaining > 0 and next_attempt and not threshold_reached
-                and skill.research.query_expansion and tool_calls_left > 0):
-            retry_query = _retry_query(llm, plan, progress, step, reason)
+        if (not covered and should_rewrite and remaining > 0 and next_attempt
+                and not threshold_reached and tool_calls_left > 0):
+            retry_query = _retry_query(
+                llm, plan, progress, step, reason,
+                data_fields=skill.research.data_fields,
+                query_expansion=skill.research.query_expansion,
+            )
+        if not covered and retry_query is None and next_attempt and same_source:
+            print("【检索评估】没有可用的不同查询，按缺失记录")
         progress = record_assessment(plan, progress, covered, len(new_records) if has_evidence else 0,
                                      retry_query=retry_query, reason=reason)
         progress = _evaluate_stop(llm, skill, progress)

@@ -28,6 +28,11 @@ def _contains_normalized(text: str, needle: str) -> bool:
     return bool(needle) and _norm(needle) in _norm(text)
 
 
+def _query_cache_key(query: str) -> str:
+    """查询缓存键：忽略大小写与空白差异，避免同一查询重复执行。"""
+    return " ".join(str(query or "").split()).lower()
+
+
 def _read_content(path: str) -> str:
     """按 (路径, 大小, mtime) 缓存提取结果，避免每个研究问题重复解析同一文档。"""
     target = Path(path)
@@ -131,6 +136,7 @@ def create_file_retrieve_node(llm):
         if not params.get("query"):
             return {**state,"state":"error","error":"文件检索缺少查询内容"}
         query=params.get("query")
+        query_key=_query_cache_key(query)
         candidates=[str(item) for item in (params.get("paths") or []) if str(item).strip()]
         if not candidates and params.get("path"):
             candidates=[str(params["path"])]
@@ -150,7 +156,7 @@ def create_file_retrieve_node(llm):
             if max_tool_calls and calls_made >= max_tool_calls:
                 skipped.append({"path": path, "reason": "tool_call_budget"})
                 continue
-            cached_result=file_retrieved_items.get((path,query))
+            cached_result=file_retrieved_items.get((path,query_key))
             if cached_result is not None and skill is None:
                 retrieved_items.append(f"重复对文件{path}检索：{query}")
                 continue
@@ -209,7 +215,7 @@ def create_file_retrieve_node(llm):
                 skipped.append({"path": path, "reason": "no_relevant_content"})
                 continue
             retrieved_items.append(f"使用file工具以{query}为关键内容，对文件{path}的检索结果：{result}")
-            file_retrieved_items[(path,query)]=result
+            file_retrieved_items[(path,query_key)]=result
 
             path_obj=Path(path)
             try:

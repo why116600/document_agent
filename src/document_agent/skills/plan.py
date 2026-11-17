@@ -92,6 +92,7 @@ def build_retrieval_plan(
     for qid, question in _question_items(skill):
         queries = list((planned_queries or {}).get(qid) or [])
         queries = [query.strip() for query in queries if str(query).strip()]
+        queries = list(dict.fromkeys(queries))
         if not queries:
             queries = [default_query(question, skill.research.data_fields)]
         questions.append({
@@ -249,7 +250,7 @@ def record_assessment(
                 ignored.update(
                     index for index in question_indices if steps[index]["source"] == step["source"]
                 )
-        if plan.get("query_expansion", True) and retry_query and question_indices:
+        if retry_query and question_indices:
             retry_index = question_indices[0]
             overrides[str(retry_index)] = {
                 **steps[retry_index], "source": step["source"],
@@ -318,12 +319,15 @@ def finalize_report(
             # 预算耗尽或流程提前结束时，未确认覆盖的问题一律记为缺失
             missing.append(qid)
         q_attempts = [item for item in attempts if item["question_id"] == qid]
+        last = q_attempts[-1] if q_attempts else {}
         question_reports.append({
             "id": qid,
             "question": question["question"],
             "covered": qid in covered,
             "attempts": len(q_attempts),
             "sources": sorted({item["source"] for item in q_attempts}),
+            "queries": [item.get("query", "") for item in q_attempts],
+            "last_reason": last.get("reason", ""),
         })
 
     return {
