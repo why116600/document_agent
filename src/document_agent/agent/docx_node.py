@@ -15,7 +15,12 @@ from structured_invoke import llm_model_invoke
 from agent_core import AgentState, get_last_user_text
 from retrieved_context import build_retrieved_info, enforce_full_document_names
 from new_doc_spec import spec_from_state
-from new_doc_constraints import count_body_chars, insert_title, title_format_issues
+from new_doc_constraints import (
+    count_body_chars,
+    empty_docx_item_indexes,
+    insert_title,
+    title_format_issues,
+)
 from retrieval_material import (
     FIDELITY_RULES,
     collect_writing_material,
@@ -108,11 +113,25 @@ def _numbered_title(title, index, numbering):
 def _render_draft(result, section, index, skill):
     draft = Document()
     _apply_base_format(draft, skill)
+    if not result.items:
+        raise ValueError("本章 items 为空：必须输出至少一个包含正文的段落")
+    empty_indexes = empty_docx_item_indexes(result.items, allow_field_values=False)
+    if empty_indexes:
+        raise ValueError(
+            "第 " + "、".join(str(position) for position in empty_indexes)
+            + " 个元素没有正文内容：每个 paragraph 必须填写 Paragraph 且至少一个非空 run"
+        )
     for item in result.items:
-        if item.type == 'paragraph':
+        item_type = str(item.type or '').strip().lower()
+        if item_type == 'paragraph':
             replace_node_with_data(draft.add_paragraph(), item.Paragraph)
-        elif item.type == 'table':
+        elif item_type == 'table':
             replace_node_with_data(draft.add_table(rows=0, cols=0), item.Table)
+    has_body = any(
+        not heading_level(p) and p.text.strip() for p in draft.paragraphs
+    ) or bool(draft.tables)
+    if not has_body:
+        raise ValueError('本章只有标题，没有正文段落')
     roots = [p for p in draft.paragraphs if normalize_heading(p.text) == normalize_heading(section['title'])]
     if len(roots) > 1:
         raise ValueError('重复生成当前章标题')
@@ -375,6 +394,7 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):
                 "原文已列示的数值和比率只能称为原文值/复算，只有原文未列示而依据输入计算的值才称推算。"
                 "数值、单位和推导须核对来源，不得超出证据作断言；避免重复内容。总标题遵循用户需求或模板。"
                 "本章必须有正文，不能只生成标题；篇幅按整个文档的章节数分配，不要把全文字数都用在一章。"
+                "每个 paragraph 必须填写 Paragraph 且包含至少一个非空 run；不得输出空段落或空表格。"
             )
             limit = skill.verification.max_section_attempts if skill else 3
             failures = []

@@ -911,11 +911,15 @@ def _field_values_table(values) -> TableItem:
     return TableItem(rows=rows, cols=2, grid=grid)
 
 
-def _append_items(doc, items, policy: Optional[PresentationPolicy] = None) -> int:
-    """追加模型返回的元素；标签位置由 PresentationPolicy 决定。"""
+def _append_items(doc, items, policy: Optional[PresentationPolicy] = None,
+                  context: str = "") -> int:
+    """追加模型返回的元素；标签位置由 PresentationPolicy 决定。
+
+    返回被跳过的元素数；context 用于在日志中定位章节或修复稿。
+    """
     skipped = 0
     table_values = []
-    for item in items:
+    for position, item in enumerate(items, start=1):
         if item.type == "paragraph" and item.Paragraph is not None:
             node = doc.add_paragraph("")
             replace_node_with_data(node, item.Paragraph)
@@ -937,7 +941,7 @@ def _append_items(doc, items, policy: Optional[PresentationPolicy] = None) -> in
                 doc.add_paragraph(f"{field}：{value}")
         else:
             skipped += 1
-            print(f"【结构】跳过无效元素：type={item.type} "
+            print(f"【结构】{context}跳过无效元素 #{position}：type={item.type} "
                   f"Paragraph={'有' if item.Paragraph is not None else '无'} "
                   f"Table={'有' if item.Table is not None else '无'} "
                   f"FieldValue={'有' if item.FieldValue is not None else '无'}")
@@ -1094,6 +1098,7 @@ def _repair_new_doc(llm, dialog: str, retrieved_info: str, title: str,
         "7. 同一规则/字段全篇只写一次；不要写总览、摘要或概述段；如果当前文档存在“第一节汇总全文、后文分节重复”，"
         "必须删除汇总内容，只保留各章节自己的规则；\n"
         "8. 输出前先自检非空白字符数，超限必须删减到上限内；只输出 DocxRoot JSON，items 由段落组成。"
+        "每个 paragraph 必须填写 Paragraph 且至少一个非空 run；不得输出空段落或空表格。"
     )
     res = llm_model_invoke(llm, prompt, DocxRoot)
     if res is None:
@@ -1106,7 +1111,7 @@ def _repair_new_doc(llm, dialog: str, retrieved_info: str, title: str,
         items = _filter_plan_items(res.items, field_plan.chapters)
     else:
         items = res.items
-    skipped = _append_items(doc, items, policy)
+    skipped = _append_items(doc, items, policy, context="修复稿")
     insert_title(doc, title, spec)
     if field_plan is not None:
         strip_redundant_section_labels(doc, field_plan, policy)
@@ -1126,6 +1131,32 @@ def _paragraph_item_text(paragraph) -> str:
     return "".join(str(run.text or "") for run in (paragraph.runs or []))
 
 
+def empty_docx_item_indexes(items, allow_field_values: bool = True) -> List[int]:
+    """返回没有可渲染正文的元素序号（从 1 开始），供章节级重试定位。
+
+    段落必须有非空文字，表格必须有网格，未知类型视为无效；
+    ``allow_field_values=False`` 时 field_value 也视为无效（Skill 路径不支持该类型）。
+    """
+    empty: List[int] = []
+    for position, item in enumerate(items or [], start=1):
+        item_type = str(getattr(item, "type", "") or "").strip().lower()
+        if item_type == "paragraph":
+            paragraph = getattr(item, "Paragraph", None)
+            if paragraph is None or not _paragraph_item_text(paragraph).strip():
+                empty.append(position)
+        elif item_type == "table":
+            table = getattr(item, "Table", None)
+            if table is None or not getattr(table, "grid", None):
+                empty.append(position)
+        elif item_type == "field_value":
+            # 普通路径允许空值由 _append_items 跳过；Skill 路径不支持该类型。
+            if not allow_field_values:
+                empty.append(position)
+        else:
+            empty.append(position)
+    return empty
+
+
 def _filter_plan_items(items, chapters):
     """字段计划模式下由系统插入章节标题，过滤模型重复输出的章节标题。"""
     chapter_norms = {_normalize(item) for item in chapters if item}
@@ -1143,6 +1174,72 @@ def _filter_plan_items(items, chapters):
             continue
         filtered.append(item)
     return filtered
+
+
+def _items_have_body(items) -> bool:
+    """本章是否存在可渲染的正文：正文段落、非空表格或非空字段值，标题段不算正文。"""
+    for item in items or []:
+        item_type = str(getattr(item, "type", "") or "").strip().lower()
+        if item_type == "paragraph":
+            paragraph = getattr(item, "Paragraph", None)
+            if (paragraph is not None and not paragraph.heading_level
+                    and _paragraph_item_text(paragraph).strip()):
+                return True
+        elif item_type == "table":
+            table = getattr(item, "Table", None)
+            if table is not None and getattr(table, "grid", None):
+                return True
+        elif item_type == "field_value":
+            field_value = getattr(item, "FieldValue", None)
+            if field_value is not None and str(field_value.value or "").strip():
+                return True
+    return False
+
+
+def generate_section_items(llm, prompt: str, section: str, *,
+                           document_plan=None, attempts: int = 3):
+    """生成单章元素；空段落/空表格/只有标题会带定向反馈重试，失败抛出 ValueError。"""
+    feedback = ""
+    for attempt in range(1, attempts + 1):
+        res = llm_model_invoke(llm, prompt + feedback, DocxRoot, retry=1)
+        if res is None:
+            feedback = (
+                "\n\n【上次输出无法解析】请只输出合法的 DocxRoot JSON，"
+                "items 由段落或表格组成；不要输出解释文字。"
+            )
+            print(f"【章节检查】{section} 第{attempt}/{attempts}次未返回可解析结果")
+            continue
+        items = (_filter_plan_items(res.items, [section])
+                 if document_plan is not None else res.items)
+        if not items:
+            feedback = (
+                "\n\n【上次输出未通过】items 为空；本章必须至少输出一个"
+                "包含 Paragraph 和非空 run 的段落。"
+            )
+            print(f"【章节检查】{section} 第{attempt}/{attempts}次未输出任何元素")
+            continue
+        empty_indexes = empty_docx_item_indexes(items)
+        if empty_indexes:
+            feedback = (
+                "\n\n【上次输出未通过】第 "
+                + "、".join(str(index) for index in empty_indexes)
+                + " 个元素没有正文内容。每个 paragraph 必须填写 Paragraph 且至少一个非空 run；"
+                "table 必须填写 Table；不得输出空段落、空 Paragraph 或空表格。请重新输出完整本章。"
+            )
+            print(f"【章节检查】{section} 第{attempt}/{attempts}次输出空元素：{empty_indexes}")
+            continue
+        if not _items_have_body(items):
+            feedback = (
+                "\n\n【上次输出未通过】本章没有正文段落（只有标题、空元素或空表格）；"
+                "请至少输出一个 heading_level 为空的正文段落。"
+            )
+            print(f"【章节检查】{section} 第{attempt}/{attempts}次只有标题没有正文")
+            continue
+        return items
+    raise ValueError(
+        f"章节「{section}」连续 {attempts} 次未生成有效正文"
+        "（空段落/空表格/只有标题或无法解析），未保存文档"
+    )
 
 
 def _label_key(text) -> str:
@@ -1631,6 +1728,7 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                 "正文不要以当前章节标题或字段名开头；章节标题由系统添加。\n"
                 "不要写总览、摘要或概述段；本章只写当前章节标题对应的规则，"
                 "不要提前汇总整份文档，也不要在本章复述其他章节；同一规则全篇只出现一次。\n"
+                "每个 paragraph 必须填写 Paragraph 且包含至少一个非空 run；不得输出空段落或空表格。\n"
                 f"{FIELD_ASSIGNMENT_RULE}"
                 f"{policy.prompt_rule()}"
                 f"{field_value_rule}"
@@ -1646,12 +1744,12 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
             )
             if document_plan is not None and policy.section_titles_enabled():
                 doc.add_heading(section, level=1)
-            res = llm_model_invoke(llm, prompt, DocxRoot)
-            if res is None:
-                print("写作失败")
-                return {**state, "error": "写作失败", "state": "error"}
-            items = _filter_plan_items(res.items, [section]) if document_plan is not None else res.items
-            invalid_items += _append_items(doc, items, policy)
+            try:
+                items = generate_section_items(llm, prompt, section, document_plan=document_plan)
+            except ValueError as exc:
+                print(f"【章节检查】{exc}")
+                return {**state, "state": "error", "error": str(exc)}
+            invalid_items += _append_items(doc, items, policy, context=f"章节「{section}」")
             if document_plan is not None:
                 written_fact_keys = matching_fact_keys(document_plan, _document_text(doc))
             print(f"【结构】本章节后正文{unit}="
@@ -1757,6 +1855,7 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                 "protected_fact_missing:", "field_fact_missing:",
                 "field_fact_misplaced:", "verify_fact_missing:",
                 "verify_fact_misplaced:", "verify_illegal_duplicate:",
+                "invalid_items:",
             )
             if repaired is not None and repair_issues and all(
                 issue.startswith(retryable) for issue in repair_issues
@@ -1788,6 +1887,11 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                 ):
                     extra_parts.append(
                         "当前仍有原文事实被删除：原文事实必须至少保留一处。\n"
+                    )
+                if any(issue.startswith("invalid_items:") for issue in repair_issues):
+                    extra_parts.append(
+                        "当前修复稿仍有空段落/空元素：每个 paragraph 必须填写 Paragraph "
+                        "且至少一个非空 run；不得输出空表格。\n"
                     )
                 repaired, repair_issues = _repair_new_doc(
                     llm, dialog_text, plan_material, title, max_chars, no_table,
