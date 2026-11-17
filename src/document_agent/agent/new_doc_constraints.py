@@ -587,15 +587,23 @@ def _topic_keys(topic: str):
 
 
 def _missing_topics(doc, topics):
-    """主题完整性提示：兼容简称/数字单位，命中任一关键词即视为覆盖。"""
+    """主题完整性提示：兼容简称/数字单位，并单独识别来源标记与虚构声明。"""
     if not topics:
         return []
-    text = _normalize(_document_text(doc))
+    raw_text = _document_text(doc)
+    text = _normalize(raw_text)
     missing = []
     for topic in topics:
         keys = _topic_keys(topic)
-        if not any(key in text for key in keys):
-            missing.append(topic)
+        if any(key in text for key in keys):
+            continue
+        topic_text = str(topic or "")
+        if "虚构" in topic_text and "虚构" in text and ("材料" in text or "演示" in text):
+            continue
+        markers = re.findall(r"【\s*来源\s*[:：][^】]+】", topic_text)
+        if markers and any(_normalize(marker) in text for marker in markers):
+            continue
+        missing.append(topic)
     return missing
 
 
@@ -712,6 +720,8 @@ def validate_new_doc(doc, title: str = "", max_chars: Optional[int] = None,
         title_style=getattr(spec, "title_style", None) if spec is not None else None,
     )
     missing_topics = _missing_topics(doc, required_topics)
+    if missing_topics:
+        issues.append("missing_topics:" + "、".join(missing_topics))
     if font_issues:
         issues.append(f"font_mismatch:{len(font_issues)}")
     duplicate_paragraphs = _duplicate_paragraphs(doc) if check_duplicates else []
@@ -1052,6 +1062,15 @@ def _repair_new_doc(llm, dialog: str, retrieved_info: str, title: str,
         f"必须覆盖以下主题/字段：{'、'.join(required_topics)}；\n"
         if required_topics else ""
     )
+    marker_rule = ""
+    if any("虚构" in str(topic) for topic in required_topics):
+        marker_rule += "必须明确写出资料为纯虚构演示材料（或纯虚构测试材料）。\n"
+    source_markers = []
+    for topic in required_topics:
+        source_markers.extend(re.findall(r"【\s*来源\s*[:：][^】]+】", str(topic)))
+    source_markers = list(dict.fromkeys(source_markers))
+    if source_markers:
+        marker_rule += "必须在正文原样写出以下来源标记：" + "、".join(source_markers) + "\n"
     protected_rule = (
         f"必须保留以下原文事实：{'、'.join(sorted(protected_facts))}；\n"
         if protected_facts else ""
@@ -1088,6 +1107,7 @@ def _repair_new_doc(llm, dialog: str, retrieved_info: str, title: str,
         f"{verify_rule}"
         "不写导语、总结、免责声明，也不要列举或否定其他对象、旧版本、无关规则；\n"
         f"{topics_rule}"
+        f"{marker_rule}"
         f"{protected_rule}"
         f"{extra_rule}"
         f"{DEDUPE_REPAIR_RULE}"
@@ -1714,6 +1734,13 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                     "本章只输出 field_value 类型，FieldValue={field,value}；"
                     "field 必须是计划字段名，value 只写事实，不要写“字段名：值”文本。\n"
                 )
+            required_rule = ""
+            if spec.required_topics:
+                required_rule = (
+                    "用户明确要求正文覆盖以下内容，必须逐项写出，不得省略："
+                    + "、".join(spec.required_topics)
+                    + "。带【来源：...】的标记必须原样出现；“纯虚构”声明必须明确写出。\n"
+                )
             written_rule = fact_ledger_block(document_plan, written_fact_keys)
             prompt = (
                 "你是一个写作系统的智能助手，需要根据章节主旨以及源信息进行文档生成，"
@@ -1735,6 +1762,7 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                 f"{written_rule}"
                 f"{field_plan_block(document_plan, section)}"
                 f"{field_rule}"
+                f"{required_rule}"
                 f"{budget_rule}\n"
                 f"{table_rule}\n"
                 f"整个文档的大纲：\n{section_str}\n"
