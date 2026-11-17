@@ -6,7 +6,8 @@ from typing import List
 sys.path.append(os.path.join(os.path.dirname(__file__), 'agent'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'retrieve_tool'))
 
-from document_agent.agent.llm_client import llm_invoke, llm_model_invoke
+from document_agent.agent.llm_client import llm_invoke
+from document_agent.agent.structured_invoke import llm_model_invoke
 
 MAX_CHUNK_TEST_SIZE=10000
 CHUNK_UNIT_SIZE=1000

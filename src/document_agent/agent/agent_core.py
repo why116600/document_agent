@@ -34,6 +34,7 @@ class AgentState(TypedDict):
     file_roles: Optional[Dict[str, str]]#文件角色标签映射（如待修改目标文档、辅助参考/风格模板）
     error: Optional[str]#错误结果
     error_code: Optional[str]#错误码（如 MAIN_ENTRY_MANAGEMENT_FORBIDDEN）
+    intent_diagnostics: Optional[Dict[str, Any]]#意图解析尝试次数、最后错误、恢复字段与兜底分支
     skill_id: Optional[str]#命令行显式指定的 Skill id 或文件路径
     skill_name: Optional[str]#意图模型根据用户需求选择的 Skill id 或名称
     skill: Optional[Dict[str, Any]]#已校验的 Skill 配置（DocumentSkill 的纯字典形式）
@@ -220,6 +221,7 @@ class AgentCore:
             "file_roles": {},
             "error": None,
             "error_code": None,
+            "intent_diagnostics": None,
             "skill_id": skill_id,
             "skill_name": None,
             "skill": None,

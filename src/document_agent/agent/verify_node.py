@@ -17,7 +17,7 @@ from docx.text.paragraph import Paragraph
 from pydantic import BaseModel, Field
 
 from agent_core import AgentState
-from llm_client import llm_model_invoke
+from structured_invoke import llm_model_invoke
 from document_agent.skills.render import citation_name_pattern, citation_pattern
 from document_agent.skills.schema import DocumentSkill, coerce_skill
 from document_agent.skills.content_checks import normalize_heading, placeholder_hits, unsupported_assertions

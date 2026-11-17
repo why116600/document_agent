@@ -60,7 +60,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from pydantic import BaseModel, Field
 
 from agent_core import AgentState, get_last_user_text
-from llm_client import llm_model_invoke
+from structured_invoke import llm_model_invoke
 from document_agent.retrieve_tool.remote_kg_tool import (
     RemoteKGError,
     RemoteKGNotFoundError,

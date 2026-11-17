@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from agent_core import AgentState, get_last_user_text
-from llm_client import llm_model_invoke
+from structured_invoke import llm_model_invoke
 from document_agent.skills.match import resolve_skill
 from document_agent.skills.plan import (
     RetrievalPlanDraft,

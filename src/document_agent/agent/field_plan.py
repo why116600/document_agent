@@ -15,7 +15,7 @@ from typing import Any, List, Literal, Optional, Sequence
 
 from pydantic import BaseModel, Field, field_validator
 
-from llm_client import llm_model_invoke
+from structured_invoke import llm_model_invoke
 
 
 class ScopedFact(BaseModel):

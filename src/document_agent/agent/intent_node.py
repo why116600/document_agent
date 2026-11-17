@@ -4,10 +4,10 @@ import json
 import re
 from pathlib import Path
 from typing import Any, List, Tuple, Optional, Dict, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from agent_core import AgentState, get_last_user_text
-from llm_client import llm_model_invoke
+from structured_invoke import NULL_LIKE_STRINGS, llm_model_invoke_detailed
 from document_agent.file_types import SUPPORTED_REFERENCE_SUFFIXES
 from document_agent.skills.runtime_api import list_runtime_summaries
 from document_agent.skills.store import SkillError
@@ -53,6 +53,15 @@ class RewriteStep(BaseModel):#复合改写指令中的一个执行步骤
     target_range: Optional[List[int]] = Field(
         default=None, description="兼容字段，等价于 scope.face='elements'。"
     )
+
+
+def _none_if_null_like(value: Any) -> Any:
+    """把模型偶发输出的字符串空值统一还原为 None，保持真实非法值继续报错。"""
+    if isinstance(value, str):
+        text = value.strip()
+        if not text or text.lower() in NULL_LIKE_STRINGS:
+            return None
+    return value
 
 
 class DocumentTaskIntent(BaseModel):
@@ -151,6 +160,21 @@ class DocumentTaskIntent(BaseModel):
         default="",
         description="做出该意图判断、文件挑选及文件名拟定的简要分析理由。"
     )
+
+    @field_validator("management_action", "target_file", "suggested_filename",
+                     "save_filename", "skill", mode="before")
+    @classmethod
+    def _normalize_optional_strings(cls, value):
+        return _none_if_null_like(value)
+
+    @field_validator("management_request", mode="before")
+    @classmethod
+    def _normalize_management_request(cls, value):
+        if value is None:
+            return False
+        if isinstance(value, str) and value.strip().lower() in NULL_LIKE_STRINGS:
+            return False
+        return value
 
 
 def resolve_rewrite_file(rewrite_path: str, input_files) -> tuple:
@@ -382,6 +406,7 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str],
         "【分析与槽位抽取规范】\n"
         "1. task_type 判断：\n"
         "   - 若用户要求创建、修改、删除或发布可复用写作规范（Skill），management_request=true，management_action 填 create/update/delete/publish；task_type 仍按 new/rewrite 估计，但系统会拦截管理请求，不生成写作任务。\n"
+        "   - management_request=false 时 management_action 必须返回 JSON null；不得返回字符串 \"null\"、\"None\" 或空串。\n"
         "   - ‘按规范写报告’属于new，‘按规范修改这份文档’属于rewrite，不得当成修改规范本身。\n"
         "   - 'rewrite'：用户希望对已有的某份 Word (.docx) 文档进行修改、改写、局部调整、全文重构、替换或润色（例如：'把xxx里的第三条改为'、'根据A修改B'、'对xxx进行公文润色'）；\n"
         "   - 'new'：用户希望全新起草、生成一份新文档（例如：'参考资料写一份报告'、'起草一份合作协议'），不以修改某份已有文档为目标。\n"
@@ -563,6 +588,25 @@ def build_intent_outline_block(candidate_files: List[str]) -> str:
     return "\n".join(blocks)
 
 
+_REWRITE_CUE = re.compile(
+    r"(修改|改写|替换|润色|调整格式|重新排版|覆盖原文件|直接在原文件|改为|改成|把[^。；\n]{0,30}改)"
+)
+_NEW_CUE = re.compile(r"(新建|起草|从零|写一份|写一篇|生成一份|生成一篇|整理成一份|输出一份)")
+
+
+def decide_intent_failure(user_prompt: str, files: List[str]) -> str:
+    """结构化解析彻底失败时的安全兜底：有 .docx 且带改写线索时不静默转新建。"""
+    text = re.sub(r"\s+", "", user_prompt or "")
+    for phrase in ("不要修改", "不得修改", "无需修改", "不修改"):
+        text = text.replace(phrase, "")
+    has_docx = any(str(path).lower().endswith(".docx") for path in (files or []))
+    if has_docx and _REWRITE_CUE.search(text):
+        if _NEW_CUE.search(text):
+            print("【意图分析】请求同时包含新建与改写线索，解析失败时按错误处理，不猜测")
+        return "error"
+    return "new"
+
+
 def create_intent_node(llm=None):
     """创建初始化、参数校验与全量意图识别节点：意图、目标文件、有序步骤与另存文件名均由大模型从自然语言推断。"""
     def intent_node(state: AgentState) -> AgentState:
@@ -601,6 +645,7 @@ def create_intent_node(llm=None):
         excluded_skills = []
         user_intent = "new"
         new_doc_spec = None
+        intent_diagnostics = None
 
         # 2. 大模型全量分析指令与候选文件池
         if llm is not None and user_prompt:
@@ -612,7 +657,8 @@ def create_intent_node(llm=None):
                 print(f"【Skill】读取 Skill 目录失败，本次不提供可选 Skill：{exc}")
             outline_block = build_intent_outline_block(valid_input_files)
             intent_prompt = build_full_intent_prompt(user_prompt, valid_input_files, available_skills, outline_block)
-            task_intent = llm_model_invoke(llm, intent_prompt, DocumentTaskIntent)
+            task_intent, intent_diag = llm_model_invoke_detailed(llm, intent_prompt, DocumentTaskIntent)
+            intent_diagnostics = {**intent_diag, "fallback": None}
 
             if task_intent:
                 print(f"【智能意图分析结果】任务类型: {task_intent.task_type.upper()} | 依据: {task_intent.reasoning}")
@@ -656,8 +702,23 @@ def create_intent_node(llm=None):
                     if new_doc_spec:
                         print(f"【写作约束】{new_doc_spec.model_dump_json(ensure_ascii=False)}")
             else:
-                # 模型超时或结构化解析失败是常见的暂时性故障，退回原安全默认继续完成任务
-                print("【意图分析】结构化解析无结果，按全新写作处理")
+                # 解析彻底失败：若请求明确要求改写且提供了 docx，宁可报错也不静默新建
+                fallback = decide_intent_failure(user_prompt, valid_input_files)
+                intent_diagnostics = {**intent_diag, "fallback": fallback}
+                if fallback == "error":
+                    print("【意图分析】结构化解析失败，且请求包含明确改写诉求，停止生成")
+                    return {
+                        **state,
+                        "state": "error",
+                        "error_code": "INTENT_PARSE_FAILED",
+                        "error": (
+                            f"意图解析失败（{intent_diag.get('attempts', 0)} 次）："
+                            f"{intent_diag.get('last_error') or '模型未返回可解析的结构'}。"
+                            "当前请求包含明确改写诉求且提供了 .docx 候选，为避免误当新建，本次未生成文档。"
+                        ),
+                        "intent_diagnostics": intent_diagnostics,
+                    }
+                print("【意图分析】结构化解析无结果，按全新写作处理（已记录兜底）")
                 user_intent = "new"
                 rewrite_file = None
                 rewrite_mode = None
@@ -729,6 +790,7 @@ def create_intent_node(llm=None):
             'skill': skill.to_state_dict() if skill else None,
             'skill_reason': skill_reason,
             'intent_prepared': True,
+            'intent_diagnostics': intent_diagnostics,
         }
 
     return intent_node

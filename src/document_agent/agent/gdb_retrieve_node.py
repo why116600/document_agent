@@ -3,7 +3,8 @@ from typing import List, Dict, Any, Optional
 from pathlib import Path
 import traceback
 
-from llm_client import llm_invoke, llm_model_invoke
+from llm_client import llm_invoke
+from structured_invoke import llm_model_invoke
 from agent_core import AgentState
 from document_agent.memory.neo_graph_db import MemgraphNodeManager
 from document_agent.skills.schema import coerce_skill

@@ -12,7 +12,8 @@ from docx.text.paragraph import Paragraph
 from docx.text.run import Run
 from pydantic import BaseModel, Field, model_validator
 
-from llm_client import llm_invoke, llm_model_invoke
+from llm_client import llm_invoke
+from structured_invoke import llm_model_invoke
 from agent_core import AgentState
 from retrieved_context import build_retrieved_info, enforce_full_document_names
 from retrieval_material import collect_writing_material

@@ -10,7 +10,8 @@ from docx import Document
 from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
 
-from llm_client import llm_invoke, llm_model_invoke, extract_json_from_text
+from llm_client import extract_json_from_text, llm_invoke
+from structured_invoke import llm_model_invoke
 from agent_core import AgentState, get_last_user_text
 from retrieved_context import build_retrieved_info, enforce_full_document_names
 from new_doc_spec import spec_from_state

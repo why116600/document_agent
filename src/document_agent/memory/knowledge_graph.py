@@ -51,14 +51,15 @@ if str(_AGENT_DIR) not in sys.path:
     sys.path.append(str(_AGENT_DIR))
 
 try:
-    from llm_client import llm_invoke, llm_model_invoke, extract_json_from_text
+    from llm_client import extract_json_from_text, llm_invoke
+    from structured_invoke import llm_model_invoke
 except ImportError:  # pragma: no cover
     try:
         from document_agent.agent.llm_client import (  # type: ignore
-            llm_invoke,
-            llm_model_invoke,
             extract_json_from_text,
+            llm_invoke,
         )
+        from document_agent.agent.structured_invoke import llm_model_invoke  # type: ignore
     except ImportError:
         llm_invoke = None  # type: ignore
         llm_model_invoke = None  # type: ignore

@@ -66,9 +66,10 @@ def write_result_report(path, result):
     if not path:
         return
     report = {key: result.get(key) for key in (
-        "state", "error", "save_path", "skill_id", "skill", "retrieval_report",
+        "state", "error", "error_code", "save_path", "skill_id", "skill", "retrieval_report",
         "verification_report", "citations", "unmet_requirements", "generation_report",
         "result_type", "skill_operation", "message",
+        "user_intent", "rewrite_file", "rewrite_mode", "rewrite_steps", "intent_diagnostics",
     )}
     report["report_version"] = 1
     report["created_at"] = datetime.now(timezone.utc).isoformat()
