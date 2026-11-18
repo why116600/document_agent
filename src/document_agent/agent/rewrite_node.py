@@ -1152,6 +1152,84 @@ def _inherit_paragraph_format(new_item: ParagraphItem, base_item,
     )
 
 
+def _table_item_text_matrix(table_item) -> Optional[List[List[str]]]:
+    """把模型返回的 TableItem 转成纯文本矩阵；有合并/越界/重复格时返回 None。"""
+    rows, cols = table_item.rows, table_item.cols
+    if rows <= 0 or cols <= 0:
+        return None
+    matrix = [["" for _ in range(cols)] for _ in range(rows)]
+    seen = set()
+    for grid in table_item.grid or []:
+        if getattr(grid, "row_span", 1) != 1 or getattr(grid, "col_span", 1) != 1:
+            return None
+        row, col = grid.row, grid.col
+        if not (0 <= row < rows and 0 <= col < cols) or (row, col) in seen:
+            return None
+        seen.add((row, col))
+        matrix[row][col] = "\n".join(
+            "".join(str(run.text or "") for run in (paragraph.runs or []))
+            for paragraph in (grid.content or [])
+        )
+    if len(seen) != rows * cols:
+        return None
+    return matrix
+
+
+def _table_has_merged_cells(table: Table) -> bool:
+    seen = set()
+    for row in table.rows:
+        for cell in row.cells:
+            key = cell._tc
+            if key in seen:
+                return True
+            seen.add(key)
+    return False
+
+
+def _set_cell_text_preserve_format(cell, text: str) -> None:
+    """只替换单元格文字，保留单元格宽度、段落格式和首个 Run 的字体格式。"""
+    paragraphs = cell.paragraphs
+    if not paragraphs:
+        cell.text = text
+        return
+    first = paragraphs[0]
+    for extra in paragraphs[1:]:
+        extra._element.getparent().remove(extra._element)
+    runs = first.runs
+    if not runs:
+        first.add_run(text)
+        return
+    runs[0].text = text
+    for run in runs[1:]:
+        run._element.getparent().remove(run._element)
+
+
+def _patch_table_cells_preserving_format(table: Table, table_item) -> Optional[int]:
+    """结构未变且仅文字变化时就地改单元格，避免整表重建丢失格式。
+
+    返回变化的单元格数；结构/合并/多段落等无法安全就地修改时返回 None。
+    """
+    new_matrix = _table_item_text_matrix(table_item)
+    if new_matrix is None:
+        return None
+    if len(table.rows) != table_item.rows or len(table.columns) != table_item.cols:
+        return None
+    if _table_has_merged_cells(table):
+        return None
+    old_matrix = [[cell.text for cell in row.cells] for row in table.rows]
+    changed = 0
+    for row in range(table_item.rows):
+        for col in range(table_item.cols):
+            new_text = new_matrix[row][col]
+            if old_matrix[row][col] == new_text:
+                continue
+            if "\n" in new_text:
+                return None
+            _set_cell_text_preserve_format(table.cell(row, col), new_text)
+            changed += 1
+    return changed
+
+
 def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None,
                        scope_range: Optional[Tuple[int, int]] = None) -> Tuple[int, List[str]]:
     #按下标从大到小执行，避免增删导致后续下标错位；返回(生效数, 未落地的修改明细)
@@ -1233,6 +1311,11 @@ def apply_rewrite_plan(doc: Document, nodes, base_items, edits, description=None
                     if element_has_protected_content(node._element):
                         print(f"第{edit.index}个表格含图片等无法表达的内容，已跳过替换")
                         failed.append(f"第{edit.index}个表格未改写：含图片等受保护内容")
+                        continue
+                    patched = _patch_table_cells_preserving_format(node, edit.table)
+                    if patched:
+                        applied += patched
+                        print(f"已在第{edit.index}个表格中就地更新{patched}个单元格，保留其他格式")
                         continue
                     node = replace_node_with_data(node, edit.table, doc, write_defaults=False)
                     nodes[edit.index] = node
@@ -1947,6 +2030,95 @@ def _format_fields_from_keywords(dialog: str) -> set:
     }
 
 
+def _parse_explicit_format_values(dialog: str) -> dict:
+    """从用户原话提取明确写出的数字格式，供模型漏填时确定性补齐。"""
+    text = dialog or ""
+
+    def number(pattern: str):
+        match = re.search(pattern, text)
+        return float(match.group(1)) if match else None
+
+    values = {
+        "title_size": number(
+            r"(?<!一级)(?<!二级)(?<!三级)(?<!四级)(?:文档)?标题\s*(\d+(?:\.\d+)?)\s*磅"
+        ),
+        "heading1_size": number(r"一级标题\s*(\d+(?:\.\d+)?)\s*磅"),
+        "heading2_size": number(r"二级标题\s*(\d+(?:\.\d+)?)\s*磅"),
+        "body_size": number(
+            r"(?:其他)?正文(?:和表格文字|与表格文字|及表格文字)?\s*(\d+(?:\.\d+)?)\s*磅"
+        ),
+        "table_size": number(r"表格文字\s*(\d+(?:\.\d+)?)\s*磅"),
+        "spacing_before": number(r"段前\s*(\d+(?:\.\d+)?)\s*磅"),
+        "spacing_after": number(r"段后\s*(\d+(?:\.\d+)?)\s*磅"),
+        "line_spacing": number(r"(\d+(?:\.\d+)?)\s*倍行距"),
+        "font_name": "宋体" if "宋体" in text else None,
+        "color": "#000000" if ("黑色" in text or "#000000" in text) else None,
+        "title_alignment": "center" if ("标题" in text and "居中" in text) else None,
+    }
+    return {key: value for key, value in values.items() if value is not None}
+
+
+def _merge_role_specs(primary: Optional[RoleFormatSpec],
+                      fallback: Optional[RoleFormatSpec]) -> Optional[RoleFormatSpec]:
+    """合并格式规范：primary 的显式字段优先，未设置项用 fallback 补齐。"""
+    if primary is None:
+        return fallback
+    if fallback is None:
+        return primary
+    data = primary.model_dump()
+    for key, value in fallback.model_dump().items():
+        if data.get(key) is None:
+            data[key] = value
+    return RoleFormatSpec.model_validate(data)
+
+
+def _apply_explicit_format_overrides(dialog: str, spec: DocumentFormatSpec,
+                                     role_formats: Dict[str, RoleFormatSpec]) -> dict:
+    """把用户原话中明确写出的格式补到方案上，避免模型漏填导致表格/段距不一致。"""
+    values = _parse_explicit_format_values(dialog)
+    if not values:
+        return values
+    common = {
+        key: values.get(key)
+        for key in ("font_name", "color", "spacing_before", "spacing_after", "line_spacing")
+    }
+    targets = [
+        spec.heading1, spec.heading2, spec.heading3, spec.heading4,
+        spec.body, spec.tail_meta, spec.table_text,
+        *role_formats.values(),
+    ]
+    for target in targets:
+        if target is None:
+            continue
+        for key, value in common.items():
+            if value is not None:
+                setattr(target, key, value)
+
+    body_size = values.get("body_size") or values.get("table_size")
+    if body_size is not None:
+        for target in (spec.body, spec.table_text, role_formats.get("body")):
+            if target is not None:
+                target.font_size = body_size
+    for key, size_key in (("heading1", "heading1_size"), ("heading2", "heading2_size")):
+        size = values.get(size_key)
+        target = getattr(spec, key)
+        if size is not None and target is not None:
+            target.font_size = size
+
+    title_size = values.get("title_size")
+    title_alignment = values.get("title_alignment")
+    if title_size is not None or title_alignment is not None:
+        title_spec = role_formats.get("title")
+        if title_spec is None:
+            title_spec = RoleFormatSpec()
+            role_formats["title"] = title_spec
+        if title_size is not None:
+            title_spec.font_size = title_size
+        if title_alignment is not None:
+            title_spec.alignment = title_alignment
+    return values
+
+
 def _strip_format_fields_not_in(role_spec: RoleFormatSpec, requested_fields: set) -> None:
     """只保留 requested_fields 中列出的字段，其余置空以沿用原文格式。"""
     for field in _FORMAT_FIELD_KEYWORDS:
@@ -2150,7 +2322,8 @@ def _apply_role_format_to_table(table: Table, run_spec: Optional[RoleFormatSpec]
     def _format_table(tbl: Table) -> None:
         for row in tbl.rows:
             for cell in row.cells:
-                key = id(cell._tc)
+                # 直接保存 XML 元素，避免临时代理对象的 id 被回收复用导致误判重复。
+                key = cell._tc
                 if key in seen:
                     continue
                 seen.add(key)
@@ -2286,6 +2459,11 @@ def run_format_rewrite(llm, dialog: str, retrieved_info: str, doc: Document,
         if not any(keyword in dialog for keyword in ("大纲", "导航", "目录")):
             spec.apply_outline_level = False
 
+    # 用户原话中明确写出的字体/字号/段距/行距，最后覆盖到方案上，
+    # 避免模型漏填或被 requested_fields 裁剪；表格再合并正文格式兜底。
+    _apply_explicit_format_overrides(dialog, spec, role_formats)
+    spec.table_text = _merge_role_specs(role_formats.get("table_text"), spec.table_text)
+
     if plan_by_index:
         role_count: Dict[str, int] = {}
         for role in plan_by_index.values():
@@ -2350,7 +2528,8 @@ def run_format_rewrite(llm, dialog: str, retrieved_info: str, doc: Document,
             else:
                 body_applied += 1
         elif isinstance(node, Table):
-            _apply_role_format_to_table(node, spec.table_text or spec.body, spec.body)
+            table_run_spec = _merge_role_specs(spec.table_text, spec.body)
+            _apply_role_format_to_table(node, table_run_spec, spec.body)
             table_applied += 1
         else:
             #文本框、绘图画布等无法安全格式化的元素原样保留

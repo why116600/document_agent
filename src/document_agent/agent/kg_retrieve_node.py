@@ -513,6 +513,27 @@ def _collect_semantic_results(
         )
 
 
+def _name_key(text: Any) -> str:
+    return "".join(str(text or "").split()).lower()
+
+
+def _missing_plan_entities(plan: KGSearchPlan, entities: Dict[str, Dict[str, Any]]) -> List[str]:
+    """返回计划中要求精确定位、但图谱结果里没有对应实体的名称。"""
+    names = [str(name).strip() for name in plan.entities if str(name).strip()]
+    if not names:
+        return []
+    entity_keys = [_name_key(item.get("name")) for item in entities.values()]
+    entity_keys = [key for key in entity_keys if key]
+    missing = []
+    for name in names:
+        key = _name_key(name)
+        if len(key) < 2:
+            continue
+        if not any(key in entity_key or entity_key in key for entity_key in entity_keys):
+            missing.append(name)
+    return missing
+
+
 def _collect_subgraph(
     payload: Dict[str, Any],
     entities: Dict[str, Dict[str, Any]],
@@ -873,6 +894,14 @@ async def _run_kg_search(
                     print(f"【知识图谱检索】跳过图谱中不存在的起点：{start}")
                     continue
                 _collect_subgraph(subgraph, entities, chunks, documents, relations, name_map)
+
+        # 5.5 计划中要求精确定位的标识如果完全没命中，不能拿其他实体/旧资料冒充结果
+        missing_entities = _missing_plan_entities(plan, entities)
+        if missing_entities:
+            raise KGRetrievalError(
+                "知识图谱中未找到指定标识：" + "、".join(missing_entities)
+                + "；为避免用其他资料冒充结果，本次未生成文档"
+            )
 
         # 6. 两个以上实体时查最短关系链
         entity_ids = [str(item.get("id")) for item in entities.values() if item.get("id")]
