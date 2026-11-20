@@ -1,0 +1,1257 @@
+{
+  "version": "453ea2f-verification-1",
+  "summary": {
+    "candidate": "feature/skills-system@453ea2f40384897def336b134a659678692d3c37",
+    "develop_at_test": "f8eaefbe0ecb0300cc5e82848fd29ee134ff9ce3 (fully contained in candidate, 14 commits ahead)",
+    "graph_backend": "graph_rag@4be13b9, isolated library from 2026-11-11 (1 doc, 1 chunk, 3 entities, 2 relations)",
+    "date": "2026-11-21",
+    "models": [
+      "WorkBuddy hy3",
+      "WorkBuddy deepseek-v4.1-flash"
+    ],
+    "harness_limits": [
+      "Archived WorkBuddy adapter reused; harness-only shim sends tool_choice='required' because WorkBuddy rejects the named-tool object used by structured_invoke (probe: HTTP 400). LangChain include_raw/parsed/parsing_error composition preserved.",
+      "WorkBuddy cannot force a specific tool; 'model returned no tool call' parse failures (CP-003) are not cleanly attributable to the product.",
+      "Each case 1 attempt; CP-009 and CP-003 got a second recorded attempt. Small samples, no statistical claims.",
+      "console_app exit code stays 0 on business error (develop behavior); business state judged separately."
+    ],
+    "offline_checks": "19/19 passed (offline_checks.json), no model calls",
+    "defects": {
+      "DEF-001": {
+        "case": "CP-007",
+        "verdict": "pass_original_case",
+        "evidence": "4x 7天->3天 (body, cross-run, table, header), 1个工作日->2个工作日, 7台/12台/5天 kept, run formatting identical incl. cross-run bold, page rendered"
+      },
+      "DEF-002": {
+        "case": "CP-008 + CP-012",
+        "verdict": "pass_original_cases",
+        "evidence": "CP-008 only chapter-2 body sentence changed; CP-012 reports section not found, no Word"
+      },
+      "DEF-003": {
+        "case": "CP-002, SK-003",
+        "verdict": "retrieval_handoff_fixed_but_no_word",
+        "evidence": "end facts complete and correct; writing then fails document constraints, no Word saved"
+      },
+      "DEF-004": {
+        "case": "CP-002, CP-003, SK-003 x2",
+        "verdict": "fail",
+        "evidence": "drafts 297/160, 653/300, 664/300 chars with repeated clauses; validator catches, one repair fails, nothing saved"
+      },
+      "DEF-005": {
+        "case": "CP-009 x2",
+        "verdict": "not_reached_end_to_end; offline pass",
+        "evidence": "both attempts stopped by E_SCOPE_UNGROUNDED before editing; offline in-place patch on real CP-009 file changes only target text, tcW/spacing/bold kept"
+      },
+      "DEF-006": {
+        "case": "CP-010",
+        "verdict": "pass_for_table_formats; new structural issue",
+        "evidence": "all 9 cells 12pt 0/6/1.5, body 18/16/12 correct, text unchanged; but body paragraph 5 and Title restyled Heading 2 with outlineLvl 1"
+      },
+      "DEF-008": {
+        "case": "KG-UNAVAILABLE, KG-WORD-DOWN",
+        "verdict": "pass",
+        "evidence": "state=error with connection message, no Word, no fabricated content (console exit code still 0)"
+      },
+      "DEF-009": {
+        "case": "KG-NO-MATCH",
+        "verdict": "pass_with_regression",
+        "evidence": "unmatched ID rejected, no Word"
+      },
+      "DEF-009-regression": {
+        "case": "KG-WORD (live, data present)",
+        "verdict": "fail",
+        "evidence": "planner listed KG-DEMO-20261102 as entity; it is only in chunk text, guard raised '未找到指定标识', no Word"
+      },
+      "DEF-010": {
+        "case": "SK-003/SK-004 deepseek, CP-003 hy3",
+        "verdict": "partial",
+        "evidence": "section retry recovers empty elements (DeepSeek Skill saved Word); ordinary path still fails on length/repeat; CP-003 2/2 fail on unparseable section output"
+      },
+      "DEF-011": {
+        "case": "SK-004 x2",
+        "verdict": "pass",
+        "evidence": "second query differs (adds missing fields), coverage 1/1 on both models"
+      },
+      "DEF-012": {
+        "case": "all runs",
+        "verdict": "pass_offline; not triggered live",
+        "evidence": "'null' normalization and rewrite-failure guard pass offline; intent parsed on first attempt in all live runs"
+      }
+    },
+    "skill_system": {
+      "SK-004 hy3": "pass (200 chars, 8/8, page checked)",
+      "SK-004 deepseek": "pass (187 chars, 8/8, page checked)",
+      "SK-003 hy3": "fail, no Word",
+      "SK-003 deepseek": "fail, no Word"
+    },
+    "new_findings": [
+      "Scope grounding rejects basis_span when the model swaps Chinese quotes for ASCII quotes (NFKC does not map them); CP-009 2/2.",
+      "DEF-009 guard checks entity names only; a correct document test ID present in chunk text causes false '未找到'. Substring match also lets a generic entity satisfy a specific name.",
+      "Format-only rewrite writes Heading 2 + outline level to a body paragraph and the Title although outline was not requested."
+    ],
+    "recommendation": "Do not merge to develop yet."
+  },
+  "harness": {
+    "candidate_worktree": "isolated detached worktree, clean before and after every run",
+    "adapter_sha256": "c48981177807e47aadc0666fd708d451f3130de123873e7f0466f20ac16128c3",
+    "structured_output_probe_without_shim": "HTTP 400 code 11101: tool_choice must be a string",
+    "structured_output_probe_with_shim": {
+      "hy3": {
+        "answer": "2",
+        "note": null
+      },
+      "deepseek-v4.1-flash": {
+        "answer": "2",
+        "note": null
+      }
+    },
+    "remote_kg_down": "bound, non-listening loopback port",
+    "remote_kg_live": "graph_rag@4be13b9 on 127.0.0.1:18000, isolated Neo4j; stopped after the run"
+  },
+  "offline_checks": [
+    {
+      "check": "DEF-005 in-place patch changes exactly one cell",
+      "passed": true,
+      "detail": {
+        "changed": 1,
+        "target": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "check": "DEF-005 only target text differs; tcW/space_after/bold preserved",
+      "passed": true,
+      "detail": {
+        "diff": [
+          [
+            [
+              1,
+              1
+            ],
+            "text"
+          ]
+        ]
+      }
+    },
+    {
+      "check": "DEF-005 negative control: old whole-table rebuild loses formatting",
+      "passed": true,
+      "detail": {
+        "changed_props": [
+          "tcW"
+        ]
+      }
+    },
+    {
+      "check": "DEF-005 falls back (None) when model output has merged cells",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "DEF-006 parses CP-010 explicit values",
+      "passed": true,
+      "detail": {
+        "title_size": 18.0,
+        "heading1_size": 16.0,
+        "body_size": 12.0,
+        "table_size": 12.0,
+        "spacing_before": 0.0,
+        "spacing_after": 6.0,
+        "line_spacing": 1.5,
+        "font_name": "宋体",
+        "color": "#000000",
+        "title_alignment": "center"
+      }
+    },
+    {
+      "check": "DEF-009 unmatched identifier reported missing",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "DEF-009 matched entity not reported",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "DEF-009 empty plan entities skips the guard (depends on the planner)",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "DEF-009 risk probe: correct test ID that is not an entity name",
+      "passed": true,
+      "detail": {
+        "missing_reported": [
+          "KG-DEMO-20261102"
+        ],
+        "note": "if the planner lists the document test ID as an entity, the positive case would be rejected"
+      }
+    },
+    {
+      "check": "DEF-009 risk probe: substring match lets a generic entity satisfy a specific name",
+      "passed": true,
+      "detail": {
+        "missing_reported": []
+      }
+    },
+    {
+      "check": "DEF-012 'null' strings normalize to None/False",
+      "passed": true,
+      "detail": {
+        "management_action": null,
+        "management_request": false
+      }
+    },
+    {
+      "check": "DEF-012 parse failure + explicit rewrite + docx -> error",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "DEF-012 parse failure + 'do not modify' + new writing -> new",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "DEF-012 parse failure without docx -> new",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "DEF-010 empty paragraph/table indexes",
+      "passed": true,
+      "detail": [
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "check": "DEF-010 section retries after empty output and returns valid items",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "DEF-010 three empty outputs raise instead of saving",
+      "passed": true,
+      "detail": "章节「借用期限」连续 3 次未生成有效正文（空段落/空表格/只有标题或无法解析），未保存文档"
+    },
+    {
+      "check": "DEF-011 retry query differs and adds missing fields without LLM",
+      "passed": true,
+      "detail": "借用规则 审批角色 归还要求"
+    },
+    {
+      "check": "Observation: ASCII quotes in basis_span are not grounded against Chinese quotes",
+      "passed": true,
+      "detail": null
+    }
+  ],
+  "runs": [
+    {
+      "run": "CP-002__hy3",
+      "case": "CP-002",
+      "model": "hy3",
+      "attempt": "001",
+      "entry": "console",
+      "started": "2026-11-21T01:49:14.293117+08:00",
+      "finished": "2026-11-21T01:55:40.773938+08:00",
+      "process_exit_code": 0,
+      "business_state": "error",
+      "error": "文档结构校验失败且修复未通过：missing_topics:E2例行检查频率、E2异常报告时限、接收角色",
+      "user_intent": "new",
+      "rewrite_mode": null,
+      "rewrite_steps": [],
+      "intent_diagnostics": {
+        "attempts": 3,
+        "last_error": "模型未返回可解析的结构化结果",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": "new"
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "work\\inputs\\云芦园区长指南_v1.0.15.txt": "d0a41b1cbfb6276ebe3d16497e0847fe3fad5f1a8db72127a6b3a4a0c31c0b6b",
+        "frozen\\云芦园区长指南_v1.0.15.txt": "d0a41b1cbfb6276ebe3d16497e0847fe3fad5f1a8db72127a6b3a4a0c31c0b6b",
+        "actual_request.txt": "341790d8bfdec0c97639b3c33e3ea7e5c796635d4a7a3b39c40615d5586a03cb"
+      },
+      "outputs": [],
+      "http_events": {
+        "loopback": 1,
+        "transport_error": 1,
+        "request": 17,
+        "response:200": 17
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "run": "CP-003__hy3",
+      "case": "CP-003",
+      "model": "hy3",
+      "attempt": "001",
+      "entry": "console",
+      "started": "2026-11-21T01:50:07.240806+08:00",
+      "finished": "2026-11-21T01:53:30.775598+08:00",
+      "process_exit_code": 0,
+      "business_state": "error",
+      "error": "章节「借用期限」连续 3 次未生成有效正文（空段落/空表格/只有标题或无法解析），未保存文档",
+      "user_intent": "new",
+      "rewrite_mode": null,
+      "rewrite_steps": [],
+      "intent_diagnostics": {
+        "attempts": 3,
+        "last_error": "模型未返回可解析的结构化结果",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "work\\inputs\\沐川会议设备旧规则_v1.0.14.txt": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10",
+        "work\\inputs\\沐川会议设备新规则_v1.0.15.txt": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d",
+        "frozen\\沐川会议设备新规则_v1.0.15.txt": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d",
+        "frozen\\沐川会议设备旧规则_v1.0.14.txt": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10",
+        "actual_request.txt": "a6e7d53f6a1e826454ecb7d8b32bf19047925fd364a5a810804601b2292d5850"
+      },
+      "outputs": [],
+      "http_events": {
+        "loopback": 1,
+        "transport_error": 1,
+        "request": 16,
+        "response:200": 16
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "run": "CP-003__hy3__002",
+      "case": "CP-003",
+      "model": "hy3",
+      "attempt": "002",
+      "entry": "console",
+      "started": "2026-11-21T01:57:00.673445+08:00",
+      "finished": "2026-11-21T02:02:06.725643+08:00",
+      "process_exit_code": 0,
+      "business_state": "error",
+      "error": "章节「版本替代及未说明事项」连续 3 次未生成有效正文（空段落/空表格/只有标题或无法解析），未保存文档",
+      "user_intent": "new",
+      "rewrite_mode": null,
+      "rewrite_steps": [],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "work\\inputs\\沐川会议设备旧规则_v1.0.14.txt": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10",
+        "work\\inputs\\沐川会议设备新规则_v1.0.15.txt": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d",
+        "frozen\\沐川会议设备新规则_v1.0.15.txt": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d",
+        "frozen\\沐川会议设备旧规则_v1.0.14.txt": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10",
+        "actual_request.txt": "a6e7d53f6a1e826454ecb7d8b32bf19047925fd364a5a810804601b2292d5850"
+      },
+      "outputs": [],
+      "http_events": {
+        "loopback": 1,
+        "transport_error": 1,
+        "request": 17,
+        "response:200": 17
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "run": "CP-007__hy3",
+      "case": "CP-007",
+      "model": "hy3",
+      "attempt": "001",
+      "entry": "console",
+      "started": "2026-11-21T01:47:21.897428+08:00",
+      "finished": "2026-11-21T01:48:54.518859+08:00",
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "error": null,
+      "user_intent": "rewrite",
+      "rewrite_mode": "replace",
+      "rewrite_steps": [
+        {
+          "order": 1,
+          "action": "replace",
+          "scope": {
+            "face": "whole",
+            "section_title": null,
+            "element_range": null,
+            "containers": [
+              "body",
+              "table",
+              "header"
+            ],
+            "basis_span": "范围包括正文、表格和页眉",
+            "note": "用户要求全文查找替换，并明确列举正文、表格、页眉三个容器，需逐项收录"
+          },
+          "mode": "replace",
+          "target": "",
+          "target_range": null,
+          "instruction": "全文查找替换：将全部“7天”改为“3天”，将“1个工作日”改为“2个工作日”。不要把库存数量“7台”改掉，也不要修改“5天”。只做这些替换，其他文字、段落、表格结构和格式保持，中文仍宋体、全部文字黑色。",
+          "replace_pairs": {
+            "7天": "3天",
+            "1个工作日": "2个工作日"
+          }
+        }
+      ],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "work\\inputs\\借用替换样例_v1.0.15.docx": "5c4f1110b31e5952edec9d3dea65d2470a2ff845173b5319166ca031ad94e6d1",
+        "frozen\\借用替换样例_v1.0.15.docx": "5c4f1110b31e5952edec9d3dea65d2470a2ff845173b5319166ca031ad94e6d1",
+        "actual_request.txt": "aef0483bf92b36d70cb1bf3e6aceb3fe3460589689bfda9cce98d5071d9dd941"
+      },
+      "outputs": [
+        {
+          "name": "CP-007_结果_v1.0.15.docx",
+          "bytes": 38096,
+          "sha256": "464340e74cc8cbb5c0693fe881b7b3d379029bd19f4587ac3de98bad53c169c0"
+        }
+      ],
+      "http_events": {
+        "loopback": 1,
+        "transport_error": 1,
+        "request": 7,
+        "response:200": 7
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "run": "CP-008__hy3",
+      "case": "CP-008",
+      "model": "hy3",
+      "attempt": "001",
+      "entry": "console",
+      "started": "2026-11-21T01:47:56.778078+08:00",
+      "finished": "2026-11-21T01:49:05.472800+08:00",
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "error": null,
+      "user_intent": "rewrite",
+      "rewrite_mode": "replace",
+      "rewrite_steps": [
+        {
+          "order": 1,
+          "action": "replace",
+          "scope": {
+            "face": "section",
+            "section_title": "二、专项检查",
+            "element_range": null,
+            "containers": [
+              "body"
+            ],
+            "basis_span": "只将“二、专项检查”章节正文中的“每季度检查一次”改为“每月检查一次”",
+            "note": "仅在该章节正文中换词，用户明确排除表格及其他章节、标题、格式"
+          },
+          "mode": "replace",
+          "target": "二、专项检查",
+          "target_range": null,
+          "instruction": "将“二、专项检查”章节正文中的“每季度检查一次”替换为“每月检查一次”，不改动该章表格、其他章节、标题及其他文字和格式",
+          "replace_pairs": {
+            "每季度检查一次": "每月检查一次"
+          }
+        }
+      ],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "work\\inputs\\检查办法_v1.0.15.docx": "f33df397cd43628442a5518592ef0a2255d3a0816d7ce0ba3f9fa538d85a2f73",
+        "frozen\\检查办法_v1.0.15.docx": "f33df397cd43628442a5518592ef0a2255d3a0816d7ce0ba3f9fa538d85a2f73",
+        "actual_request.txt": "1b1437cc5f0376efbdceb6276f1ff334e4a8becc38e5c4898046c14be4c1dad9"
+      },
+      "outputs": [
+        {
+          "name": "CP-008_结果_v1.0.15.docx",
+          "bytes": 37383,
+          "sha256": "1238dd53f5fb1e08e4989de10fd5d5c0e920b3be3478def0a5850ceccd252127"
+        }
+      ],
+      "http_events": {
+        "loopback": 1,
+        "transport_error": 1,
+        "request": 5,
+        "response:200": 5
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "run": "CP-009__hy3",
+      "case": "CP-009",
+      "model": "hy3",
+      "attempt": "001",
+      "entry": "console",
+      "started": "2026-11-21T01:44:50.093777+08:00",
+      "finished": "2026-11-21T01:46:05.538663+08:00",
+      "process_exit_code": 0,
+      "business_state": "error",
+      "error": "E_SCOPE_UNGROUNDED: 范围依据未能逐字取自用户指令",
+      "user_intent": "rewrite",
+      "rewrite_mode": "edit",
+      "rewrite_steps": [
+        {
+          "order": 1,
+          "action": "edit",
+          "scope": {
+            "face": "section",
+            "section_title": "二、巡检表",
+            "element_range": null,
+            "containers": [
+              "table"
+            ],
+            "basis_span": "\"二、巡检表\"的第1张表格：设备标识为\"设备A\"的行、列标题为\"检查频率\"的单元格",
+            "note": "仅定位到二、巡检表章节下第1张表格中的目标单元格，正文明确要求保留，故容器只取表格"
+          },
+          "mode": "edit",
+          "target": "",
+          "target_range": null,
+          "instruction": "将该表格中设备标识为\"设备A\"的行、列标题为\"检查频率\"的单元格内容改为\"每月检查一次\"；设备B、数量列、表头及表格行列结构全部保留；其他文字格式不变，保持中文宋体、全部文字黑色",
+          "replace_pairs": {}
+        }
+      ],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "work\\inputs\\巡检清单_v1.0.15.docx": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
+        "frozen\\巡检清单_v1.0.15.docx": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
+        "actual_request.txt": "f24bfaeaf0fe3240b3e213c0b8fedb06a1655ae869f4eedb98372e192c2c3aa8"
+      },
+      "outputs": [],
+      "http_events": {
+        "loopback": 1,
+        "transport_error": 1,
+        "request": 7,
+        "response:200": 7
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "run": "CP-009__hy3__002",
+      "case": "CP-009",
+      "model": "hy3",
+      "attempt": "002",
+      "entry": "console",
+      "started": "2026-11-21T01:57:01.002435+08:00",
+      "finished": "2026-11-21T01:58:27.294614+08:00",
+      "process_exit_code": 0,
+      "business_state": "error",
+      "error": "E_SCOPE_UNGROUNDED: 范围依据未能逐字取自用户指令",
+      "user_intent": "rewrite",
+      "rewrite_mode": "edit",
+      "rewrite_steps": [
+        {
+          "order": 1,
+          "action": "edit",
+          "scope": {
+            "face": "section",
+            "section_title": "二、巡检表",
+            "element_range": null,
+            "containers": [
+              "table"
+            ],
+            "basis_span": "\"二、巡检表\"的第1张表格",
+            "note": "用户点名章节“二、巡检表”中的第1张表格，且明确正文保留，故范围限定为该章节的表格容器"
+          },
+          "mode": "edit",
+          "target": "",
+          "target_range": null,
+          "instruction": "仅将该表格中设备标识为“设备A”的行、列标题为“检查频率”的单元格内容改为“每月检查一次”；设备B、数量列、表头、正文以及表格行列结构全部保留，其他文字与格式（中文宋体、全部文字黑色）保持不变。",
+          "replace_pairs": {}
+        }
+      ],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "work\\inputs\\巡检清单_v1.0.15.docx": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
+        "frozen\\巡检清单_v1.0.15.docx": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
+        "actual_request.txt": "f24bfaeaf0fe3240b3e213c0b8fedb06a1655ae869f4eedb98372e192c2c3aa8"
+      },
+      "outputs": [],
+      "http_events": {
+        "loopback": 1,
+        "transport_error": 1,
+        "request": 7,
+        "response:200": 7
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "run": "CP-010__hy3",
+      "case": "CP-010",
+      "model": "hy3",
+      "attempt": "001",
+      "entry": "console",
+      "started": "2026-11-21T01:48:37.423027+08:00",
+      "finished": "2026-11-21T01:50:02.700586+08:00",
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "error": null,
+      "user_intent": "rewrite",
+      "rewrite_mode": "format",
+      "rewrite_steps": [
+        {
+          "order": 1,
+          "action": "format",
+          "scope": {
+            "face": "whole",
+            "section_title": null,
+            "element_range": null,
+            "containers": [
+              "body",
+              "table"
+            ],
+            "basis_span": "其他正文和表格文字12磅",
+            "note": "用户要求全文仅调整格式且明确提及正文与表格文字，未提页眉页脚，故收窄为正文与表格"
+          },
+          "mode": "format",
+          "target": "",
+          "target_range": null,
+          "instruction": "只调整格式，所有文字一字不改：文档标题18磅居中，一级标题16磅，其他正文和表格文字12磅；所有段落段前0磅、段后6磅、1.5倍行距；全部文字黑色、中文宋体；保留段落顺序、表格文字和3行3列结构。",
+          "replace_pairs": {}
+        }
+      ],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "work\\inputs\\记录排版样例_v1.0.15.docx": "6f571cdbb6ecf9090c142aa4657aeeeae7ed8ed235bd98624fe22274c9768a8f",
+        "frozen\\记录排版样例_v1.0.15.docx": "6f571cdbb6ecf9090c142aa4657aeeeae7ed8ed235bd98624fe22274c9768a8f",
+        "actual_request.txt": "1f1897a772741b16cef32dd0087f913672d21afaef54eeea8e061c13ad2d7e5e"
+      },
+      "outputs": [
+        {
+          "name": "CP-010_结果_v1.0.15.docx",
+          "bytes": 37436,
+          "sha256": "ce80487f0d8e87bda2dfe20db0d164b00e455e1376b5c4c0e0146749ba57e87d"
+        }
+      ],
+      "http_events": {
+        "loopback": 1,
+        "transport_error": 1,
+        "request": 8,
+        "response:200": 8
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "run": "CP-012__hy3",
+      "case": "CP-012",
+      "model": "hy3",
+      "attempt": "001",
+      "entry": "console",
+      "started": "2026-11-21T01:49:00.621019+08:00",
+      "finished": "2026-11-21T01:50:29.681302+08:00",
+      "process_exit_code": 0,
+      "business_state": "error",
+      "error": "第1步执行失败：E_SCOPE_SECTION_NOT_FOUND: 大纲中没有章节「五、费用管理」，现有：镜叶培训室规则 v1.0.15、一、预约、二、使用、三、归还",
+      "user_intent": "rewrite",
+      "rewrite_mode": "replace",
+      "rewrite_steps": [
+        {
+          "order": 1,
+          "action": "replace",
+          "scope": {
+            "face": "section",
+            "section_title": "五、费用管理",
+            "element_range": null,
+            "containers": null,
+            "basis_span": "只修改《培训室规则_v1.0.15.docx》的“五、费用管理”章节，将“免费”改为“按次计费”",
+            "note": "用户明确点名该章节做换词；该章节不在大纲中，按原话照填，交由执行期报无法定位"
+          },
+          "mode": "replace",
+          "target": "",
+          "target_range": null,
+          "instruction": "将“五、费用管理”章节中的“免费”替换为“按次计费”；若该章节不存在或找不到原词，须明确说明无法定位，不修改其他章节、不生成替代制度、不检索知识库",
+          "replace_pairs": {
+            "免费": "按次计费"
+          }
+        },
+        {
+          "order": 2,
+          "action": "format",
+          "scope": {
+            "face": "whole",
+            "section_title": null,
+            "element_range": null,
+            "containers": null,
+            "basis_span": "中文宋体、全部文字黑色",
+            "note": "对另存文档的整体排版要求，format 仅支持整篇"
+          },
+          "mode": "format",
+          "target": "",
+          "target_range": null,
+          "instruction": "全文统一为中文宋体字体，所有文字颜色设为黑色",
+          "replace_pairs": {}
+        }
+      ],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "work\\inputs\\培训室规则_v1.0.15.docx": "30aa520e8324f549f13a371d98d190e424237ba340da17aace8a385c9d6cadbf",
+        "frozen\\培训室规则_v1.0.15.docx": "30aa520e8324f549f13a371d98d190e424237ba340da17aace8a385c9d6cadbf",
+        "actual_request.txt": "a9879a45bfec282ed52cadeb076abcb387b6b6229494829dd390e66962a5d0b8"
+      },
+      "outputs": [],
+      "http_events": {
+        "loopback": 1,
+        "transport_error": 1,
+        "request": 7,
+        "response:200": 7
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "run": "KG-NO-MATCH__hy3",
+      "case": "KG-NO-MATCH",
+      "model": "hy3",
+      "attempt": "001",
+      "entry": "console",
+      "started": "2026-11-21T01:48:57.823022+08:00",
+      "finished": "2026-11-21T01:49:49.502291+08:00",
+      "process_exit_code": 0,
+      "business_state": "error",
+      "error": "知识图谱检索失败：知识图谱中未找到指定标识：KG-DEMO-20261111-NOMATCH-ZQ7X9K4、云杉；为避免用其他资料冒充结果，本次未生成文档",
+      "user_intent": "new",
+      "rewrite_mode": null,
+      "rewrite_steps": [],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": true,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "actual_request.txt": "b3bc92c5d902d2d5bd29f8f182a2e2d7e3b95bc728022fd1a93e37efd5ac9771"
+      },
+      "outputs": [],
+      "http_events": {
+        "loopback": 11,
+        "response:200": 13,
+        "request": 4,
+        "response:404": 2
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "run": "KG-UNAVAILABLE__hy3",
+      "case": "KG-UNAVAILABLE",
+      "model": "hy3",
+      "attempt": "001",
+      "entry": "console",
+      "started": "2026-11-21T01:50:34.449903+08:00",
+      "finished": "2026-11-21T01:51:12.041303+08:00",
+      "process_exit_code": 0,
+      "business_state": "error",
+      "error": "知识图谱检索失败：GET /retrieval/status 请求超时：",
+      "user_intent": "new",
+      "rewrite_mode": null,
+      "rewrite_steps": [],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "actual_request.txt": "79755d5ef801890a414314532567972c6963b7d15aff5bd192556dd9965eef54"
+      },
+      "outputs": [],
+      "http_events": {
+        "loopback": 2,
+        "transport_error": 2,
+        "request": 3,
+        "response:200": 3
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "run": "KG-WORD-DOWN__hy3",
+      "case": "KG-WORD-DOWN",
+      "model": "hy3",
+      "attempt": "001",
+      "entry": "console",
+      "started": "2026-11-21T01:51:16.430114+08:00",
+      "finished": "2026-11-21T01:51:59.183371+08:00",
+      "process_exit_code": 0,
+      "business_state": "error",
+      "error": "知识图谱检索失败：GET /retrieval/status 请求超时：",
+      "user_intent": "new",
+      "rewrite_mode": null,
+      "rewrite_steps": [],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "actual_request.txt": "a627a5e875bc31334f2a2eb747545a18b336a726110d7768058105d7d6354a5b"
+      },
+      "outputs": [],
+      "http_events": {
+        "loopback": 2,
+        "transport_error": 2,
+        "request": 3,
+        "response:200": 3
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "run": "KG-WORD__hy3",
+      "case": "KG-WORD",
+      "model": "hy3",
+      "attempt": "001",
+      "entry": "console",
+      "started": "2026-11-21T01:48:57.823022+08:00",
+      "finished": "2026-11-21T01:49:58.028420+08:00",
+      "process_exit_code": 0,
+      "business_state": "error",
+      "error": "知识图谱检索失败：知识图谱中未找到指定标识：KG-DEMO-20261102；为避免用其他资料冒充结果，本次未生成文档",
+      "user_intent": "new",
+      "rewrite_mode": null,
+      "rewrite_steps": [],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": true,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "actual_request.txt": "a627a5e875bc31334f2a2eb747545a18b336a726110d7768058105d7d6354a5b"
+      },
+      "outputs": [],
+      "http_events": {
+        "loopback": 11,
+        "response:200": 13,
+        "request": 4,
+        "response:404": 2
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "run": "SK-003__deepseek-v4.1-flash",
+      "case": "SK-003",
+      "model": "deepseek-v4.1-flash",
+      "attempt": "001",
+      "entry": "skill_cli",
+      "started": "2026-11-21T01:46:41.701183+08:00",
+      "finished": "2026-11-21T01:47:50.848589+08:00",
+      "process_exit_code": 1,
+      "business_state": "error",
+      "error": "文档结构校验失败且修复未通过：body_too_long:312>300; missing_topics:审批角色及批准条件; repeated_clauses:6",
+      "user_intent": "new",
+      "rewrite_mode": null,
+      "rewrite_steps": [],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "deepseek-v4.1-flash",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "work\\inputs\\星桥演示设备借用规则_v1.0.0.txt": "ec34dfa3c39f8848c4aa1b096412c68535a2bbfdf4a6b45cbf9ce4ccbb65c74e",
+        "frozen\\星桥演示设备借用规则_v1.0.0.txt": "ec34dfa3c39f8848c4aa1b096412c68535a2bbfdf4a6b45cbf9ce4ccbb65c74e",
+        "actual_request.txt": "1a10cf985bee76aef8290f8a35fc6dab874bbe2f9672f0b2c52d7bb2e4555885"
+      },
+      "outputs": [],
+      "http_events": {
+        "request": 22,
+        "response:200": 22,
+        "loopback": 1,
+        "transport_error": 1
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "run": "SK-003__hy3",
+      "case": "SK-003",
+      "model": "hy3",
+      "attempt": "001",
+      "entry": "skill_cli",
+      "started": "2026-11-21T01:46:41.701183+08:00",
+      "finished": "2026-11-21T01:52:29.060874+08:00",
+      "process_exit_code": 1,
+      "business_state": "error",
+      "error": "文档结构校验失败且修复未通过：repair_failed",
+      "user_intent": "new",
+      "rewrite_mode": null,
+      "rewrite_steps": [],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "work\\inputs\\星桥演示设备借用规则_v1.0.0.txt": "ec34dfa3c39f8848c4aa1b096412c68535a2bbfdf4a6b45cbf9ce4ccbb65c74e",
+        "frozen\\星桥演示设备借用规则_v1.0.0.txt": "ec34dfa3c39f8848c4aa1b096412c68535a2bbfdf4a6b45cbf9ce4ccbb65c74e",
+        "actual_request.txt": "1a10cf985bee76aef8290f8a35fc6dab874bbe2f9672f0b2c52d7bb2e4555885"
+      },
+      "outputs": [],
+      "http_events": {
+        "request": 22,
+        "response:200": 22,
+        "loopback": 1,
+        "transport_error": 1
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "run": "SK-004__deepseek-v4.1-flash",
+      "case": "SK-004",
+      "model": "deepseek-v4.1-flash",
+      "attempt": "001",
+      "entry": "skill_cli",
+      "started": "2026-11-21T01:46:41.704889+08:00",
+      "finished": "2026-11-21T01:47:17.078078+08:00",
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "error": null,
+      "user_intent": "new",
+      "rewrite_mode": null,
+      "rewrite_steps": [],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "deepseek-v4.1-flash",
+        "fallback": null
+      },
+      "skill": "qa_borrowing_ab",
+      "verification_summary": "8/8 项检查通过；硬约束失败 0 项，软约束未确认 0 项；综合验收：通过",
+      "retrieval_report": {
+        "skill_id": "qa_borrowing_ab",
+        "sources": [
+          "file"
+        ],
+        "covered": [
+          "Q1"
+        ],
+        "missing": [],
+        "questions": [
+          {
+            "id": "Q1",
+            "question": "该规则文本的适用范围、借用期限、预约要求、审批角色和归还要求分别是什么？",
+            "covered": true,
+            "attempts": 2,
+            "sources": [
+              "file"
+            ],
+            "queries": [
+              "星桥演示设备借用规则 适用范围 借用期限 预约要求",
+              "星桥演示设备借用规则 适用范围 借用期限 预约要求 审批角色 归还要求"
+            ],
+            "last_reason": "资料以原文摘录形式给出五项要素：适用范围（仅限星桥演示设备内部借用）、借用期限（每次最多3天）、预约要求（提前2个工作日提交申请）、审批角色（演示设备管理员确认设备可用后批准）、归还要求（归还前完成外观检查并登记归还时间）。问题要求的全部要点均有具体事实支撑。"
+          }
+        ],
+        "budget": {
+          "total": 3,
+          "used": 2,
+          "logical_attempts": 2,
+          "tool_calls": 2,
+          "context_chars": 520,
+          "max_tool_calls": 12
+        },
+        "skipped_paths": [],
+        "complete": true,
+        "stop_reason": "plan_exhausted",
+        "stop_evaluation": null,
+        "attempts": [
+          {
+            "question_id": "Q1",
+            "attempt": 0,
+            "attempt_id": "Q1-A1",
+            "source": "file",
+            "query": "星桥演示设备借用规则 适用范围 借用期限 预约要求",
+            "path": "<project>\\.runtime\\test_runs\\20261121_453ea2f\\cases\\SK-004__deepseek-v4.1-flash\\work\\inputs\\星桥演示设备借用规则_v1.0.0.txt",
+            "paths": [
+              "<project>\\.runtime\\test_runs\\20261121_453ea2f\\cases\\SK-004__deepseek-v4.1-flash\\work\\inputs\\星桥演示设备借用规则_v1.0.0.txt"
+            ],
+            "evidence_count": 1,
+            "covered": false,
+            "reason": "资料包含适用范围（仅限星桥演示设备内部借用）、借用期限（每次最多3天）、预约要求（提前2个工作日提交）三项具体事实，但未涉及审批角色和归还要求这两项，问题未被完整回答。"
+          },
+          {
+            "question_id": "Q1",
+            "attempt": 1,
+            "attempt_id": "Q1-A2",
+            "source": "file",
+            "query": "星桥演示设备借用规则 适用范围 借用期限 预约要求 审批角色 归还要求",
+            "path": "<project>\\.runtime\\test_runs\\20261121_453ea2f\\cases\\SK-004__deepseek-v4.1-flash\\work\\inputs\\星桥演示设备借用规则_v1.0.0.txt",
+            "paths": [
+              "<project>\\.runtime\\test_runs\\20261121_453ea2f\\cases\\SK-004__deepseek-v4.1-flash\\work\\inputs\\星桥演示设备借用规则_v1.0.0.txt"
+            ],
+            "evidence_count": 1,
+            "covered": true,
+            "reason": "资料以原文摘录形式给出五项要素：适用范围（仅限星桥演示设备内部借用）、借用期限（每次最多3天）、预约要求（提前2个工作日提交申请）、审批角色（演示设备管理员确认设备可用后批准）、归还要求（归还前完成外观检查并登记归还时间）。问题要求的全部要点均有具体事实支撑。"
+          }
+        ]
+      },
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "work\\inputs\\星桥演示设备借用规则_v1.0.0.txt": "ec34dfa3c39f8848c4aa1b096412c68535a2bbfdf4a6b45cbf9ce4ccbb65c74e",
+        "frozen\\星桥演示设备借用规则_v1.0.0.txt": "ec34dfa3c39f8848c4aa1b096412c68535a2bbfdf4a6b45cbf9ce4ccbb65c74e",
+        "actual_request.txt": "1a10cf985bee76aef8290f8a35fc6dab874bbe2f9672f0b2c52d7bb2e4555885",
+        "skills\\qa_borrowing_ab\\skill.json": "647f785c11eb1ba2f5c8a1626320969fcb304e21bcc9aff463a4bd3560536a37",
+        "skills\\qa_borrowing_ab\\SKILL.md": "9ddfb79200fa675aad9494c2e27a5d9e2ef9ddd844bff513a5379140469beab7"
+      },
+      "outputs": [
+        {
+          "name": "SK-004_deepseek_v1.0.0.docx",
+          "bytes": 37215,
+          "sha256": "1a1d4b73f77ca05c7a39c9a6756121ad3d2e553837a2423259fd1aa575a702ec"
+        }
+      ],
+      "http_events": {
+        "request": 11,
+        "response:200": 11
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "run": "SK-004__hy3",
+      "case": "SK-004",
+      "model": "hy3",
+      "attempt": "001",
+      "entry": "skill_cli",
+      "started": "2026-11-21T01:46:41.704889+08:00",
+      "finished": "2026-11-21T01:48:32.057662+08:00",
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "error": null,
+      "user_intent": "new",
+      "rewrite_mode": null,
+      "rewrite_steps": [],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": null
+      },
+      "skill": "qa_borrowing_ab",
+      "verification_summary": "8/8 项检查通过；硬约束失败 0 项，软约束未确认 0 项；综合验收：通过",
+      "retrieval_report": {
+        "skill_id": "qa_borrowing_ab",
+        "sources": [
+          "file"
+        ],
+        "covered": [
+          "Q1"
+        ],
+        "missing": [],
+        "questions": [
+          {
+            "id": "Q1",
+            "question": "该规则文本的适用范围、借用期限、预约要求、审批角色和归还要求分别是什么？",
+            "covered": true,
+            "attempts": 2,
+            "sources": [
+              "file"
+            ],
+            "queries": [
+              "星桥演示设备借用规则_v1.0.0.txt 适用范围 借用期限 预约要求",
+              "星桥演示设备借用规则_v1.0.0.txt 适用范围 借用期限 预约要求 审批角色 归还要求"
+            ],
+            "last_reason": "资料明确列出了适用范围、借用期限、预约要求、审批角色和归还要求五项具体内容，均以原文摘录形式给出，能够完整回答研究问题。"
+          }
+        ],
+        "budget": {
+          "total": 3,
+          "used": 2,
+          "logical_attempts": 2,
+          "tool_calls": 2,
+          "context_chars": 520,
+          "max_tool_calls": 12
+        },
+        "skipped_paths": [],
+        "complete": true,
+        "stop_reason": "plan_exhausted",
+        "stop_evaluation": null,
+        "attempts": [
+          {
+            "question_id": "Q1",
+            "attempt": 0,
+            "attempt_id": "Q1-A1",
+            "source": "file",
+            "query": "星桥演示设备借用规则_v1.0.0.txt 适用范围 借用期限 预约要求",
+            "path": "<project>\\.runtime\\test_runs\\20261121_453ea2f\\cases\\SK-004__hy3\\work\\inputs\\星桥演示设备借用规则_v1.0.0.txt",
+            "paths": [
+              "<project>\\.runtime\\test_runs\\20261121_453ea2f\\cases\\SK-004__hy3\\work\\inputs\\星桥演示设备借用规则_v1.0.0.txt"
+            ],
+            "evidence_count": 1,
+            "covered": false,
+            "reason": "证据覆盖判断失败"
+          },
+          {
+            "question_id": "Q1",
+            "attempt": 1,
+            "attempt_id": "Q1-A2",
+            "source": "file",
+            "query": "星桥演示设备借用规则_v1.0.0.txt 适用范围 借用期限 预约要求 审批角色 归还要求",
+            "path": "<project>\\.runtime\\test_runs\\20261121_453ea2f\\cases\\SK-004__hy3\\work\\inputs\\星桥演示设备借用规则_v1.0.0.txt",
+            "paths": [
+              "<project>\\.runtime\\test_runs\\20261121_453ea2f\\cases\\SK-004__hy3\\work\\inputs\\星桥演示设备借用规则_v1.0.0.txt"
+            ],
+            "evidence_count": 1,
+            "covered": true,
+            "reason": "资料明确列出了适用范围、借用期限、预约要求、审批角色和归还要求五项具体内容，均以原文摘录形式给出，能够完整回答研究问题。"
+          }
+        ]
+      },
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "work\\inputs\\星桥演示设备借用规则_v1.0.0.txt": "ec34dfa3c39f8848c4aa1b096412c68535a2bbfdf4a6b45cbf9ce4ccbb65c74e",
+        "frozen\\星桥演示设备借用规则_v1.0.0.txt": "ec34dfa3c39f8848c4aa1b096412c68535a2bbfdf4a6b45cbf9ce4ccbb65c74e",
+        "actual_request.txt": "1a10cf985bee76aef8290f8a35fc6dab874bbe2f9672f0b2c52d7bb2e4555885",
+        "skills\\qa_borrowing_ab\\skill.json": "647f785c11eb1ba2f5c8a1626320969fcb304e21bcc9aff463a4bd3560536a37",
+        "skills\\qa_borrowing_ab\\SKILL.md": "9ddfb79200fa675aad9494c2e27a5d9e2ef9ddd844bff513a5379140469beab7"
+      },
+      "outputs": [
+        {
+          "name": "SK-004_hy3_v1.0.0.docx",
+          "bytes": 37248,
+          "sha256": "e99a09a93704827e0379cb2cde3f212c90f31a35bf9da42a137ed0353224f483"
+        }
+      ],
+      "http_events": {
+        "request": 14,
+        "response:200": 14
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    }
+  ]
+}

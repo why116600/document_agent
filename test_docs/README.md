@@ -1,18 +1,20 @@
 # 文档测试入口 v1.0.28
 
-更新日期 2026-11-16。用虚构样例运行指定提交、核对成果、登记问题，再交给开发者修复。顶层保留三份主要文档。
+更新日期 2026-11-21。用虚构样例运行指定提交、核对成果、登记问题，再交给开发者修复。顶层保留三份主要文档。
 
 | 入口 | 用途 |
 | --- | --- |
 | 本页README | 看入口、格式和提交边界 |
 | [测试计划](test_plan_v1.0.28.md) | 测什么、步骤和判定 |
-| [缺陷登记表](defect_register_v1.0.28.md) | DEF-001～DEF-012 的正误及回归状态，不设条数上限 |
+| [缺陷登记表](defect_register_v1.0.28.md) | DEF-001～DEF-015 的正误及回归状态，不设条数上限 |
 | [本轮报告与真实Word](results/latest_run/README.md) | 历史失败和当前候选对照 |
 | [samples](samples/README.md) | 12项虚构输入、中文任务、步骤与运行前预期 |
 | [results](results/README.md) | 实际测试及两项历史探索 |
 | start本机菜单 | 日常本机启动，团队资料不含该菜单 |
 
-**最近一轮提测。** 在已同步 `develop` 的 `feature/skills-system@aa8d192` 上，用同一份虚构规则和请求做四次实际写作。Hy3 的 Skill 组通过本样例，Hy3 普通组内容不全，DeepSeek 两组都未生成 Word。本轮合入验收未通过。 [四次测试报告](results/latest_run/README.md#2026-11-16-skill-候选合入前测试)
+**最近一轮提测。** 开发 11 月 18 日提测 `feature/skills-system@453ea2f`，说明客户端 11 个缺陷已修复。11 月 21 日复测原失败例：DEF-001、002、008、011 通过，两个模型的 Skill 写作通过。普通新建仍因 DEF-004 不保存，DEF-009 的修复误拒正常图谱资料。新登记 DEF-013～015，暂不合入 develop。 [453ea2f 核验](results/latest_run/453ea2f_verification/README.md)
+
+上一轮 `aa8d192` 四次写作对照见[该批报告](results/latest_run/README.md#2026-11-16-skill-候选合入前测试)。
 
 日常回归以 `develop` 为主。11 月 11 日图谱回归在 `f8eaefb` 执行五次，复现 DEF-008，新登记 DEF-009。`feature/add-rewrite-function` 暂停单独测。 [图谱回归](results/latest_run/README.md#2026-11-11-develop-图谱回归与-skill-样例) · [执行安排](test_plan_v1.0.28.md#当前基线与后续执行)
 
