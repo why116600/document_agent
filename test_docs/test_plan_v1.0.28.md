@@ -279,7 +279,7 @@ TC-30～TC-34 的直接类调用、索引条件控制，以及 TC-25/TC-28/TC-29
 | `develop` 日常回归 | 每批从独立目录运行固定提交。先核对公开控制台入口和配置，再用已有虚构资料复测 KG-WORD、KG-UNKNOWN、KG-UNAVAILABLE。检查正常检索的事实与来源、无匹配时的提示和内容、连接失败时的状态及保存结果。联调记录包含实际 `graph_rag` 后端版本。飞书入口按提测范围另选用例 |
 | `feature/add-rewrite-function@a05a1d2` | 暂停独立测试。该分支上的修复在其进入 `develop` 后，以对应原失败样例复测 |
 | `feature/skills-system@aa8d192` | 同步 `develop@f8eaefb` 后完成合入前四次写作，结果 1/4 通过。先修复普通组内容遗漏、模型段落数据异常和 Skill 补查问题，再固定修复提交按原输入复测。合入后按实际 `develop` 提交复核受影响路径。 [本轮结果](results/latest_run/README.md#2026-11-16-skill-候选合入前测试) |
-| `feature/skills-system@453ea2f` | 2026-11-21 复测 11 个客户端缺陷的原失败例，并执行 SK-003/004 两个模型。DEF-001、002、008、011 和 SK-004 通过。DEF-004 及新登记 DEF-013～015 待修复。修复提交到位后，复跑 CP-002、CP-003、CP-009、CP-010、KG-WORD、KG-NO-MATCH 和 SK-003。 [核验结果](results/latest_run/453ea2f_verification/README.md) |
+| `feature/skills-system@453ea2f` | 2026-11-21 复测 11 个客户端缺陷的原失败例，并执行 SK-003/004 两个模型。DEF-001、002、008、011 和 SK-004 通过。DeepSeek 温度 0 对照中 CP-009、CP-003 通过。DEF-004 及新登记 DEF-013～016 待修复，复测时 Hy3 与 DeepSeek 温度 0 两种配置都跑。修复提交到位后，复跑 CP-002、CP-003、CP-009、CP-010、KG-WORD、KG-NO-MATCH 和 SK-003。 [核验结果](results/latest_run/453ea2f_verification/README.md) |
 
 提测时记录合入后的提交号、验收范围及必要的配置或数据变化。对已登记缺陷，在实际包含修复的目标提交上复测原例，再依据结果更新状态。测试资料继续归档到 `test/test-plan`。
 

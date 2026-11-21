@@ -6,13 +6,13 @@
 | --- | --- |
 | 本页README | 看入口、格式和提交边界 |
 | [测试计划](test_plan_v1.0.28.md) | 测什么、步骤和判定 |
-| [缺陷登记表](defect_register_v1.0.28.md) | DEF-001～DEF-015 的正误及回归状态，不设条数上限 |
+| [缺陷登记表](defect_register_v1.0.28.md) | DEF-001～DEF-016 的正误及回归状态，不设条数上限 |
 | [本轮报告与真实Word](results/latest_run/README.md) | 历史失败和当前候选对照 |
 | [samples](samples/README.md) | 12项虚构输入、中文任务、步骤与运行前预期 |
 | [results](results/README.md) | 实际测试及两项历史探索 |
 | start本机菜单 | 日常本机启动，团队资料不含该菜单 |
 
-**最近一轮提测。** 开发 11 月 18 日提测 `feature/skills-system@453ea2f`，说明客户端 11 个缺陷已修复。11 月 21 日复测原失败例：DEF-001、002、008、011 通过，两个模型的 Skill 写作通过。普通新建仍因 DEF-004 不保存，DEF-009 的修复误拒正常图谱资料。新登记 DEF-013～015，暂不合入 develop。 [453ea2f 核验](results/latest_run/453ea2f_verification/README.md)
+**最近一轮提测。** 开发 11 月 18 日提测 `feature/skills-system@453ea2f`，说明客户端 11 个缺陷已修复。11 月 21 日复测原失败例：DEF-001、002、008、011 通过，两个模型的 Skill 写作通过。普通新建仍因 DEF-004 不保存，DEF-009 的修复误拒正常图谱资料。新登记 DEF-013～015，暂不合入 develop。DeepSeek-V4.1-Flash 温度 0 对照中，CP-009（DEF-005）、CP-003 通过，DEF-014、015 照样复现，并新登记 DEF-016。 [453ea2f 核验](results/latest_run/453ea2f_verification/README.md)
 
 上一轮 `aa8d192` 四次写作对照见[该批报告](results/latest_run/README.md#2026-11-16-skill-候选合入前测试)。
 
