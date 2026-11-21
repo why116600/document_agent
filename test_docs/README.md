@@ -12,7 +12,7 @@
 | [results](results/README.md) | 实际测试及两项历史探索 |
 | start本机菜单 | 日常本机启动，团队资料不含该菜单 |
 
-**最近一轮提测。** 开发 11 月 18 日提测 `feature/skills-system@453ea2f`，说明客户端 11 个缺陷已修复。11 月 21 日复测原失败例：DEF-001、002、008、011 通过，两个模型的 Skill 写作通过。普通新建仍因 DEF-004 不保存，DEF-009 的修复误拒正常图谱资料。新登记 DEF-013～015，暂不合入 develop。DeepSeek-V4.1-Flash 温度 0 对照中，CP-009（DEF-005）、CP-003 通过，DEF-014、015 照样复现，并新登记 DEF-016。 [453ea2f 核验](results/latest_run/453ea2f_verification/README.md)
+**最近一轮提测。** 开发 11 月 18 日提测 `feature/skills-system@453ea2f`，说明客户端 11 个缺陷已修复。11 月 21 日复测原失败例：DEF-001、002、008、011 通过，两个模型的 Skill 写作通过。普通新建仍因 DEF-004 不保存，DEF-009 的修复误拒正常图谱资料。新登记 DEF-013～015，暂不合入 develop。`@DS-T0` 对照中，CP-009（DEF-005）、CP-003 通过，DEF-014、015 照样复现，并新登记 DEF-016。 [453ea2f 核验](results/latest_run/453ea2f_verification/README.md)
 
 上一轮 `aa8d192` 四次写作对照见[该批报告](results/latest_run/README.md#2026-11-16-skill-候选合入前测试)。
 
@@ -25,6 +25,19 @@
 | .docx | inputs是原稿，成果目录是实际Word，用Word/WPS对照 |
 | .json | 来源、哈希与检查回执，不当任务输入 |
 | .cmd、.ps1、.py | 本机菜单及内部调用脚本 |
+
+**编号说明。** 原编号保持不变，补充信息以后缀追加。
+
+| 编号 | 含义 |
+| --- | --- |
+| TC-01～TC-36 | 测试计划中的正式主用例 |
+| CP-001～CP-012 | 已备好的具体样例，每项含虚构输入、中文需求和运行前预期 |
+| SK-001～SK-007 | Skill 模块追加场景 |
+| KG-WORD、KG-UNKNOWN、KG-UNAVAILABLE、KG-NO-MATCH | 知识图谱联调场景；KG-WORD 001 为图谱在线，KG-WORD 002 为同一需求、图谱不可连接 |
+| EX-001、EX-002 | 历史探索 |
+| DEF-001 起 | 已确认缺陷，连续编号，不复用 |
+| `-R2` | 同一用例的第二次运行，如 CP-009-R2 |
+| `@Hy3`、`@DS`、`@DS-T0` | 运行所用模型与温度：Hy3 温度 0.9；DeepSeek-V4.1-Flash 温度 0.9；DeepSeek-V4.1-Flash 温度 0 |
 
 进子目录先看README。CP-xxx为12项准备样例，EX-xxx为两项历史探索；原资料及Word的v1.0.15/v1.0.0是它自身版本，不随报告变更。
 

@@ -1,5 +1,14 @@
 {
-  "version": "453ea2f-verification-1",
+  "version": "453ea2f-verification-2",
+  "id_scheme": {
+    "base": "Original IDs unchanged: CP-xxx, SK-xxx, KG-xxx, DEF-xxx. KG-WORD 001 = graph online, KG-WORD 002 = graph unreachable (as on 2026-11-11).",
+    "repeat": "-R2 = second recorded run of the same case (existing convention, e.g. CP-001-R2).",
+    "tags": {
+      "@Hy3": "WorkBuddy hy3, temperature 0.9",
+      "@DS": "WorkBuddy deepseek-v4.1-flash, temperature 0.9",
+      "@DS-T0": "WorkBuddy deepseek-v4.1-flash, temperature 0"
+    }
+  },
   "summary": {
     "candidate": "feature/skills-system@453ea2f40384897def336b134a659678692d3c37",
     "develop_at_test": "f8eaefbe0ecb0300cc5e82848fd29ee134ff9ce3 (fully contained in candidate, 14 commits ahead)",
@@ -252,7 +261,8 @@
   ],
   "runs": [
     {
-      "run": "CP-002__deepseek-v4.1-flash__t0",
+      "id": "CP-002@DS-T0",
+      "local_run_folder": "CP-002__deepseek-v4.1-flash__t0",
       "case": "CP-002",
       "model": "deepseek-v4.1-flash",
       "attempt": "t0",
@@ -294,7 +304,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "CP-002__hy3",
+      "id": "CP-002@Hy3",
+      "local_run_folder": "CP-002__hy3",
       "case": "CP-002",
       "model": "hy3",
       "attempt": "001",
@@ -336,101 +347,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "CP-003__deepseek-v4.1-flash__t0",
-      "case": "CP-003",
-      "model": "deepseek-v4.1-flash",
-      "attempt": "t0",
-      "temperature": 0.0,
-      "entry": "console",
-      "started": "2026-11-21T10:05:57.750459+08:00",
-      "finished": "2026-11-21T10:06:50.598841+08:00",
-      "process_exit_code": 0,
-      "business_state": "succeeded",
-      "error": null,
-      "user_intent": "new",
-      "rewrite_mode": null,
-      "rewrite_steps": [],
-      "intent_diagnostics": {
-        "attempts": 1,
-        "last_error": "",
-        "salvaged_fields": [],
-        "model": "deepseek-v4.1-flash",
-        "fallback": null
-      },
-      "skill": null,
-      "verification_summary": null,
-      "retrieval_report": null,
-      "remote_kg_listening": false,
-      "inputs_preserved": true,
-      "input_sha256": {
-        "work\\inputs\\沐川会议设备旧规则_v1.0.14.txt": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10",
-        "work\\inputs\\沐川会议设备新规则_v1.0.15.txt": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d",
-        "frozen\\沐川会议设备新规则_v1.0.15.txt": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d",
-        "frozen\\沐川会议设备旧规则_v1.0.14.txt": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10",
-        "actual_request.txt": "a6e7d53f6a1e826454ecb7d8b32bf19047925fd364a5a810804601b2292d5850"
-      },
-      "outputs": [
-        {
-          "name": "CP-003_deepseek_t0_结果_v1.0.15.docx",
-          "bytes": 37120,
-          "sha256": "90af9e322a318fa7439603d552ff34713b21c2e1e5c0c4462691db1c637803d9"
-        }
-      ],
-      "http_events": {
-        "loopback": 1,
-        "transport_error": 1,
-        "request": 16,
-        "response:200": 16
-      },
-      "blocked_file_writes": 0,
-      "candidate_clean_after": true
-    },
-    {
-      "run": "CP-003__hy3",
-      "case": "CP-003",
-      "model": "hy3",
-      "attempt": "001",
-      "temperature": 0.9,
-      "entry": "console",
-      "started": "2026-11-21T01:50:07.240806+08:00",
-      "finished": "2026-11-21T01:53:30.775598+08:00",
-      "process_exit_code": 0,
-      "business_state": "error",
-      "error": "章节「借用期限」连续 3 次未生成有效正文（空段落/空表格/只有标题或无法解析），未保存文档",
-      "user_intent": "new",
-      "rewrite_mode": null,
-      "rewrite_steps": [],
-      "intent_diagnostics": {
-        "attempts": 3,
-        "last_error": "模型未返回可解析的结构化结果",
-        "salvaged_fields": [],
-        "model": "hy3",
-        "fallback": null
-      },
-      "skill": null,
-      "verification_summary": null,
-      "retrieval_report": null,
-      "remote_kg_listening": false,
-      "inputs_preserved": true,
-      "input_sha256": {
-        "work\\inputs\\沐川会议设备旧规则_v1.0.14.txt": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10",
-        "work\\inputs\\沐川会议设备新规则_v1.0.15.txt": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d",
-        "frozen\\沐川会议设备新规则_v1.0.15.txt": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d",
-        "frozen\\沐川会议设备旧规则_v1.0.14.txt": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10",
-        "actual_request.txt": "a6e7d53f6a1e826454ecb7d8b32bf19047925fd364a5a810804601b2292d5850"
-      },
-      "outputs": [],
-      "http_events": {
-        "loopback": 1,
-        "transport_error": 1,
-        "request": 16,
-        "response:200": 16
-      },
-      "blocked_file_writes": 0,
-      "candidate_clean_after": true
-    },
-    {
-      "run": "CP-003__hy3__002",
+      "id": "CP-003-R2@Hy3",
+      "local_run_folder": "CP-003__hy3__002",
       "case": "CP-003",
       "model": "hy3",
       "attempt": "002",
@@ -474,7 +392,104 @@
       "candidate_clean_after": true
     },
     {
-      "run": "CP-007__deepseek-v4.1-flash__t0",
+      "id": "CP-003@DS-T0",
+      "local_run_folder": "CP-003__deepseek-v4.1-flash__t0",
+      "case": "CP-003",
+      "model": "deepseek-v4.1-flash",
+      "attempt": "t0",
+      "temperature": 0.0,
+      "entry": "console",
+      "started": "2026-11-21T10:05:57.750459+08:00",
+      "finished": "2026-11-21T10:06:50.598841+08:00",
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "error": null,
+      "user_intent": "new",
+      "rewrite_mode": null,
+      "rewrite_steps": [],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "deepseek-v4.1-flash",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "work\\inputs\\沐川会议设备旧规则_v1.0.14.txt": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10",
+        "work\\inputs\\沐川会议设备新规则_v1.0.15.txt": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d",
+        "frozen\\沐川会议设备新规则_v1.0.15.txt": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d",
+        "frozen\\沐川会议设备旧规则_v1.0.14.txt": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10",
+        "actual_request.txt": "a6e7d53f6a1e826454ecb7d8b32bf19047925fd364a5a810804601b2292d5850"
+      },
+      "outputs": [
+        {
+          "name": "CP-003@DS-T0_结果_v1.0.15.docx",
+          "bytes": 37120,
+          "sha256": "90af9e322a318fa7439603d552ff34713b21c2e1e5c0c4462691db1c637803d9"
+        }
+      ],
+      "http_events": {
+        "loopback": 1,
+        "transport_error": 1,
+        "request": 16,
+        "response:200": 16
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "id": "CP-003@Hy3",
+      "local_run_folder": "CP-003__hy3",
+      "case": "CP-003",
+      "model": "hy3",
+      "attempt": "001",
+      "temperature": 0.9,
+      "entry": "console",
+      "started": "2026-11-21T01:50:07.240806+08:00",
+      "finished": "2026-11-21T01:53:30.775598+08:00",
+      "process_exit_code": 0,
+      "business_state": "error",
+      "error": "章节「借用期限」连续 3 次未生成有效正文（空段落/空表格/只有标题或无法解析），未保存文档",
+      "user_intent": "new",
+      "rewrite_mode": null,
+      "rewrite_steps": [],
+      "intent_diagnostics": {
+        "attempts": 3,
+        "last_error": "模型未返回可解析的结构化结果",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "work\\inputs\\沐川会议设备旧规则_v1.0.14.txt": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10",
+        "work\\inputs\\沐川会议设备新规则_v1.0.15.txt": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d",
+        "frozen\\沐川会议设备新规则_v1.0.15.txt": "b13e4d30a818181cecedb2572a3d0b8c38442fd697286722d2162241457f005d",
+        "frozen\\沐川会议设备旧规则_v1.0.14.txt": "66b0a1298c4ddd9e334970f54b042536b52958ea64ee5e426f7b9a7ac2e61f10",
+        "actual_request.txt": "a6e7d53f6a1e826454ecb7d8b32bf19047925fd364a5a810804601b2292d5850"
+      },
+      "outputs": [],
+      "http_events": {
+        "loopback": 1,
+        "transport_error": 1,
+        "request": 16,
+        "response:200": 16
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "id": "CP-007@DS-T0",
+      "local_run_folder": "CP-007__deepseek-v4.1-flash__t0",
       "case": "CP-007",
       "model": "deepseek-v4.1-flash",
       "attempt": "t0",
@@ -564,7 +579,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "CP-007__hy3",
+      "id": "CP-007@Hy3",
+      "local_run_folder": "CP-007__hy3",
       "case": "CP-007",
       "model": "hy3",
       "attempt": "001",
@@ -622,7 +638,7 @@
       },
       "outputs": [
         {
-          "name": "CP-007_结果_v1.0.15.docx",
+          "name": "CP-007@Hy3_结果_v1.0.15.docx",
           "bytes": 38096,
           "sha256": "464340e74cc8cbb5c0693fe881b7b3d379029bd19f4587ac3de98bad53c169c0"
         }
@@ -637,7 +653,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "CP-008__deepseek-v4.1-flash__t0",
+      "id": "CP-008@DS-T0",
+      "local_run_folder": "CP-008__deepseek-v4.1-flash__t0",
       "case": "CP-008",
       "model": "deepseek-v4.1-flash",
       "attempt": "t0",
@@ -707,7 +724,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "CP-008__hy3",
+      "id": "CP-008@Hy3",
+      "local_run_folder": "CP-008__hy3",
       "case": "CP-008",
       "model": "hy3",
       "attempt": "001",
@@ -762,7 +780,7 @@
       },
       "outputs": [
         {
-          "name": "CP-008_结果_v1.0.15.docx",
+          "name": "CP-008@Hy3_结果_v1.0.15.docx",
           "bytes": 37383,
           "sha256": "1238dd53f5fb1e08e4989de10fd5d5c0e920b3be3478def0a5850ceccd252127"
         }
@@ -777,137 +795,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "CP-009__deepseek-v4.1-flash__t0",
-      "case": "CP-009",
-      "model": "deepseek-v4.1-flash",
-      "attempt": "t0",
-      "temperature": 0.0,
-      "entry": "console",
-      "started": "2026-11-21T10:05:57.748466+08:00",
-      "finished": "2026-11-21T10:06:24.515476+08:00",
-      "process_exit_code": 0,
-      "business_state": "succeeded",
-      "error": null,
-      "user_intent": "rewrite",
-      "rewrite_mode": "edit",
-      "rewrite_steps": [
-        {
-          "order": 1,
-          "action": "edit",
-          "scope": {
-            "face": "section",
-            "section_title": "二、巡检表",
-            "element_range": null,
-            "containers": [
-              "table"
-            ],
-            "basis_span": "只修改《巡检清单_v1.0.15.docx》中“二、巡检表”的第1张表格：设备标识为“设备A”的行、列标题为“检查频率”的单元格，改为“每月检查一次”",
-            "note": "用户点名章节“二、巡检表”并要求仅动表格"
-          },
-          "mode": "edit",
-          "target": "",
-          "target_range": null,
-          "instruction": "仅将第1张表格中设备标识为“设备A”的行与列标题为“检查频率”的列交叉的单元格内容改为“每月检查一次”；设备B相关单元格、数量列、正文、表头及表格行列结构全部保持不变",
-          "replace_pairs": {}
-        }
-      ],
-      "intent_diagnostics": {
-        "attempts": 1,
-        "last_error": "",
-        "salvaged_fields": [],
-        "model": "deepseek-v4.1-flash",
-        "fallback": null
-      },
-      "skill": null,
-      "verification_summary": null,
-      "retrieval_report": null,
-      "remote_kg_listening": false,
-      "inputs_preserved": true,
-      "input_sha256": {
-        "work\\inputs\\巡检清单_v1.0.15.docx": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
-        "frozen\\巡检清单_v1.0.15.docx": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
-        "actual_request.txt": "f24bfaeaf0fe3240b3e213c0b8fedb06a1655ae869f4eedb98372e192c2c3aa8"
-      },
-      "outputs": [
-        {
-          "name": "CP-009_deepseek_t0_结果_v1.0.15.docx",
-          "bytes": 37373,
-          "sha256": "87090e7327f644429380364c7afc727f3b9917841cd72cb23d88a5995ede2995"
-        }
-      ],
-      "http_events": {
-        "loopback": 1,
-        "transport_error": 1,
-        "request": 4,
-        "response:200": 4
-      },
-      "blocked_file_writes": 0,
-      "candidate_clean_after": true
-    },
-    {
-      "run": "CP-009__hy3",
-      "case": "CP-009",
-      "model": "hy3",
-      "attempt": "001",
-      "temperature": 0.9,
-      "entry": "console",
-      "started": "2026-11-21T01:44:50.093777+08:00",
-      "finished": "2026-11-21T01:46:05.538663+08:00",
-      "process_exit_code": 0,
-      "business_state": "error",
-      "error": "E_SCOPE_UNGROUNDED: 范围依据未能逐字取自用户指令",
-      "user_intent": "rewrite",
-      "rewrite_mode": "edit",
-      "rewrite_steps": [
-        {
-          "order": 1,
-          "action": "edit",
-          "scope": {
-            "face": "section",
-            "section_title": "二、巡检表",
-            "element_range": null,
-            "containers": [
-              "table"
-            ],
-            "basis_span": "\"二、巡检表\"的第1张表格：设备标识为\"设备A\"的行、列标题为\"检查频率\"的单元格",
-            "note": "仅定位到二、巡检表章节下第1张表格中的目标单元格，正文明确要求保留，故容器只取表格"
-          },
-          "mode": "edit",
-          "target": "",
-          "target_range": null,
-          "instruction": "将该表格中设备标识为\"设备A\"的行、列标题为\"检查频率\"的单元格内容改为\"每月检查一次\"；设备B、数量列、表头及表格行列结构全部保留；其他文字格式不变，保持中文宋体、全部文字黑色",
-          "replace_pairs": {}
-        }
-      ],
-      "intent_diagnostics": {
-        "attempts": 1,
-        "last_error": "",
-        "salvaged_fields": [],
-        "model": "hy3",
-        "fallback": null
-      },
-      "skill": null,
-      "verification_summary": null,
-      "retrieval_report": null,
-      "remote_kg_listening": false,
-      "inputs_preserved": true,
-      "input_sha256": {
-        "work\\inputs\\巡检清单_v1.0.15.docx": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
-        "frozen\\巡检清单_v1.0.15.docx": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
-        "actual_request.txt": "f24bfaeaf0fe3240b3e213c0b8fedb06a1655ae869f4eedb98372e192c2c3aa8"
-      },
-      "outputs": [],
-      "http_events": {
-        "loopback": 1,
-        "transport_error": 1,
-        "request": 7,
-        "response:200": 7
-      },
-      "blocked_file_writes": 0,
-      "candidate_clean_after": true
-    },
-    {
-      "run": "CP-009__hy3__002",
+      "id": "CP-009-R2@Hy3",
+      "local_run_folder": "CP-009__hy3__002",
       "case": "CP-009",
       "model": "hy3",
       "attempt": "002",
@@ -969,7 +858,140 @@
       "candidate_clean_after": true
     },
     {
-      "run": "CP-010__deepseek-v4.1-flash__t0",
+      "id": "CP-009@DS-T0",
+      "local_run_folder": "CP-009__deepseek-v4.1-flash__t0",
+      "case": "CP-009",
+      "model": "deepseek-v4.1-flash",
+      "attempt": "t0",
+      "temperature": 0.0,
+      "entry": "console",
+      "started": "2026-11-21T10:05:57.748466+08:00",
+      "finished": "2026-11-21T10:06:24.515476+08:00",
+      "process_exit_code": 0,
+      "business_state": "succeeded",
+      "error": null,
+      "user_intent": "rewrite",
+      "rewrite_mode": "edit",
+      "rewrite_steps": [
+        {
+          "order": 1,
+          "action": "edit",
+          "scope": {
+            "face": "section",
+            "section_title": "二、巡检表",
+            "element_range": null,
+            "containers": [
+              "table"
+            ],
+            "basis_span": "只修改《巡检清单_v1.0.15.docx》中“二、巡检表”的第1张表格：设备标识为“设备A”的行、列标题为“检查频率”的单元格，改为“每月检查一次”",
+            "note": "用户点名章节“二、巡检表”并要求仅动表格"
+          },
+          "mode": "edit",
+          "target": "",
+          "target_range": null,
+          "instruction": "仅将第1张表格中设备标识为“设备A”的行与列标题为“检查频率”的列交叉的单元格内容改为“每月检查一次”；设备B相关单元格、数量列、正文、表头及表格行列结构全部保持不变",
+          "replace_pairs": {}
+        }
+      ],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "deepseek-v4.1-flash",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "work\\inputs\\巡检清单_v1.0.15.docx": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
+        "frozen\\巡检清单_v1.0.15.docx": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
+        "actual_request.txt": "f24bfaeaf0fe3240b3e213c0b8fedb06a1655ae869f4eedb98372e192c2c3aa8"
+      },
+      "outputs": [
+        {
+          "name": "CP-009@DS-T0_结果_v1.0.15.docx",
+          "bytes": 37373,
+          "sha256": "87090e7327f644429380364c7afc727f3b9917841cd72cb23d88a5995ede2995"
+        }
+      ],
+      "http_events": {
+        "loopback": 1,
+        "transport_error": 1,
+        "request": 4,
+        "response:200": 4
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "id": "CP-009@Hy3",
+      "local_run_folder": "CP-009__hy3",
+      "case": "CP-009",
+      "model": "hy3",
+      "attempt": "001",
+      "temperature": 0.9,
+      "entry": "console",
+      "started": "2026-11-21T01:44:50.093777+08:00",
+      "finished": "2026-11-21T01:46:05.538663+08:00",
+      "process_exit_code": 0,
+      "business_state": "error",
+      "error": "E_SCOPE_UNGROUNDED: 范围依据未能逐字取自用户指令",
+      "user_intent": "rewrite",
+      "rewrite_mode": "edit",
+      "rewrite_steps": [
+        {
+          "order": 1,
+          "action": "edit",
+          "scope": {
+            "face": "section",
+            "section_title": "二、巡检表",
+            "element_range": null,
+            "containers": [
+              "table"
+            ],
+            "basis_span": "\"二、巡检表\"的第1张表格：设备标识为\"设备A\"的行、列标题为\"检查频率\"的单元格",
+            "note": "仅定位到二、巡检表章节下第1张表格中的目标单元格，正文明确要求保留，故容器只取表格"
+          },
+          "mode": "edit",
+          "target": "",
+          "target_range": null,
+          "instruction": "将该表格中设备标识为\"设备A\"的行、列标题为\"检查频率\"的单元格内容改为\"每月检查一次\"；设备B、数量列、表头及表格行列结构全部保留；其他文字格式不变，保持中文宋体、全部文字黑色",
+          "replace_pairs": {}
+        }
+      ],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "work\\inputs\\巡检清单_v1.0.15.docx": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
+        "frozen\\巡检清单_v1.0.15.docx": "1721885781565679799bd0d65a234a011974f9653b63fd17f6ff8416a966a166",
+        "actual_request.txt": "f24bfaeaf0fe3240b3e213c0b8fedb06a1655ae869f4eedb98372e192c2c3aa8"
+      },
+      "outputs": [],
+      "http_events": {
+        "loopback": 1,
+        "transport_error": 1,
+        "request": 7,
+        "response:200": 7
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "id": "CP-010@DS-T0",
+      "local_run_folder": "CP-010__deepseek-v4.1-flash__t0",
       "case": "CP-010",
       "model": "deepseek-v4.1-flash",
       "attempt": "t0",
@@ -1038,7 +1060,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "CP-010__hy3",
+      "id": "CP-010@Hy3",
+      "local_run_folder": "CP-010__hy3",
       "case": "CP-010",
       "model": "hy3",
       "attempt": "001",
@@ -1092,7 +1115,7 @@
       },
       "outputs": [
         {
-          "name": "CP-010_结果_v1.0.15.docx",
+          "name": "CP-010@Hy3_结果_v1.0.15.docx",
           "bytes": 37436,
           "sha256": "ce80487f0d8e87bda2dfe20db0d164b00e455e1376b5c4c0e0146749ba57e87d"
         }
@@ -1107,7 +1130,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "CP-012__deepseek-v4.1-flash__t0",
+      "id": "CP-012@DS-T0",
+      "local_run_folder": "CP-012__deepseek-v4.1-flash__t0",
       "case": "CP-012",
       "model": "deepseek-v4.1-flash",
       "attempt": "t0",
@@ -1186,7 +1210,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "CP-012__hy3",
+      "id": "CP-012@Hy3",
+      "local_run_folder": "CP-012__hy3",
       "case": "CP-012",
       "model": "hy3",
       "attempt": "001",
@@ -1265,7 +1290,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "KG-NO-MATCH__deepseek-v4.1-flash__t0",
+      "id": "KG-NO-MATCH@DS-T0",
+      "local_run_folder": "KG-NO-MATCH__deepseek-v4.1-flash__t0",
       "case": "KG-NO-MATCH",
       "model": "deepseek-v4.1-flash",
       "attempt": "t0",
@@ -1305,7 +1331,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "KG-NO-MATCH__hy3",
+      "id": "KG-NO-MATCH@Hy3",
+      "local_run_folder": "KG-NO-MATCH__hy3",
       "case": "KG-NO-MATCH",
       "model": "hy3",
       "attempt": "001",
@@ -1345,7 +1372,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "KG-UNAVAILABLE__deepseek-v4.1-flash__t0",
+      "id": "KG-UNAVAILABLE@DS-T0",
+      "local_run_folder": "KG-UNAVAILABLE__deepseek-v4.1-flash__t0",
       "case": "KG-UNAVAILABLE",
       "model": "deepseek-v4.1-flash",
       "attempt": "t0",
@@ -1385,7 +1413,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "KG-UNAVAILABLE__hy3",
+      "id": "KG-UNAVAILABLE@Hy3",
+      "local_run_folder": "KG-UNAVAILABLE__hy3",
       "case": "KG-UNAVAILABLE",
       "model": "hy3",
       "attempt": "001",
@@ -1425,87 +1454,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "KG-WORD-DOWN__deepseek-v4.1-flash__t0",
-      "case": "KG-WORD-DOWN",
-      "model": "deepseek-v4.1-flash",
-      "attempt": "t0",
-      "temperature": 0.0,
-      "entry": "console",
-      "started": "2026-11-21T10:07:49.144343+08:00",
-      "finished": "2026-11-21T10:08:18.774428+08:00",
-      "process_exit_code": 0,
-      "business_state": "error",
-      "error": "知识图谱检索失败：GET /retrieval/status 请求超时：",
-      "user_intent": "new",
-      "rewrite_mode": null,
-      "rewrite_steps": [],
-      "intent_diagnostics": {
-        "attempts": 1,
-        "last_error": "",
-        "salvaged_fields": [],
-        "model": "deepseek-v4.1-flash",
-        "fallback": null
-      },
-      "skill": null,
-      "verification_summary": null,
-      "retrieval_report": null,
-      "remote_kg_listening": false,
-      "inputs_preserved": true,
-      "input_sha256": {
-        "actual_request.txt": "a627a5e875bc31334f2a2eb747545a18b336a726110d7768058105d7d6354a5b"
-      },
-      "outputs": [],
-      "http_events": {
-        "loopback": 2,
-        "transport_error": 2,
-        "request": 3,
-        "response:200": 3
-      },
-      "blocked_file_writes": 0,
-      "candidate_clean_after": true
-    },
-    {
-      "run": "KG-WORD-DOWN__hy3",
-      "case": "KG-WORD-DOWN",
-      "model": "hy3",
-      "attempt": "001",
-      "temperature": 0.9,
-      "entry": "console",
-      "started": "2026-11-21T01:51:16.430114+08:00",
-      "finished": "2026-11-21T01:51:59.183371+08:00",
-      "process_exit_code": 0,
-      "business_state": "error",
-      "error": "知识图谱检索失败：GET /retrieval/status 请求超时：",
-      "user_intent": "new",
-      "rewrite_mode": null,
-      "rewrite_steps": [],
-      "intent_diagnostics": {
-        "attempts": 1,
-        "last_error": "",
-        "salvaged_fields": [],
-        "model": "hy3",
-        "fallback": null
-      },
-      "skill": null,
-      "verification_summary": null,
-      "retrieval_report": null,
-      "remote_kg_listening": false,
-      "inputs_preserved": true,
-      "input_sha256": {
-        "actual_request.txt": "a627a5e875bc31334f2a2eb747545a18b336a726110d7768058105d7d6354a5b"
-      },
-      "outputs": [],
-      "http_events": {
-        "loopback": 2,
-        "transport_error": 2,
-        "request": 3,
-        "response:200": 3
-      },
-      "blocked_file_writes": 0,
-      "candidate_clean_after": true
-    },
-    {
-      "run": "KG-WORD__deepseek-v4.1-flash__t0",
+      "id": "KG-WORD 001@DS-T0",
+      "local_run_folder": "KG-WORD__deepseek-v4.1-flash__t0",
       "case": "KG-WORD",
       "model": "deepseek-v4.1-flash",
       "attempt": "t0",
@@ -1545,7 +1495,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "KG-WORD__hy3",
+      "id": "KG-WORD 001@Hy3",
+      "local_run_folder": "KG-WORD__hy3",
       "case": "KG-WORD",
       "model": "hy3",
       "attempt": "001",
@@ -1585,7 +1536,90 @@
       "candidate_clean_after": true
     },
     {
-      "run": "SK-003__deepseek-v4.1-flash",
+      "id": "KG-WORD 002@DS-T0",
+      "local_run_folder": "KG-WORD-DOWN__deepseek-v4.1-flash__t0",
+      "case": "KG-WORD-DOWN",
+      "model": "deepseek-v4.1-flash",
+      "attempt": "t0",
+      "temperature": 0.0,
+      "entry": "console",
+      "started": "2026-11-21T10:07:49.144343+08:00",
+      "finished": "2026-11-21T10:08:18.774428+08:00",
+      "process_exit_code": 0,
+      "business_state": "error",
+      "error": "知识图谱检索失败：GET /retrieval/status 请求超时：",
+      "user_intent": "new",
+      "rewrite_mode": null,
+      "rewrite_steps": [],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "deepseek-v4.1-flash",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "actual_request.txt": "a627a5e875bc31334f2a2eb747545a18b336a726110d7768058105d7d6354a5b"
+      },
+      "outputs": [],
+      "http_events": {
+        "loopback": 2,
+        "transport_error": 2,
+        "request": 3,
+        "response:200": 3
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "id": "KG-WORD 002@Hy3",
+      "local_run_folder": "KG-WORD-DOWN__hy3",
+      "case": "KG-WORD-DOWN",
+      "model": "hy3",
+      "attempt": "001",
+      "temperature": 0.9,
+      "entry": "console",
+      "started": "2026-11-21T01:51:16.430114+08:00",
+      "finished": "2026-11-21T01:51:59.183371+08:00",
+      "process_exit_code": 0,
+      "business_state": "error",
+      "error": "知识图谱检索失败：GET /retrieval/status 请求超时：",
+      "user_intent": "new",
+      "rewrite_mode": null,
+      "rewrite_steps": [],
+      "intent_diagnostics": {
+        "attempts": 1,
+        "last_error": "",
+        "salvaged_fields": [],
+        "model": "hy3",
+        "fallback": null
+      },
+      "skill": null,
+      "verification_summary": null,
+      "retrieval_report": null,
+      "remote_kg_listening": false,
+      "inputs_preserved": true,
+      "input_sha256": {
+        "actual_request.txt": "a627a5e875bc31334f2a2eb747545a18b336a726110d7768058105d7d6354a5b"
+      },
+      "outputs": [],
+      "http_events": {
+        "loopback": 2,
+        "transport_error": 2,
+        "request": 3,
+        "response:200": 3
+      },
+      "blocked_file_writes": 0,
+      "candidate_clean_after": true
+    },
+    {
+      "id": "SK-003@DS",
+      "local_run_folder": "SK-003__deepseek-v4.1-flash",
       "case": "SK-003",
       "model": "deepseek-v4.1-flash",
       "attempt": "001",
@@ -1627,7 +1661,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "SK-003__deepseek-v4.1-flash__t0",
+      "id": "SK-003@DS-T0",
+      "local_run_folder": "SK-003__deepseek-v4.1-flash__t0",
       "case": "SK-003",
       "model": "deepseek-v4.1-flash",
       "attempt": "t0",
@@ -1669,7 +1704,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "SK-003__hy3",
+      "id": "SK-003@Hy3",
+      "local_run_folder": "SK-003__hy3",
       "case": "SK-003",
       "model": "hy3",
       "attempt": "001",
@@ -1711,7 +1747,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "SK-004__deepseek-v4.1-flash",
+      "id": "SK-004@DS",
+      "local_run_folder": "SK-004__deepseek-v4.1-flash",
       "case": "SK-004",
       "model": "deepseek-v4.1-flash",
       "attempt": "001",
@@ -1813,7 +1850,7 @@
       },
       "outputs": [
         {
-          "name": "SK-004_deepseek_v1.0.0.docx",
+          "name": "SK-004@DS_借用须知_v1.0.0.docx",
           "bytes": 37215,
           "sha256": "1a1d4b73f77ca05c7a39c9a6756121ad3d2e553837a2423259fd1aa575a702ec"
         }
@@ -1826,7 +1863,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "SK-004__deepseek-v4.1-flash__t0",
+      "id": "SK-004@DS-T0",
+      "local_run_folder": "SK-004__deepseek-v4.1-flash__t0",
       "case": "SK-004",
       "model": "deepseek-v4.1-flash",
       "attempt": "t0",
@@ -1941,7 +1979,8 @@
       "candidate_clean_after": true
     },
     {
-      "run": "SK-004__hy3",
+      "id": "SK-004@Hy3",
+      "local_run_folder": "SK-004__hy3",
       "case": "SK-004",
       "model": "hy3",
       "attempt": "001",
@@ -2043,7 +2082,7 @@
       },
       "outputs": [
         {
-          "name": "SK-004_hy3_v1.0.0.docx",
+          "name": "SK-004@Hy3_借用须知_v1.0.0.docx",
           "bytes": 37248,
           "sha256": "e99a09a93704827e0379cb2cde3f212c90f31a35bf9da42a137ed0353224f483"
         }
