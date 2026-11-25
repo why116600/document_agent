@@ -322,7 +322,11 @@ def _skill_structure_issues(doc, spec) -> List[str]:
             issues.append("总标题不在文档开头")
         style_issues = title_format_issues(doc, spec.title, spec.title_style)
         if style_issues:
-            issues.append(f"总标题版式未达到要求（{'；'.join(style_issues)}）")
+            # 用户没有显式提出标题版式时，默认版式只作为建议，不阻断保存。
+            if spec.title_style is not None:
+                issues.append(f"总标题版式未达到要求（{'；'.join(style_issues)}）")
+            else:
+                print(f"【结构告警】总标题默认版式未达到建议值（{'；'.join(style_issues)}）")
     return issues
 
 
@@ -438,7 +442,8 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):
         structure_issues = _skill_structure_issues(doc, spec)
         if structure_issues:
             print("【结构校验】" + "；".join(structure_issues))
-            if (os.environ.get("NEW_DOC_GATE_MODE") or "report").strip().lower() == "block":
+            # 用户硬约束默认阻断；NEW_DOC_GATE_MODE=off 仅作为应急回退。
+            if (os.environ.get("NEW_DOC_GATE_MODE") or "block").strip().lower() != "off":
                 return {**state, 'state': 'error',
                         'error': "未保存文档：不符合用户文档级约束（" + "；".join(structure_issues) + "）",
                         'unmet_requirements': structure_issues,

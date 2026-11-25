@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Sequence, Tuple
 
@@ -50,6 +51,175 @@ _QUALIFIER_STARTS = ("这里", "此", "该", "上述", "其中", "同时", "但"
 def extract_fact_keys(text: Any) -> List[str]:
     """提取“数值+单位”事实键，如 2小时、3个工作日、40天。"""
     return [re.sub(r"\s+", "", match.group(0)) for match in _UNIT_RE.finditer(str(text or ""))]
+
+
+@dataclass(frozen=True)
+class FactRecord:
+    """一条可核对的事实：谁、什么事、多少、什么条件、原文哪句。
+
+    只记录“数值+单位”会把 T1 的 2 小时和 E2 的 4 小时混成同一个键；
+    因此额外保留对象、属性/动作、条件和否定关系，并用 evidence 回溯原文。
+    """
+
+    subject: str
+    attribute: str
+    value: str
+    unit: str
+    condition: str
+    negation: bool
+    evidence: Tuple[str, ...] = ()
+
+    def identity(self):
+        return (self.subject, self.attribute, self.value, self.unit,
+                self.condition, self.negation)
+
+    @property
+    def anchor(self) -> str:
+        """用于正文覆盖检查的最小锚点：数值+单位。"""
+        return f"{self.value}{self.unit}" if self.value and self.unit else ""
+
+
+_EXCLUDE_MARKERS = (
+    "不适用于", "不适用", "不能转写", "不得用于", "不属于", "不包含", "不对外",
+)
+_CONDITION_MARKERS = ("以内", "之内", "内", "后", "前", "起", "以上", "以下")
+_ATTRIBUTE_STOP_CHARS = re.compile(
+    r"[A-Za-z]\d+|\d+(?:\.\d+)?|[，,。；;：:\s的应为是有在于从每共约个套台组次将把对向由]"
+)
+_ROLE_REPORT_PATTERN = re.compile(
+    r"向([\u4e00-\u9fffA-Za-z0-9]{2,12}?)(?:报告|提交|报|申请|登记)"
+)
+_ROLE_APPROVE_PATTERN = re.compile(
+    r"由([\u4e00-\u9fffA-Za-z0-9]{2,12}?)(?:确认|批准|负责|审核|审批)"
+)
+
+
+def _subject_near(sentence: str, position: int) -> str:
+    """取数值前最近的设备标识；没有设备标识时退回句首中文名词。"""
+    devices = [(match.start(), match.group(0)) for match in _DEVICE_RE.finditer(sentence)]
+    before = [(pos, name) for pos, name in devices if pos < position]
+    if before:
+        return before[-1][1].upper()
+    head = re.match(r"^([\u4e00-\u9fff]{2,8})", sentence)
+    return head.group(1) if head else ""
+
+
+def _attribute_near(sentence: str, start: int, end: int) -> str:
+    """取数值前后少量文字作为属性/动作线索，只用于匹配，不用于展示。"""
+    before = _ATTRIBUTE_STOP_CHARS.sub("", sentence[max(0, start - 10):start])
+    after = _ATTRIBUTE_STOP_CHARS.sub("", sentence[end:end + 12])
+    return (before[-6:] + after[:6])[:12]
+
+
+def extract_fact_records(text: Any) -> List[FactRecord]:
+    """从一段文字抽取事实记录；纯确定性规则，不调用模型。"""
+    records: List[FactRecord] = []
+    for sentence in re.split(r"[。；;\n]", str(text or "")):
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+        matches = list(_UNIT_RE.finditer(sentence))
+        if not matches:
+            continue
+        excluded = any(marker in sentence for marker in _EXCLUDE_MARKERS)
+        for match in matches:
+            anchor = re.sub(r"\s+", "", match.group(0))
+            number = re.match(r"(\d+(?:\.\d+)?)\s*(.+)", anchor)
+            if not number:
+                continue
+            value, unit = number.group(1), number.group(2)
+            tail = sentence[match.end():match.end() + 2]
+            condition = next(
+                (marker for marker in _CONDITION_MARKERS if tail.startswith(marker)), ""
+            )
+            records.append(FactRecord(
+                subject=_subject_near(sentence, match.start()),
+                attribute=_attribute_near(sentence, match.start(), match.end()),
+                value=value,
+                unit=unit,
+                condition=condition,
+                negation=excluded,
+                evidence=(sentence,),
+            ))
+    return records
+
+
+def _merge_records(records: Sequence[FactRecord]) -> List[FactRecord]:
+    """同一身份的事实合并 evidence；不同来源不做语义合并。"""
+    merged: Dict[tuple, FactRecord] = {}
+    order: List[tuple] = []
+    for record in records:
+        key = record.identity()
+        if key not in merged:
+            merged[key] = record
+            order.append(key)
+            continue
+        old = merged[key]
+        merged[key] = replace(
+            old, evidence=tuple(dict.fromkeys(old.evidence + record.evidence))
+        )
+    return [merged[key] for key in order]
+
+
+def source_fact_records(items: Sequence[str]) -> List[FactRecord]:
+    """从素材条目抽取并合并事实记录。"""
+    records: List[FactRecord] = []
+    for item in items or []:
+        records.extend(extract_fact_records(item))
+    return _merge_records(records)
+
+
+def source_fact_records_from_files(paths: Sequence[str]) -> List[FactRecord]:
+    """优先从原始资料文件抽取事实；读不到时返回空列表。"""
+    records: List[FactRecord] = []
+    for path in paths or []:
+        text = _read_source_text(str(path))
+        if text:
+            records.extend(extract_fact_records(text))
+    return _merge_records(records)
+
+
+def target_subjects_from_topics(topics: Sequence[str], dialog: str = "") -> set:
+    """从请求字段和用户原话里取目标对象标识，如 E2。"""
+    subjects = set()
+    for topic in topics or []:
+        subjects.update(match.group(0).upper() for match in _DEVICE_RE.finditer(str(topic)))
+    if not subjects:
+        subjects.update(match.group(0).upper() for match in _DEVICE_RE.finditer(str(dialog or "")))
+    return subjects
+
+
+def protected_fact_keys(records: Sequence[FactRecord], target_subjects: set) -> set:
+    """只保护“目标对象、非排除句、有数值单位”的事实。
+
+    出现次数不参与判断：同一有效事实在原文出现两次，仍只保护一次；
+    T1/L8 的数值即使首稿写过，也不进入 E2 的保护清单。
+    """
+    keys = set()
+    for record in records or []:
+        if record.negation or not record.anchor:
+            continue
+        if target_subjects and record.subject and record.subject.upper() not in target_subjects:
+            continue
+        keys.add(record.anchor)
+    return keys
+
+
+def fact_roles(records: Sequence[FactRecord], target_subjects: set) -> List[str]:
+    """从证据句里取出“向谁报告/由谁批准”的角色名。"""
+    roles: List[str] = []
+    for record in records or []:
+        if record.negation:
+            continue
+        if target_subjects and record.subject and record.subject.upper() not in target_subjects:
+            continue
+        for sentence in record.evidence:
+            for pattern in (_ROLE_REPORT_PATTERN, _ROLE_APPROVE_PATTERN):
+                for match in pattern.finditer(sentence):
+                    role = match.group(1).strip()
+                    if role and role not in roles:
+                        roles.append(role)
+    return roles
 
 
 def _read_source_text(path: str) -> str:

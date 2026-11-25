@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
 
 import httpx
@@ -84,8 +85,40 @@ def _salvage_model(model_class: Type[T], data: Optional[Dict[str, Any]]) -> Tupl
     return None, []
 
 
+def _message_text(response: Any) -> str:
+    """把模型响应压成文本，兼容字符串、AIMessage 和多段内容。"""
+    content = getattr(response, "content", response)
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                parts.append(str(item.get("text") or ""))
+        return "\n".join(parts)
+    return str(content or "")
+
+
+def _extract_json_payload(text: str) -> str:
+    """从普通文本里取出 JSON 片段；只做格式恢复，不做业务校验。"""
+    text = (text or "").strip()
+    fenced = re.search(r"```(?:json)?\s*(\{.*?\}|\[.*?\])\s*```", text, re.S)
+    if fenced:
+        text = fenced.group(1)
+    start, end = text.find("{"), text.rfind("}")
+    if start >= 0 and end > start:
+        return text[start:end + 1]
+    start, end = text.find("["), text.rfind("]")
+    if start >= 0 and end > start:
+        return text[start:end + 1]
+    return text
+
+
 def llm_model_invoke_detailed(llm, prompt: str, model_class: Type[T], retry=3,
-                              feedback: bool = True, salvage: bool = True):
+                              feedback: bool = True, salvage: bool = True,
+                              fallback_policy: str = "none"):
     """调用模型并返回 (解析结果, 诊断信息)。
 
     诊断信息只包含尝试次数、最后错误、被忽略的可选字段与模型标识，不记录用户原文。
@@ -98,6 +131,7 @@ def llm_model_invoke_detailed(llm, prompt: str, model_class: Type[T], retry=3,
         "last_error": "",
         "salvaged_fields": [],
         "model": str(model_name),
+        "fallback": None,
     }
     current_prompt = prompt
     for attempt in range(1, retry + 1):
@@ -133,10 +167,30 @@ def llm_model_invoke_detailed(llm, prompt: str, model_class: Type[T], retry=3,
                 "\n\n【上次输出未通过结构校验】" + diagnostics["last_error"] +
                 "\n请修正后重新输出。可空字段必须是 JSON null，不能是字符串 \"null\"、\"None\" 或空串。"
             )
+    # 结构化输出降级：只解决“工具调用失败”，不改变任务语义。
+    # 是否允许由调用方显式决定，意图解析保持默认 none。
+    if fallback_policy == "json":
+        diagnostics["fallback"] = "json"
+        print(f"【结构化输出】{model_class.__name__} 工具调用失败，改用普通 JSON 重试")
+        try:
+            response = llm.invoke(prompt + "\n\n只输出合法 JSON，不要输出解释文字。")
+        except Exception as exc:
+            diagnostics["last_error"] = f"json_call:{type(exc).__name__}: {exc}"
+            print(f"【结构化输出】JSON 降级调用失败：{exc}")
+            return None, diagnostics
+        try:
+            payload = json.loads(_extract_json_payload(_message_text(response)))
+            parsed = model_class.model_validate(payload)
+            print(f"【结构化输出】JSON 降级恢复成功：{model_class.__name__}")
+            return parsed, diagnostics
+        except Exception as exc:
+            diagnostics["last_error"] = f"json_schema:{type(exc).__name__}: {exc}"
+            print(f"【结构化输出】JSON 降级后仍不合法：{exc}")
     return None, diagnostics
 
 
-def llm_model_invoke(llm, prompt: str, model_class: Type[T], retry=3) -> T | None:
+def llm_model_invoke(llm, prompt: str, model_class: Type[T], retry=3,
+                     fallback_policy: str = "none") -> T | None:
     """
     Invoke the LLM and parse the response into a Pydantic model.
 
@@ -147,5 +201,6 @@ def llm_model_invoke(llm, prompt: str, model_class: Type[T], retry=3) -> T | Non
     :return: An instance of model_class or None if parsing fails.
     """
     parsed, _ = llm_model_invoke_detailed(llm, prompt, model_class, retry=retry,
-                                          feedback=False, salvage=False)
+                                          feedback=False, salvage=False,
+                                          fallback_policy=fallback_policy)
     return parsed

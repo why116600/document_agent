@@ -459,8 +459,10 @@ curl -X POST http://127.0.0.1:8000/admin/api/skills/project_weekly/draft \
 ### 执行与边界
 
 - `intent` 只区分 `new`（新写文档）和 `rewrite`（改写已有文档），并根据可用 Skill 选择规范。
-- 创建、修改、删除、发布 Skill 属于管理诉求：主入口会确定性拦截并返回
-  `MAIN_ENTRY_MANAGEMENT_FORBIDDEN`，不生成文档、不写 Skill 文件。
+- 写作入口按操作对象判断意图。“修改操作规范中的错字”走文档改写，“写一份说明如何发布 Skill 的文档”走新建。
+  明确要求更改 Skill 配置或发布状态时，入口返回 `MAIN_ENTRY_MANAGEMENT_FORBIDDEN`，并提示使用管理入口。
+  文档和 Skill 同名且目标不明，或意图解析失败后仍有更改 Skill 的线索时，入口返回
+  `INTENT_TARGET_AMBIGUOUS` 并提示澄清，本次不生成文档。
 - `skill` 节点校验来源能力与检索计划，`verify` 在保存后输出验收结果。
 - `skill_cli` 中仅允许文件来源的 Skill 会跳过知识库初始化；知识库任务仍使用已有本地或远程配置。
   `console_app` 保持 develop 原版行为，始终按 `setting.json` 初始化知识库。

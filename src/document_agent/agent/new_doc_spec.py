@@ -9,7 +9,7 @@
 import re
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 TextStyleScope = Literal["all", "body", "headings", "table"]
 CountingRule = Literal["non_whitespace", "chinese_chars", "all_chars"]
@@ -100,6 +100,24 @@ class NewDocSpec(BaseModel):
     include_field_names: Optional[bool] = Field(
         default=None, description="是否要求包含字段名称；未明确为 null。"
     )
+    field_name_locations: List[Literal["body", "heading", "table_header"]] = Field(
+        default_factory=list,
+        description=(
+            "字段名允许显示的位置；为空时按文档形态推导。"
+            "body=正文句中，heading=章节标题，table_header=表格列头。"
+            "该字段只描述“在哪显示”，不改变文档形态。"
+        ),
+    )
+
+    @field_validator("field_name_locations", mode="before")
+    @classmethod
+    def _coerce_field_name_locations(cls, value):
+        """兼容模型把位置写成单个字符串或 null。"""
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value]
+        return value
 
 
 FONT_NAMES = (
@@ -189,6 +207,9 @@ TOPIC_HEAD_PATTERN = re.compile(
     r"(?:^|[，,；;。\n])(?:请|并|需|同时|另外|还)?"
     r"(?:说明|写清|写明确|包含|包括|涵盖|"
     r"只回答(?:[\u4e00-\u9fa5\d]+个)?(?:字段|方面)?\s*[:：]?|字段\s*[:：]?)"
+)
+TOPIC_HEAD_LOOSE_PATTERN = re.compile(
+    r"(?:说明|写清|写明确|包含|包括|涵盖|列出|写明)\s*[:：]?\s*"
 )
 TOPIC_STOP_PATTERN = re.compile(
     r"(?:正文最多|正文不超过|正文≤|正文<=|不用表格|不要表格|禁止表格|"
@@ -564,25 +585,56 @@ def extract_title_style(text: str) -> Optional[TitleStyleSpec]:
     return TitleStyleSpec(**merged)
 
 
-def extract_required_topics(text: str) -> List[str]:
-    """提取“说明/写清/包含/只回答...”之后列出的主题，仅供提示和完整性观察。"""
+def _topics_from_body(body: str) -> List[str]:
+    """从“说明：A、B、C”里取出完整字段名。
+
+    一级字段只按顿号/逗号拆，不按“及/和/与”拆：
+    “E2异常报告时限及接收角色”是一个完整字段，拆开会破坏字段边界。
+    """
     topics: List[str] = []
-    for sentence in re.split(r"[。；;\n]", text or ""):
-        sentence = sentence.strip()
-        if not sentence:
+    for item in re.split(r"、|，|,", body):
+        item = item.strip(" 。；;：:")
+        item = re.sub(r"^(?:新版|旧版|完整|具体|相关)", "", item)
+        if item in META_TOPICS:
             continue
+        # 字数/格式要求常和字段列表出现在同一句，不能当成字段。
+        if any(token in item for token in ("不超过", "非空白字符", "另存为", "全部文字", "）", ")")):
+            continue
+        if 1 < len(item) <= 30:
+            topics.append(item)
+    return topics
+
+
+def extract_required_topics(text: str) -> List[str]:
+    """提取“说明/写清/包含/只回答...”之后列出的完整字段名。
+
+    优先严格模式；严格模式没有命中时，用宽松模式兜底“用简短段落说明 A、B、C”
+    这类没有显式冒号的写法。宽松模式只接受带顿号列表的句子，避免把普通叙述当字段。
+    """
+    topics: List[str] = []
+    sentences = [s.strip() for s in re.split(r"[。；;\n]", text or "") if s.strip()]
+    for sentence in sentences:
         match = TOPIC_HEAD_PATTERN.search(sentence)
         if not match:
             continue
         body = sentence[match.end():].strip(" ：:")
         body = TOPIC_STOP_PATTERN.split(body, maxsplit=1)[0]
-        for item in re.split(r"、|，|,|和|及|与", body):
-            item = item.strip(" 。；;：:")
-            item = re.sub(r"^(?:新版|旧版|完整|具体|相关)", "", item)
-            if item in META_TOPICS:
-                continue
-            if 1 < len(item) <= 30:
-                topics.append(item)
+        topics.extend(_topics_from_body(body))
+    if topics:
+        return list(dict.fromkeys(topics))
+
+    for sentence in sentences:
+        match = TOPIC_HEAD_LOOSE_PATTERN.search(sentence)
+        if not match:
+            continue
+        body = sentence[match.end():].strip(" ：:")
+        # 只取第一个逗号前的列表，避免把“并注明……”整句当字段。
+        body = re.split(r"[，,。；;]", body, maxsplit=1)[0]
+        if "、" not in body:
+            continue
+        topics.extend(_topics_from_body(body))
+        # 宽松模式只取第一处“说明 A、B、C”的列表，后面通常是字数/格式要求。
+        break
     return list(dict.fromkeys(topics))
 
 
@@ -597,26 +649,38 @@ def extract_duplicate_policy(text: str) -> Literal["strict", "normal", "off"]:
 def extract_document_form(
     text: str,
 ) -> tuple[Optional[DocumentForm], Optional[bool], Optional[bool]]:
-    """确定性识别文档形态、章节标题与字段名称要求；未明确返回 None。"""
+    """确定性识别文档形态、章节标题与字段名称要求；未明确返回 None。
+
+    形态与“是否显示字段名”是两个维度：
+    - 形态决定文章结构（短文/清单/章节/表格/表单）；
+    - 字段名只决定“是否显示”，显示位置由 field_name_locations 描述。
+    “不要分章节”和“不要章节标题”也要分开：前者决定形态，后者只影响标题显示。
+    """
     text = text or ""
     has_prose = any(token in text for token in (
-        "连续短文", "连续段落", "一段话", "一整段", "不分章节", "不分子章节",
+        "连续短文", "连续段落", "一段话", "一整段", "一段说明", "简短段落",
+        "简短说明", "简短描述", "不分章节", "不分子章节",
     ))
     has_section = any(token in text for token in (
         "含章节标题", "包含章节标题", "有章节标题", "分章节", "按章节",
+        "章节说明", "分章说明",
     ))
-    no_section = any(token in text for token in (
-        "不要章节标题", "不含章节标题", "无章节标题", "不要分章节", "不分章节",
+    no_chapters = any(token in text for token in (
+        "不要分章节", "不分章节", "不分子章节", "不要分章", "不分章",
+    ))
+    no_section_titles = any(token in text for token in (
+        "不要章节标题", "不含章节标题", "无章节标题", "不要小标题",
     ))
     has_field_names = any(token in text for token in (
         "含字段名称", "包含字段名称", "有字段名称", "字段名称", "字段名",
+        "必须包含字段", "字段名必须",
     ))
     no_field_names = any(token in text for token in (
         "不要字段名称", "不含字段名称", "不要字段名", "不写字段名",
     ))
     has_list = any(token in text for token in (
         "字段清单", "字段列表", "逐条列明", "逐条列出", "按字段列出",
-        "条款清单", "清单形式",
+        "条款清单", "清单形式", "只回答", "只写", "只列", "回答以下",
     ))
     has_form = any(token in text for token in ("表单", "填写表", "表格式填写"))
     has_table = any(token in text for token in (
@@ -629,6 +693,9 @@ def extract_document_form(
         form = "form"
     elif has_list:
         form = "field_list"
+    elif no_chapters:
+        # 明确不分章节：有短文线索按短文，否则按字段清单或短文处理。
+        form = "prose" if has_prose or not has_field_names else "field_list"
     elif has_prose and has_section:
         form = "sectioned"
     elif has_prose:
@@ -638,7 +705,12 @@ def extract_document_form(
     else:
         form = None
 
-    section_titles = False if no_section else (True if has_section else None)
+    if no_section_titles:
+        section_titles = False
+    elif has_section and not no_chapters:
+        section_titles = True
+    else:
+        section_titles = None
     field_names = False if no_field_names else (True if has_field_names else None)
     return form, section_titles, field_names
 
@@ -835,6 +907,10 @@ def merge_new_doc_spec(model_spec: Optional[NewDocSpec],
         ),
         include_field_names=_prefer_fallback(
             model.include_field_names, fallback.include_field_names, "字段名称要求"
+        ),
+        field_name_locations=(
+            list(model.field_name_locations or [])
+            or list(fallback.field_name_locations or [])
         ),
     )
 

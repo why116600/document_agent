@@ -12,6 +12,23 @@ from langchain_openai import ChatOpenAI
 
 DEFAULT_BASE_URL = "https://api.deepseek.com/v1"
 DEFAULT_MODEL = "deepseek-chat"
+# DeepSeek V4 系列默认 thinking，且 thinking 模式不接受 tool_choice；
+# 产品结构化输出依赖 tool_choice，因此默认对这类模型关闭 thinking。
+_THINKING_TOGGLE_MODELS = ("deepseek-flash", "deepseek-v4-pro")
+
+
+def _thinking_disabled(model: str) -> bool:
+    """按环境变量和模型名决定是否关闭 thinking。
+
+    MODEL_THINKING=on/off 可强制覆盖；auto（默认）只对已知冲突模型关闭，
+    避免给不支持该参数的 OpenAI 兼容模型发送额外字段。
+    """
+    policy = (os.getenv("MODEL_THINKING") or "auto").strip().lower()
+    if policy in ("on", "enabled", "1", "true"):
+        return False
+    if policy in ("off", "disabled", "0", "false"):
+        return True
+    return any(name in model.lower() for name in _THINKING_TOGGLE_MODELS)
 
 def get_api_key():
     """
@@ -41,6 +58,11 @@ def get_deepseek_llm() -> ChatOpenAI:
     # temperature=0 makes planning more consistent.
     # 生成内容越多，耗时越长，timeout设置短了会超时
     # 超时之所以没返回，是因为内部有重试机制，重试次数由max_retries参数决定
+    thinking_off = _thinking_disabled(model)
+    kwargs = {}
+    if thinking_off:
+        kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
+    print(f"【模型】{model} thinking={'off' if thinking_off else 'on'}")
     return ChatOpenAI(
         model=model,#"starlight/DeepSeek-V4",#
         base_url=base_url,
@@ -48,9 +70,7 @@ def get_deepseek_llm() -> ChatOpenAI:
         temperature=0,
         timeout=120,
         max_retries=1,
-        # extra_body={
-        # "thinking": {"type": "disabled"}  # ✅ 关键：关闭思考模式
-        # }
+        **kwargs,
     )
     
 def llm_invoke(llm,prompt : str,retry=3):

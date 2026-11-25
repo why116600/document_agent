@@ -81,13 +81,17 @@ class DocumentTaskIntent(BaseModel):
     management_request: bool = Field(
         default=False,
         description=(
-            "用户是否在要求创建、修改、删除或发布可复用写作规范（Skill）。"
+            "用户是否明确要求更改可复用 Skill 本身的配置、可用状态或发布版本。"
             "为 true 时 management_action 必须填写，且不得生成写作任务。"
         ),
     )
-    management_action: Optional[Literal["create", "update", "delete", "publish"]] = Field(
+    management_action: Optional[Literal["create", "update", "delete", "publish", "rollback", "enable", "disable"]] = Field(
         default=None,
         description="管理动作类型；management_request=false 时必须为 null。",
+    )
+    ambiguous_skill_target: bool = Field(
+        default=False,
+        description="仅在请求的操作对象既可能是文档又可能是 Skill 本身，结合上下文仍不能区分时为 true。",
     )
     target_file: Optional[str] = Field(
         default=None,
@@ -167,9 +171,9 @@ class DocumentTaskIntent(BaseModel):
     def _normalize_optional_strings(cls, value):
         return _none_if_null_like(value)
 
-    @field_validator("management_request", mode="before")
+    @field_validator("management_request", "ambiguous_skill_target", mode="before")
     @classmethod
-    def _normalize_management_request(cls, value):
+    def _normalize_intent_flag(cls, value):
         if value is None:
             return False
         if isinstance(value, str) and value.strip().lower() in NULL_LIKE_STRINGS:
@@ -405,9 +409,14 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str],
         f"【用户指令内容】\n{user_prompt}\n\n"
         "【分析与槽位抽取规范】\n"
         "1. task_type 判断：\n"
-        "   - 若用户要求创建、修改、删除或发布可复用写作规范（Skill），management_request=true，management_action 填 create/update/delete/publish；task_type 仍按 new/rewrite 估计，但系统会拦截管理请求，不生成写作任务。\n"
+        "   - 判断用户要求改变的对象。明确要求更改 Skill 本身（例如改触发词、发布或回滚版本）时，"
+        "management_request=true，填写相应 management_action；即使有附件也要标记管理请求。\n"
         "   - management_request=false 时 management_action 必须返回 JSON null；不得返回字符串 \"null\"、\"None\" 或空串。\n"
-        "   - ‘按规范写报告’属于new，‘按规范修改这份文档’属于rewrite，不得当成修改规范本身。\n"
+        "   - 使用 Skill 指导写作、把 Skill 管理作为文章主题，都属于文档任务。"
+        "‘写一份文档说明如何发布 Skill’属于 new；‘按规范修改报告’和‘请修改操作规范中的错字’属于 rewrite，"
+        "缺少改写文件时仍填 rewrite，target_file=null。\n"
+        "   - 若文档与 Skill 同名，如‘修改周报规范’，结合原话、候选文件和可用 Skill 仍无法确定改哪个，"
+        "填 ambiguous_skill_target=true、management_request=false，等待澄清。文件是否唯一与这项判断分开处理。\n"
         "   - 'rewrite'：用户希望对已有的某份 Word (.docx) 文档进行修改、改写、局部调整、全文重构、替换或润色（例如：'把xxx里的第三条改为'、'根据A修改B'、'对xxx进行公文润色'）；\n"
         "   - 'new'：用户希望全新起草、生成一份新文档（例如：'参考资料写一份报告'、'起草一份合作协议'），不以修改某份已有文档为目标。\n"
         "2. target_file 挑选（仅当 task_type 为 rewrite 时）：\n"
@@ -467,7 +476,11 @@ def build_full_intent_prompt(user_prompt: str, candidate_files: List[str],
         "   - text_styles：按作用域拆成数组，每项 {font_name, font_color, scope}；"
         "scope 取 all/body/headings/table；例如“标题黑体、正文宋体”必须输出两条，不能合并成全篇宋体；"
         "未提字体/颜色时留空数组；\n"
-        "   - required_topics：只抄用户明确要求覆盖的主题/字段；“字段名称/章节标题/文档标题”等格式要求不算主题；\n"
+        "   - required_topics：只抄用户明确要求覆盖的完整字段名/主题，按用户顿号分隔的字段原样保留；"
+        "不要把“E2异常报告时限及接收角色”按“及”拆成两个字段；“字段名称/章节标题/文档标题”等格式要求不算主题；\n"
+        "   - field_name_locations：用户要求字段名时填写显示位置：body=正文句中，heading=章节标题，"
+        "table_header=表格列头；只说“包含字段名称”未限定位置时，短文填 [\"body\"]，分章节可填 [\"heading\",\"body\"]；"
+        "该字段只描述显示位置，不改变 document_form；\n"
         "   - document_form：用户明确“连续短文/一段话/不分章节”→prose；“分章节”→sectioned；"
         "“清单/逐条/字段列表”→field_list；“表格”→table；“表单/填写”→form；未明确→null；\n"
         "   - include_section_titles：明确“含章节标题/包含章节标题”→true；“不要章节标题/不分章节”→false；未提→null；\n"
@@ -594,8 +607,25 @@ _REWRITE_CUE = re.compile(
 _NEW_CUE = re.compile(r"(新建|起草|从零|写一份|写一篇|生成一份|生成一篇|整理成一份|输出一份)")
 
 
-def decide_intent_failure(user_prompt: str, files: List[str]) -> str:
-    """结构化解析彻底失败时的安全兜底：有 .docx 且带改写线索时不静默转新建。"""
+_SKILL_CHANGE_CUE = re.compile(r"创建|新建|定义|修改|更新|删除|发布|回滚|启用|停用|禁用|改成|改为")
+
+
+def decide_intent_failure(user_prompt: str, files: List[str], available_skills=()) -> str:
+    """解析失败时，仅用文字线索决定是否需要澄清，不据此判定管理意图。"""
+    for clause in re.split(r"[，,。；;！？\n]", user_prompt):
+        # “写一份文档，说明如何发布 Skill”中的发布动作仅是文章主题。
+        if _NEW_CUE.search(user_prompt):
+            clause = re.split(r"如何|怎样|怎么", clause, maxsplit=1)[0]
+        if not _SKILL_CHANGE_CUE.search(clause):
+            continue
+        if re.search(r"规范|规则包|触发词|(?<![a-z])skills?(?![a-z])", clause, re.I):
+            return "clarify"
+        for skill in available_skills:
+            name, skill_id = skill.get("name"), skill.get("id")
+            if name and name in clause:
+                return "clarify"
+            if skill_id and re.search(rf"(?<![a-z0-9_-]){re.escape(skill_id)}(?![a-z0-9_-])", clause, re.I):
+                return "clarify"
     text = re.sub(r"\s+", "", user_prompt or "")
     for phrase in ("不要修改", "不得修改", "无需修改", "不修改"):
         text = text.replace(phrase, "")
@@ -633,9 +663,6 @@ def create_intent_node(llm=None):
 
         user_prompt = get_last_user_text(state.get("messages")).strip()
 
-        if _looks_like_management_request(user_prompt):
-            return _management_forbidden(state)
-
         rewrite_file = None
         rewrite_mode = None
         rewrite_steps: List[Dict[str, Any]] = []
@@ -648,22 +675,26 @@ def create_intent_node(llm=None):
         intent_diagnostics = None
 
         # 2. 大模型全量分析指令与候选文件池
-        if llm is not None and user_prompt:
-            print("【意图分析】正在分析用户指令与候选文件...")
+        if user_prompt:
             available_skills = []
             try:
                 available_skills = list_runtime_summaries()
             except Exception as exc:
                 print(f"【Skill】读取 Skill 目录失败，本次不提供可选 Skill：{exc}")
-            outline_block = build_intent_outline_block(valid_input_files)
-            intent_prompt = build_full_intent_prompt(user_prompt, valid_input_files, available_skills, outline_block)
-            task_intent, intent_diag = llm_model_invoke_detailed(llm, intent_prompt, DocumentTaskIntent)
-            intent_diagnostics = {**intent_diag, "fallback": None}
+            task_intent = None
+            if llm is not None:
+                print("【意图分析】正在分析用户指令与候选文件...")
+                outline_block = build_intent_outline_block(valid_input_files)
+                intent_prompt = build_full_intent_prompt(user_prompt, valid_input_files, available_skills, outline_block)
+                task_intent, intent_diagnostics = llm_model_invoke_detailed(llm, intent_prompt, DocumentTaskIntent)
+                intent_diagnostics = {**intent_diagnostics, "fallback": None}
 
             if task_intent:
                 print(f"【智能意图分析结果】任务类型: {task_intent.task_type.upper()} | 依据: {task_intent.reasoning}")
                 if task_intent.management_request:
                     return _management_forbidden(state)
+                if task_intent.ambiguous_skill_target:
+                    return _ambiguous_skill_target(state, intent_diagnostics)
                 skill_name = (task_intent.skill or "").strip() or None
                 use_skill = task_intent.use_skill
                 excluded_skills = task_intent.excluded_skills
@@ -702,18 +733,20 @@ def create_intent_node(llm=None):
                     if new_doc_spec:
                         print(f"【写作约束】{new_doc_spec.model_dump_json(ensure_ascii=False)}")
             else:
-                # 解析彻底失败：若请求明确要求改写且提供了 docx，宁可报错也不静默新建
-                fallback = decide_intent_failure(user_prompt, valid_input_files)
-                intent_diagnostics = {**intent_diag, "fallback": fallback}
-                if fallback == "error":
+                fallback = decide_intent_failure(user_prompt, valid_input_files, available_skills)
+                if intent_diagnostics is not None:
+                    intent_diagnostics["fallback"] = fallback
+                if fallback == "clarify":
+                    return _ambiguous_skill_target(state, intent_diagnostics)
+                if fallback == "error" and intent_diagnostics is not None:
                     print("【意图分析】结构化解析失败，且请求包含明确改写诉求，停止生成")
                     return {
                         **state,
                         "state": "error",
                         "error_code": "INTENT_PARSE_FAILED",
                         "error": (
-                            f"意图解析失败（{intent_diag.get('attempts', 0)} 次）："
-                            f"{intent_diag.get('last_error') or '模型未返回可解析的结构'}。"
+                            f"意图解析失败（{intent_diagnostics.get('attempts', 0)} 次）："
+                            f"{intent_diagnostics.get('last_error') or '模型未返回可解析的结构'}。"
                             "当前请求包含明确改写诉求且提供了 .docx 候选，为避免误当新建，本次未生成文档。"
                         ),
                         "intent_diagnostics": intent_diagnostics,
@@ -796,10 +829,14 @@ def create_intent_node(llm=None):
     return intent_node
 
 
-def _looks_like_management_request(text: str) -> bool:
-    """确定性兜底：明显在管理 Skill 的请求不进入写作流程。"""
-    compact = re.sub(r"\s+", "", text or "")
-    return bool(_MANAGEMENT_PATTERN.search(compact))
+def _ambiguous_skill_target(state: AgentState, diagnostics) -> AgentState:
+    return {
+        **state,
+        "state": "error",
+        "error_code": "INTENT_TARGET_AMBIGUOUS",
+        "error": "请说明要操作的对象：要写作或改写文档，请指明文档名称或内容；要管理可复用 Skill，请使用 /admin 或管理 CLI。",
+        "intent_diagnostics": diagnostics,
+    }
 
 
 def _management_forbidden(state: AgentState) -> AgentState:
@@ -812,13 +849,6 @@ def _management_forbidden(state: AgentState) -> AgentState:
             "请使用 Skills 管理控制台（/admin）或 python -m document_agent.skill_cli skill。"
         ),
     }
-
-
-_MANAGEMENT_PATTERN = re.compile(
-    r"(创建|新建|定义|修改|更新|删除|发布|回滚)(一个|一份|个|份)?(?!.*文档)"
-    r"[^，。；\n]{0,8}(规范|Skill|skill)"
-    r"|(规范|Skill|skill)[^，。；\n]{0,6}(创建|新建|修改|更新|删除|发布|回滚)"
-)
 
 
 def route_after_intent(state: AgentState) -> str:
