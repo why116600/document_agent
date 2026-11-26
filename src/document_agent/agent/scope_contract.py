@@ -99,13 +99,38 @@ def normalize_scope_title(text: Any) -> str:
     return value
 
 
+#NFKC 只折叠全半角兼容字符，不会把中文引号/书名号/顿号变成 ASCII；
+#模型改写或省略引号形态时不应被判成“未逐字取自用户指令”（DEF-013）。
+#规则分两类：
+#1) 引号/括号只是引用容器、不承载语义，直接去掉，避免“原文有引号、模型漏写”误拒；
+#2) 顿号/句号/破折号等保留外形（统一成 ASCII），避免跨句拼接被误判为命中。
+_SPAN_PUNCTUATION = str.maketrans({
+    '"': None, "'": None,
+    "“": None, "”": None, "„": None, "‟": None,
+    "「": None, "」": None, "『": None, "』": None,
+    "‘": None, "’": None, "‚": None, "‛": None,
+    "《": None, "》": None, "〈": None, "〉": None,
+    "【": None, "】": None, "〔": None, "〕": None, "〖": None, "〗": None,
+    "、": ",", "。": ".", "·": ".", "・": ".", "…": "...",
+    "—": "-", "–": "-", "―": "-", "‐": "-", "‑": "-", "－": "-",
+})
+
+
 def normalize_span(text: Any) -> str:
-    """依据片段只去空白并做 NFKC，保留原始用词。"""
-    return re.sub(r"\s+", "", unicodedata.normalize("NFKC", str(text or "")))
+    """依据片段归一化：NFKC、去空白、去掉引用括号、统一其余标点外形。
+
+    只处理标点形态，不删词、不调序；用词本身仍必须逐字一致。
+    """
+    value = re.sub(r"\s+", "", unicodedata.normalize("NFKC", str(text or "")))
+    return value.translate(_SPAN_PUNCTUATION)
 
 
 def is_grounded(span: Any, user_input: Any) -> bool:
-    """依据片段是否逐字出现在用户原话中（允许空白/全半角差异）。"""
+    """依据片段是否逐字出现在用户原话中。
+
+    允许空白、全半角与常见中英文标点形态差异；用词和顺序仍须逐字一致，
+    真正不在原话里的范围依据依然会被拒绝。
+    """
     value = normalize_span(span)
     return bool(value) and value in normalize_span(user_input)
 

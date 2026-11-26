@@ -382,6 +382,23 @@ def _get_outline_level(node):
         return None
 
 
+def _has_native_heading_level(node) -> bool:
+    """段落是否自带 Word 标题层级（标题样式或大纲级别）。
+
+    视觉启发式（加粗/大字号短段落）只用于分配版式角色，不能作为改写段落
+    样式的依据：用户只要求字号/段距时，把 Title 或大字号正文改成 Heading N
+    会静默污染导航窗格与自动目录（DEF-015）。
+    """
+    style_name = ""
+    try:
+        style_name = (node.style.name or "") if node.style is not None else ""
+    except Exception:
+        style_name = ""
+    if style_name.startswith("Heading") or style_name.startswith("标题"):
+        return True
+    return _get_outline_level(node) is not None
+
+
 def _looks_like_visual_heading(base_item) -> bool:
     #正文里"加粗或大字号"的短段落，作为无编号标题的辅助线索
     if not isinstance(base_item, ParagraphItem) or not base_item.runs:
@@ -2521,7 +2538,11 @@ def run_format_rewrite(llm, dialog: str, retrieved_info: str, doc: Document,
                 skipped += 1
                 continue
             _apply_role_format_to_paragraph(node, run_spec, para_spec)
-            if is_heading and spec.apply_outline_level and isinstance(level, int) and 1 <= level <= 4:
+            #只给原本就有标题层级的段落写大纲级别；视觉启发式命中的 Title/正文
+            #不得被改成 Heading N，否则仅调字号也会改变导航层级（DEF-015）。
+            if (is_heading and spec.apply_outline_level
+                    and _has_native_heading_level(node)
+                    and isinstance(level, int) and 1 <= level <= 4):
                 apply_heading_outline_level(node, level)
             if is_heading:
                 heading_applied += 1
