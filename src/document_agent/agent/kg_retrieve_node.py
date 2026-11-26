@@ -55,6 +55,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import unicodedata
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from pydantic import BaseModel, Field
@@ -514,24 +515,106 @@ def _collect_semantic_results(
 
 
 def _name_key(text: Any) -> str:
-    return "".join(str(text or "").split()).lower()
+    """名称归一化：NFKC（全角/兼容字符）+ 去空白 + 小写。"""
+    return "".join(
+        unicodedata.normalize("NFKC", str(text or "")).split()
+    ).lower()
 
 
-def _missing_plan_entities(plan: KGSearchPlan, entities: Dict[str, Dict[str, Any]]) -> List[str]:
-    """返回计划中要求精确定位、但图谱结果里没有对应实体的名称。"""
+def _plan_corpus(
+    entities: Dict[str, Dict[str, Any]],
+    chunks: Dict[str, Dict[str, Any]],
+    documents: Dict[str, Dict[str, Any]],
+) -> List[str]:
+    """把“标识是否真的存在”可能出现的文本收成一份归一化语料。
+
+    实体名只覆盖图谱节点；测试标识、编号这类内容常常只写在分块正文或文件名里，
+    因此必须把分块与文档的文字一起纳入，否则正常资料会被误判为“未找到”。
+    """
+    values: List[Any] = []
+    for item in (entities or {}).values():
+        values.append(item.get("name"))
+        aliases = item.get("aliases")
+        if isinstance(aliases, str):
+            values.append(aliases)
+        elif isinstance(aliases, (list, tuple)):
+            values.extend(aliases)
+        values.append(item.get("description"))
+    for item in (chunks or {}).values():
+        values.extend(
+            item.get(key) for key in ("title", "document_title", "snippet", "text")
+        )
+    for item in (documents or {}).values():
+        values.extend(item.get(key) for key in ("full_name", "title", "path"))
+    return [key for key in (_name_key(value) for value in values) if key]
+
+
+def _plan_entity_hit(name_key: str, corpus_key: str) -> bool:
+    """计划名称是否能在语料里找到依据。
+
+    只允许“计划名出现在语料中”这一方向：图谱里的泛化实体（如“设备”）不能替
+    具体名称（如“云杉设备”）兜底。别名/省略写法由抛错前的精确检索兜底。
+    """
+    return bool(name_key) and (name_key == corpus_key or name_key in corpus_key)
+
+
+def _missing_plan_entities(
+    plan: KGSearchPlan,
+    entities: Dict[str, Dict[str, Any]],
+    chunks: Optional[Dict[str, Dict[str, Any]]] = None,
+    documents: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> List[str]:
+    """返回计划中要求精确定位、但检索结果里没有依据的名称。
+
+    依据范围从“实体名”扩展到分块正文与文档名：编号/测试标识常只出现在原文
+    分块里，只看实体名会误拒正常资料。
+    """
     names = [str(name).strip() for name in plan.entities if str(name).strip()]
     if not names:
         return []
-    entity_keys = [_name_key(item.get("name")) for item in entities.values()]
-    entity_keys = [key for key in entity_keys if key]
+    corpus = _plan_corpus(entities or {}, chunks or {}, documents or {})
     missing = []
     for name in names:
         key = _name_key(name)
         if len(key) < 2:
+            # 单字符名称歧义太大，保持原有行为：不当作精确标识
             continue
-        if not any(key in entity_key or entity_key in key for entity_key in entity_keys):
+        if not any(_plan_entity_hit(key, corpus_key) for corpus_key in corpus):
             missing.append(name)
     return missing
+
+
+async def _search_missing_plan_entities(
+    kg: RemoteKGTool,
+    names: Sequence[str],
+    entities: Dict[str, Dict[str, Any]],
+    chunks: Dict[str, Dict[str, Any]],
+    documents: Dict[str, Dict[str, Any]],
+) -> List[str]:
+    """对仍未命中的标识做一次精确关键词检索，命中后并入本次结果。
+
+    召回通道有条数上限，标识可能没进入前几页；直接在抛错前补一次精确检索，
+    既能避免误拒，也让“确实不存在”的判定有实际检索依据。
+    """
+    candidates = list(names)
+    unresolved: List[str] = []
+    for name in candidates[:3]:
+        try:
+            payload = await kg.keyword_search(
+                name, kinds=None, limit=KEYWORD_CHANNEL_LIMIT
+            )
+        except Exception as exc:  # 兜底检索失败不应覆盖原始判定
+            print(f"【知识图谱检索】标识兜底检索失败：{name}（{exc}）")
+            unresolved.append(name)
+            continue
+        _collect_keyword_results(payload or {}, entities, chunks, documents)
+        corpus = _plan_corpus(entities, chunks, documents)
+        if any(_plan_entity_hit(_name_key(name), corpus_key) for corpus_key in corpus):
+            print(f"【知识图谱检索】标识兜底检索命中：{name}")
+        else:
+            unresolved.append(name)
+    unresolved.extend(candidates[3:])
+    return unresolved
 
 
 def _collect_subgraph(
@@ -896,7 +979,12 @@ async def _run_kg_search(
                 _collect_subgraph(subgraph, entities, chunks, documents, relations, name_map)
 
         # 5.5 计划中要求精确定位的标识如果完全没命中，不能拿其他实体/旧资料冒充结果
-        missing_entities = _missing_plan_entities(plan, entities)
+        missing_entities = _missing_plan_entities(plan, entities, chunks, documents)
+        if missing_entities:
+            # 召回有条数上限：抛错前用标识本身补一次精确检索，避免误拒正常资料
+            missing_entities = await _search_missing_plan_entities(
+                kg, missing_entities, entities, chunks, documents
+            )
         if missing_entities:
             raise KGRetrievalError(
                 "知识图谱中未找到指定标识：" + "、".join(missing_entities)

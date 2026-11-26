@@ -546,6 +546,9 @@ def _repeated_clauses(doc, title: str = ""):
         if target and text == target:
             continue
         for clause in CLAUSE_SPLIT_PATTERN.split(paragraph.text):
+            # 来源标记按章重复是合法要求（SK-004 每章来源），不参与重复判定。
+            if clause.strip().startswith("【") and "来源" in clause:
+                continue
             normalized = _normalize(clause)
             if len(normalized) >= DUPLICATE_CLAUSE_MIN_CHARS:
                 clauses.append((paragraph_index, normalized))
@@ -697,6 +700,23 @@ def _topics_for_section(section: str, topics: Sequence[str]) -> List[str]:
                for index in range(len(topic_key) - 1)):
             related.append(topic)
     return related
+
+
+def _written_facts_rule(records: Sequence[FactRecord], written_keys: set) -> str:
+    """把前文已写事实作为跨章去重提示；不依赖字段计划是否开启。"""
+    if not written_keys:
+        return ""
+    anchors = sorted(
+        key for key in written_keys
+        if key and any(key == record.anchor for record in records or [])
+    )
+    if not anchors:
+        return ""
+    return (
+        "以下事实已在前文写过，本章不要重复整句或复述其他章节；"
+        "如当前章节确实需要引用，只写一次，不得再展开："
+        + "、".join(anchors) + "\n"
+    )
 
 
 def _topic_core_terms(topic: str) -> List[str]:
@@ -2041,8 +2061,13 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                                              include_title=spec.count_include_title)
                 if max_chars is not None else None
             )
+            reserved = sum(len(item) + 1 for item in sections[index:])
+            chapter_budget = (
+                max(remaining - reserved, 20) if remaining is not None else None
+            )
             budget_rule = (
-                f"{scope_text}最多 {max_chars} {unit}，当前剩余约 {max(remaining, 0)} 个。"
+                f"{scope_text}最多 {max_chars} {unit}，当前剩余约 {max(remaining, 0)} 个；"
+                f"本章最多约 {chapter_budget} 个，请为后续章节留出空间。"
                 if max_chars is not None else ""
             )
             table_rule = "本次禁止输出表格，所有信息用段落表达。" if no_table else ""
@@ -2067,6 +2092,7 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                     + "。带【来源：...】的标记必须原样出现；“纯虚构”声明必须明确写出。\n"
                 )
             written_rule = fact_ledger_block(document_plan, written_fact_keys)
+            written_rule += _written_facts_rule(fact_records, written_fact_keys)
             section_intro = (
                 f"文档总标题：{title}。请一次输出整篇短文，不要输出章节标题。\n"
                 "不要写总览、摘要或概述段；全文只写一遍规则，不要重复。\n"
@@ -2104,13 +2130,46 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
             if document_plan is not None and policy.section_titles_enabled():
                 doc.add_heading(section, level=1)
             try:
-                items = generate_section_items(llm, prompt, section, document_plan=document_plan)
+                items = generate_section_items(
+                    llm, prompt, section, document_plan=document_plan, attempts=3
+                )
+                if chapter_budget is not None and chapter_budget > len(section) + 2:
+                    for retry in range(2):
+                        probe = _new_document()
+                        _append_items(
+                            probe, items, policy, context=f"章节「{section}」预算检查"
+                        )
+                        chapter_chars = (
+                            count_body_chars(probe, "", spec.counting_rule)
+                            + len(section) + 1
+                        )
+                        if chapter_chars <= chapter_budget:
+                            break
+                        feedback = (
+                            f"\n\n【本章超预算】本章约 {chapter_chars} 个字符，"
+                            f"超过分配上限 {chapter_budget}；请删除重复声明和数据复述，"
+                            "只保留本章必需事实、证据和结论，重新输出完整本章。"
+                        )
+                        print(f"【章节预算】{section} 第{retry + 1}/2次超预算："
+                              f"{chapter_chars}>{chapter_budget}")
+                        try:
+                            items = generate_section_items(
+                                llm, prompt + feedback, section,
+                                document_plan=document_plan, attempts=2,
+                            )
+                        except ValueError as exc:
+                            print(f"【章节预算】{section} 重试未生成有效正文，"
+                                  f"保留上一版交给全篇修复：{exc}")
+                            break
             except ValueError as exc:
                 print(f"【章节检查】{exc}")
                 return {**state, "state": "error", "error": str(exc)}
             invalid_items += _append_items(doc, items, policy, context=f"章节「{section}」")
-            if document_plan is not None:
-                written_fact_keys = matching_fact_keys(document_plan, _document_text(doc))
+            current_text = _normalize(_document_text(doc))
+            written_fact_keys = {
+                record.anchor for record in fact_records
+                if record.anchor and _normalize(record.anchor) in current_text
+            }
             print(f"【结构】本章节后正文{unit}="
                   f"{count_body_chars(doc, title, spec.counting_rule, include_title=spec.count_include_title)}")
 
@@ -2187,6 +2246,27 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                 validation["issues"].extend(verify_issues)
                 print(f"【独立审校】纳入修复问题：{verify_issues}")
 
+        # DEF-003：原文限定语缺失只作为修复提示，不直接升级成保存门禁；
+        # 避免把“缺限定语”混进 DEF-004 的硬约束。
+        qualifier_clauses_for_repair = extract_qualifier_clauses(material_items)
+        missing_qualifiers_for_repair = find_missing_qualifiers(
+            qualifier_clauses_for_repair, _document_text(doc)
+        )
+        qualifier_rule = ""
+        if missing_qualifiers_for_repair:
+            qualifier_rule = (
+                "以下原文限定语在当前文档中缺失，修复时应在不超字数上限的前提下尽量原样补回；"
+                "若与字数上限冲突，优先保留用户字数上限和本章必需事实，限定语缺失只告警：\n"
+                + "\n".join(
+                    f"- {item['clause']}" for item in missing_qualifiers_for_repair
+                )
+                + "\n"
+            )
+            validation["issues"].append(
+                f"qualifier_missing:{len(missing_qualifiers_for_repair)}"
+            )
+            print(f"【限定语】当前疑似缺失 {len(missing_qualifiers_for_repair)} 项，纳入修复提示")
+
         if validation["issues"]:
             print(f"【结构修复】首轮不合格：{validation['issues']}，调用一次修复")
             repaired, repair_issues = _repair_new_doc(
@@ -2197,6 +2277,7 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                 field_plan=document_plan,
                 policy=policy,
                 fact_records=fact_records,
+                extra_rule=qualifier_rule,
             )
             if repaired is not None:
                 repair_issues = list(repair_issues) + _repaired_doc_issues(
@@ -2214,6 +2295,15 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                     if verify_issues:
                         repair_issues = list(repair_issues) + verify_issues
                         print(f"【独立审校】修复后仍有问题：{verify_issues}")
+                missing_after = (
+                    find_missing_qualifiers(
+                        qualifier_clauses_for_repair, _document_text(repaired)
+                    )
+                    if qualifier_clauses_for_repair else []
+                )
+                if missing_after:
+                    # 限定语与字数上限可能冲突；只告警，不因此触发二次修复把字数撑爆。
+                    print(f"【限定语】修复后仍缺失 {len(missing_after)} 项，仅告警")
             # 方案要点：A001 类“修复后仍超长”允许一次精准二次压缩。
             retryable = (
                 "body_too_long:", "duplicate_fact:", "same_field_duplicate:",
@@ -2221,7 +2311,7 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                 "field_fact_misplaced:", "verify_fact_missing:",
                 "verify_fact_misplaced:", "verify_illegal_duplicate:",
                 "invalid_items:", "fact_coverage_missing:", "field_label_missing:",
-                "missing_topics:",
+                "missing_topics:", "qualifier_missing:",
             )
             # 只要存在可修复项就再修一次；不再要求所有问题都在白名单内。
             if repaired is not None and repair_issues and any(
@@ -2294,6 +2384,17 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                         if verify_issues:
                             repair_issues = list(repair_issues) + verify_issues
                             print(f"【独立审校】二次修复后仍有问题：{verify_issues}")
+            # 限定语缺失最多提示到二次修复；仍缺时只告警，不阻断 DEF-004 的保存。
+            qualifier_only = [
+                issue for issue in (repair_issues or [])
+                if issue.startswith("qualifier_missing:")
+            ]
+            if qualifier_only:
+                print(f"【限定语】二次修复后仍缺失 {len(qualifier_only)} 项，仅告警不阻断保存")
+                repair_issues = [
+                    issue for issue in repair_issues
+                    if not issue.startswith("qualifier_missing:")
+                ]
             if repaired is None or repair_issues:
                 fallback_issues = []
                 fallback = None
