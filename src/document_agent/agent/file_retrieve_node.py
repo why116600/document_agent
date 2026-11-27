@@ -162,8 +162,17 @@ def create_file_retrieve_node(llm):
                 continue
             content=_read_content(path)
             if not content:
-                skipped.append({"path": path, "reason": "unreadable_or_unsupported"})
-                print(f"【文件检索】跳过无法读取的文件：{path}")
+                #空文件与“无法读取/不支持”分开记录，避免把空资料写成能力问题。
+                try:
+                    empty = Path(path).exists() and Path(path).stat().st_size == 0
+                except OSError:
+                    empty = False
+                if empty:
+                    skipped.append({"path": path, "reason": "empty"})
+                    print(f"【文件检索】文件为空（0 字节）：{path}")
+                else:
+                    skipped.append({"path": path, "reason": "unreadable_or_unsupported"})
+                    print(f"【文件检索】跳过无法读取的文件：{path}")
                 continue
 
             spec=skill.research.file if skill else None

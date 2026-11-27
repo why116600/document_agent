@@ -204,3 +204,53 @@ def llm_model_invoke(llm, prompt: str, model_class: Type[T], retry=3,
                                           feedback=False, salvage=False,
                                           fallback_policy=fallback_policy)
     return parsed
+
+
+PLAIN_TEXT_INSTRUCTION = (
+    "\n\n【降级输出】请直接输出本章正文：每段一行，不要输出章节标题、编号、"
+    "Markdown 标记或任何解释文字。只输出正文段落本身。"
+)
+
+
+def _clean_plain_lines(text: str, max_paragraphs: int, max_chars: int) -> List[str]:
+    """把纯文本响应整理成段落列表：去掉代码围栏、Markdown 标记与重复行。"""
+    lines: List[str] = []
+    total = 0
+    for raw in (text or "").splitlines():
+        line = str(raw).strip()
+        if not line or line.startswith("```"):
+            continue
+        line = re.sub(r"^#{1,6}\s*", "", line).strip()
+        line = re.sub(r"^[-*+]\s+", "", line).strip()
+        if not line or line in {"{", "}", "[", "]", "json"}:
+            continue
+        if lines and lines[-1] == line:
+            continue
+        if total + len(line) > max_chars:
+            break
+        lines.append(line)
+        total += len(line)
+        if len(lines) >= max_paragraphs:
+            break
+    return lines
+
+
+def llm_text_paragraphs(llm, prompt: str, max_paragraphs: int = 24,
+                        max_chars: int = 4000) -> List[str]:
+    """结构化输出连续失败时的最后兜底：让模型用纯文本给出本章正文段落。
+
+    只做输出格式降级，不改变任务语义；返回的段落仍会经过章节检查、
+    长度上限与事实校验，不会绕过任何验收标准（DEF-010）。
+    """
+    from llm_client import llm_invoke  # 延迟导入，避免调用层与客户端互相引用
+
+    try:
+        response = llm_invoke(llm, prompt + PLAIN_TEXT_INSTRUCTION, retry=1)
+    except Exception as exc:
+        print(f"【结构化输出】纯文本降级调用失败：{exc}")
+        return []
+    # llm_invoke 失败时会返回 {'raw': '', 'parsed': None}，不能当成正文
+    if isinstance(response, dict) and "parsed" in response:
+        print("【结构化输出】纯文本降级未拿到有效响应")
+        return []
+    return _clean_plain_lines(_message_text(response), max_paragraphs, max_chars)

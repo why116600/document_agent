@@ -69,8 +69,12 @@ def create_summary_node(llm):
             if path in summary_result:
                 continue
             content = extract_document_content(path)
-            if not content:
+            if content is None:
                 print(f"【参考资料】不支持或无法读取文件：{path}")
+                continue
+            if not content.strip():
+                #零字节或仅空白的输入按“空资料”处理，不再伪装成能力不支持。
+                print(f"【参考资料】文件为空（无有效内容）：{path}")
                 continue
 
             prompt = (

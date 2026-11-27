@@ -82,13 +82,17 @@ if __name__ == "__main__":
     core.build_graph(gdb, kg, remote_kg)
     result = core.invoke(user_input, sys.argv[1:])
     # print("检索出来的内容：\n","\n\n\n".join(result["retrieved_content"]))
+    exit_code = 0
     if result.get("state") == "succeeded":
         print("文档已保存到：", result.get("save_path") or "")
     else:
         print("运行结果：", result.get("state") or "", result.get("error") or "")
+        #业务失败必须反映到进程退出码，自动化与 CI 才能识别（与 skill_cli 口径一致）。
+        exit_code = 2 if result.get("error_code") == "MAIN_ENTRY_MANAGEMENT_FORBIDDEN" else 1
         if result.get("error_code") == "MAIN_ENTRY_MANAGEMENT_FORBIDDEN":
             print("提示：Skill 管理请使用 /admin 或 python -m document_agent.skill_cli skill")
     if gdb is not None:
         gdb.close()
     if kg is not None:
         kg.close()
+    sys.exit(exit_code)

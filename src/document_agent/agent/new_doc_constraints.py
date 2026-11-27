@@ -49,6 +49,7 @@ from field_plan import (
 )
 from document_agent.write_tool.word_tool import (
     GridItem,
+    DocxItem,
     ParagraphItem,
     TableItem,
     TextRunItem,
@@ -636,8 +637,8 @@ def _missing_topics(doc, topics):
     text = _normalize(raw_text)
     missing = []
     for topic in topics:
-        keys = _topic_keys(topic)
-        if any(key in text for key in keys):
+        #字面键、同义词与二字片段三层判定，避免“内部教学演示”被判未覆盖
+        if _topic_covered(topic, text):
             continue
         topic_text = str(topic or "")
         if "虚构" in topic_text and "虚构" in text and ("材料" in text or "演示" in text):
@@ -660,11 +661,18 @@ _TOPIC_SYNONYMS = {
     "范围": ("仅适用于", "仅限", "内部", "不对外", "适用范围"),
     "归还": ("归还", "返还"),
     "虚构": ("虚构",),
+    # “内部演示限制”这类主题常被写成“仅限内部教学演示”，按同义表达匹配。
+    "内部演示": ("内部演示", "内部教学演示", "仅限内部", "内部使用", "不向外部", "不对外"),
     # 这些是用户口语里的泛化主题，不要求字面出现，按数值/动作词判断。
     "期限": ("期限", "最多", "工作日", "有效期"),
     "申请": ("申请", "提交", "提前"),
     "记录保留": ("记录保留", "保留", "台账"),
 }
+
+# 主题没有字面命中时，允许按二字片段覆盖率判定；阈值可用环境变量调整，
+# 避免为了个别模型/业务口径改代码（P2-10）。
+TOPIC_BIGRAM_MIN_RATIO = float(os.environ.get("NEW_DOC_TOPIC_BIGRAM_MIN_RATIO", "0.75"))
+TOPIC_BIGRAM_MIN_HITS = int(os.environ.get("NEW_DOC_TOPIC_BIGRAM_MIN_HITS", "3"))
 
 
 def _field_keys(topic: str) -> List[str]:
@@ -743,6 +751,40 @@ def _topic_synonyms(topic: str) -> List[str]:
     return list(dict.fromkeys(tokens))
 
 
+_TOPIC_SUFFIX_PATTERN = re.compile(r"(?:要求|限制|配置|期|方面|内容|说明)$")
+
+
+def _topic_bigrams(topic: str) -> List[str]:
+    """
+    取主题的二字片段（去掉“限制/要求”等后缀），用于容忍长主题的同义改写。
+
+    核心不足 4 字时不做片段匹配：过短的片段（如“外部”“演示”）容易在
+    无关句子里同时出现，造成误判。
+    """
+    value = _TOPIC_SUFFIX_PATTERN.sub("", _normalize(topic))
+    if len(value) < 4:
+        return []
+    return list(dict.fromkeys(value[index:index + 2] for index in range(len(value) - 1)))
+
+
+def _topic_bigram_covered(topic: str, text: str) -> bool:
+    """主题字面未命中时，按二字片段覆盖率兜底；命中过少仍判缺失。"""
+    grams = _topic_bigrams(topic)
+    if len(grams) < 3:
+        return False
+    hits = sum(1 for gram in grams if gram in text)
+    return hits >= TOPIC_BIGRAM_MIN_HITS and hits / len(grams) >= TOPIC_BIGRAM_MIN_RATIO
+
+
+def _topic_covered(topic: str, text: str) -> bool:
+    """主题是否已在正文中表达：字面键 → 同义词 → 二字片段覆盖率。"""
+    if any(key in text for key in _topic_keys(topic)):
+        return True
+    if any(_normalize(token) in text for token in _topic_synonyms(topic)):
+        return True
+    return _topic_bigram_covered(topic, text)
+
+
 def _fact_coverage_issues(doc, spec: Optional[NewDocSpec],
                           records: Sequence[FactRecord]) -> List[str]:
     """按当前请求检查关键事实是否写入，替代“只查关键词出现”的旧做法。
@@ -796,7 +838,7 @@ def _fact_coverage_issues(doc, spec: Optional[NewDocSpec],
             if not any(token in text for token in ("仅适用于", "仅限", "内部", "不对外")):
                 issues.append(f"fact_coverage_missing:{topic}")
                 continue
-        if not any(_normalize(key) in text for key in keys + terms):
+        if not _topic_covered(topic, text):
             issues.append(f"fact_coverage_missing:{topic}")
     return list(dict.fromkeys(issues))
 
@@ -1513,14 +1555,50 @@ def _items_have_body(items) -> bool:
     return False
 
 
+def _same_heading_line(line: str, heading: str) -> bool:
+    """判断兜底段落是否就是章节标题本身，避免与系统写入的标题重复。"""
+    def key(value):
+        return re.sub(r"[\s，,。.、；;：:（）()【】\[\]“”\"'《》]+", "", str(value or ""))
+
+    left, right = key(line), key(heading)
+    return bool(left) and left == right
+
+
+def plain_text_section_items(llm, prompt: str, section: str):
+    """DEF-010 兜底：结构化输出连续失败时，把纯文本段落包装成章节元素。
+
+    只改变输出格式，不跳过章节检查；返回 None 表示兜底也没拿到可用正文，
+    调用方应保持原有失败路径（不保存文档）。
+    """
+    from structured_invoke import llm_text_paragraphs
+
+    lines = [
+        line for line in llm_text_paragraphs(llm, prompt)
+        if not _same_heading_line(line, section)
+    ]
+    items = [
+        DocxItem(type="paragraph",
+                 Paragraph=ParagraphItem(runs=[TextRunItem(text=line)]))
+        for line in lines
+    ]
+    return items or None
+
+
 def generate_section_items(llm, prompt: str, section: str, *,
                            document_plan=None, attempts: int = 3):
-    """生成单章元素；空段落/空表格/只有标题会带定向反馈重试，失败抛出 ValueError。"""
+    """生成单章元素；空段落/空表格/只有标题会带定向反馈重试，失败抛出 ValueError。
+
+    连续解析失败（模型完全不返回结构化结果）时，最后尝试一次纯文本降级；
+    降级结果仍需通过空元素/正文/预算检查，不合格照旧失败。
+    """
     feedback = ""
+    parse_failures = 0
     for attempt in range(1, attempts + 1):
-        res = llm_model_invoke(llm, prompt + feedback, DocxRoot, retry=1,
+        #瞬时超时不应直接消耗一次章节机会；解析失败仍由下面的失败计数处理。
+        res = llm_model_invoke(llm, prompt + feedback, DocxRoot, retry=2,
                                fallback_policy="json")
         if res is None:
+            parse_failures += 1
             feedback = (
                 "\n\n【上次输出无法解析】请只输出合法的 DocxRoot JSON，"
                 "items 由段落或表格组成；不要输出解释文字。"
@@ -1554,6 +1632,14 @@ def generate_section_items(llm, prompt: str, section: str, *,
             print(f"【章节检查】{section} 第{attempt}/{attempts}次只有标题没有正文")
             continue
         return items
+    #解析失败与“只有标题/空段落”都属于无有效正文，统一尝试一次纯文本兜底；
+    #兜底结果仍要通过正文、预算与结构校验，不合格照旧失败（DEF-010 / CP-002）。
+    fallback_items = plain_text_section_items(llm, prompt, section)
+    if fallback_items and _items_have_body(fallback_items):
+        print(f"【章节检查】{section} 结构化输出未产出有效正文"
+              f"（解析失败 {parse_failures} 次），改用纯文本降级")
+        return fallback_items
+    print(f"【章节检查】{section} 纯文本降级也没有可用正文")
     raise ValueError(
         f"章节「{section}」连续 {attempts} 次未生成有效正文"
         "（空段落/空表格/只有标题或无法解析），未保存文档"
@@ -1931,6 +2017,10 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
         print(f"【写作约束】{spec.model_dump_json(ensure_ascii=False)}")
 
         material_items, material_source = collect_writing_material(state)
+        #用户给了文件却没有任何可用内容时，先明确拒绝，不进入写作（CP-006）。
+        if not material_items and (state.get("input_file_path") or []):
+            return {**state, "state": "error",
+                    "error": "输入资料为空或无法读取，未生成文档；请检查文件内容后重试"}
         header = "目前已知："
         if material_source == "summary":
             header += "（检索阶段未产出要点，以下为参考资料摘要，细节以原文为准）"
@@ -2103,6 +2193,12 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                 "不要写总览、摘要或概述段；本章只写当前章节标题对应的规则，"
                 "不要提前汇总整份文档，也不要在本章复述其他章节；同一规则全篇只出现一次。\n"
             )
+            #清单/短文一次生成时，字段名是正文内容而非标题，避免只出标题没有正文。
+            flat_form_rule = (
+                "本次为短文/清单一次生成：每个段落只写一条规则；字段名写在正文段落开头，"
+                "不要把字段名或标签设置为 heading_level，也不要输出章节标题。\n"
+                if flat_form else ""
+            )
             prompt = (
                 "你是一个写作系统的智能助手，需要根据章节主旨以及源信息进行文档生成，"
                 + ("只输出段落，不输出表格。\n" if no_table else "包括段落和表格。\n")
@@ -2112,6 +2208,7 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                 "自行思考并设计一套最适合本文档的字体字号方案（标题与正文层级梯度清晰、同层级一致、"
                 "全文统一不混用），并通过 font_name/font_size 字段设置。\n"
                 + section_intro
+                + flat_form_rule
                 + "每个 paragraph 必须填写 Paragraph 且包含至少一个非空 run；不得输出空段落或空表格。\n"
                 f"{FIELD_ASSIGNMENT_RULE}"
                 f"{policy.prompt_rule()}"
@@ -2268,6 +2365,8 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
             print(f"【限定语】当前疑似缺失 {len(missing_qualifiers_for_repair)} 项，纳入修复提示")
 
         if validation["issues"]:
+            #同一问题只保留一次，修复提示与最终错误都不再重复（P2-9）。
+            validation["issues"] = list(dict.fromkeys(validation["issues"]))
             print(f"【结构修复】首轮不合格：{validation['issues']}，调用一次修复")
             repaired, repair_issues = _repair_new_doc(
                 llm, dialog_text, plan_material, title, max_chars, no_table,
@@ -2422,11 +2521,15 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):#从零编写文档
                     )
                     fallback_issues = fallback_validation["issues"]
                 if fallback is None or fallback_issues:
-                    message = "文档结构校验失败且修复未通过：" + (
-                        "; ".join(repair_issues) if repair_issues else "修复写作失败"
-                    )
-                    if fallback_issues:
-                        message += "; 字段兜底仍不合格：" + "; ".join(fallback_issues)
+                    #同一问题可能在多轮校验中重复出现，去重后只展示前 3 条（P2-9）。
+                    unique_issues = list(dict.fromkeys(repair_issues or []))
+                    unique_fallback = list(dict.fromkeys(fallback_issues or []))
+                    head = "；".join(unique_issues[:3]) or "修复写作失败"
+                    if len(unique_issues) > 3:
+                        head += f"（共 {len(unique_issues)} 项）"
+                    message = "文档结构校验失败且修复未通过：" + head
+                    if unique_fallback:
+                        message += "；字段兜底仍不合格：" + "；".join(unique_fallback[:3])
                     print(message)
                     return {**state, "state": "error", "error": message}
                 print("【结构兜底】使用字段计划结构化稿")

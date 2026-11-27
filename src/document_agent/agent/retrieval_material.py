@@ -390,9 +390,16 @@ def summaries_as_material(file_summaries: Mapping[str, str] | None) -> List[str]
     return blocks
 
 
+#检索过程的提示行不是资料，不能进入写作素材（CP-006 曾把“重复对文件检索”当正文）。
+_DIAGNOSTIC_PREFIXES = ("重复对文件检索", "跳过无法读取的文件", "文件为空", "【文件检索】", "【参考资料】")
+
+
 def collect_writing_material(state: Mapping[str, Any]) -> Tuple[List[str], str]:
     """决定这次能用哪些资料：优先检索要点，没有才用摘要。返回 (资料, 来源标记)。"""
-    retrieved = [str(item) for item in (state.get("retrieved_content") or []) if str(item).strip()]
+    retrieved = [
+        str(item) for item in (state.get("retrieved_content") or [])
+        if str(item).strip() and not str(item).lstrip().startswith(_DIAGNOSTIC_PREFIXES)
+    ]
     if retrieved:
         return retrieved, "retrieved"
     summaries = summaries_as_material(state.get("file_summaries") or {})

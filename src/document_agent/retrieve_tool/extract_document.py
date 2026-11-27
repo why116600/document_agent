@@ -11,6 +11,13 @@ def extract_document_content(file_path: str) -> str:
     if not path_obj.exists():
         print(f"文件不存在：{file_path}")
         return None
+    #零字节与“不支持的类型”必须区分：前者是空资料，后者是能力边界。
+    try:
+        if path_obj.stat().st_size == 0:
+            print(f"文件为空（0 字节）：{file_path}")
+            return ""
+    except OSError:
+        pass
     suffix = path_obj.suffix.lower()
     if suffix == ".pdf":
         from document_agent.retrieve_tool.pdf_tools import extract_pdf_to_html

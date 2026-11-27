@@ -403,9 +403,12 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):
             limit = skill.verification.max_section_attempts if skill else 3
             failures = []
             draft = None
+            parse_failures = 0
             for attempt in range(1, limit + 1):
                 feedback = '\n【上次检查未通过，请重新输出完整当前章】\n' + '\n'.join(failures[-1]) if failures else ''
-                result = llm_model_invoke(llm, prompt + feedback, DocxRoot, retry=1)
+                result = llm_model_invoke(llm, prompt + feedback, DocxRoot, retry=2)
+                if result is None:
+                    parse_failures += 1
                 try:
                     if result is None:
                         raise ValueError('模型未返回可解析章节')
@@ -421,8 +424,33 @@ def create_new_docx_node(llm, knowledge_mode: str = "local"):
                     break
                 failures.append(issues)
                 print(f"【章节检查】{section['title']} 第{attempt}/{limit}次未通过：{'；'.join(issues)}")
+            fallback_used = False
+            if draft is None and parse_failures == limit:
+                from new_doc_constraints import plain_text_section_items
+                fallback_items = plain_text_section_items(llm, prompt, section['title'])
+                if fallback_items:
+                    try:
+                        candidate = _render_draft(
+                            DocxRoot(items=fallback_items), section, index, skill
+                        )
+                        issues = section_issues(candidate, skill, section)
+                        chars = document_length(candidate)
+                        if budget is not None and chars > budget:
+                            issues.append(
+                                f'本章{chars}字符，超过分配上限{budget}；'
+                                '删除重复声明和数据复述，保留必需指标、证据与结论'
+                            )
+                    except (ValueError, TypeError, AttributeError) as exc:
+                        issues = [str(exc)]
+                    if not issues:
+                        draft = candidate
+                        fallback_used = True
+                        print(f"【章节检查】{section['title']} 结构化输出连续失败，改用纯文本降级")
+                    else:
+                        print(f"【章节检查】{section['title']} 纯文本降级未通过：{'；'.join(issues)}")
             generation_report.append({'section': section['title'], 'attempts': attempt, 'failures': failures,
                                       'passed': draft is not None, 'max_chars': budget,
+                                      'fallback': 'plain_text' if fallback_used else None,
                                       'actual_chars': document_length(draft) if draft is not None else None})
             if draft is None:
                 return {**state, 'state': 'error', 'error': f"章节「{section['title']}」在{limit}次内仍未通过检查，未保存文档：{'；'.join(failures[-1])}",

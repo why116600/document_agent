@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 import re
@@ -1701,6 +1702,46 @@ def resolve_scope_range(target, target_range, nodes, description, base_items) ->
     return matched, ""
 
 
+def _snapshot_body(doc: Document) -> list:
+    """复制整篇 body，用于改写失败时回滚（含 sectPr，保持页面设置）。"""
+    return [copy.deepcopy(child) for child in doc._element.body]
+
+
+def _restore_body(doc: Document, snapshot: list) -> None:
+    """把 body 恢复为快照；只在本次改写内部使用。"""
+    body = doc._element.body
+    for child in list(body):
+        body.remove(child)
+    for child in snapshot:
+        body.append(copy.deepcopy(child))
+
+
+def _rewrite_result_issues(doc: Document, section_titles) -> list:
+    """改写落盘后的结构自检：重复标题或标题数量异常即判定失败。
+
+    生成式改写可能把原文与新文一起输出；旧实现只删除原下标元素，
+    删除失败时不报错，最终把重复内容当成功保存（CP-011）。
+    """
+    headings = []
+    for paragraph in doc.paragraphs:
+        text = (paragraph.text or "").strip()
+        if not text:
+            continue
+        try:
+            style = paragraph.style.name or ""
+        except Exception:
+            style = ""
+        if style.startswith("Heading") or style.startswith("标题") or _get_outline_level(paragraph) is not None:
+            headings.append(text)
+    issues = []
+    duplicates = sorted({text for text in headings if headings.count(text) > 1})
+    if duplicates:
+        issues.append("duplicate_headings:" + "、".join(duplicates[:3]))
+    if section_titles and len(headings) > len(section_titles) + 1:
+        issues.append(f"heading_count:{len(headings)}>{len(section_titles) + 1}")
+    return issues
+
+
 def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nodes, base_items, description,
                        target: str = "", target_range=None,
                        scope_range=None, scope_resolved: bool = False) -> Tuple[int, str]:
@@ -1739,6 +1780,10 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
         print(f"【全局重塑】按步骤范围（下标 {low}~{high}）命中 {len(matched)} 个大章节")
         sections = matched
 
+    #改写前留快照：结构自检失败时回滚，避免把重复/残缺内容当成功保存。
+    body_snapshot = _snapshot_body(doc)
+    section_titles = [s.get("title", "") for s in sections]
+
     print(f"【全局重塑】共划分为 {len(sections)} 个大章节：")
     for s in sections:
         subs = s.get("subsections", [])
@@ -1772,6 +1817,7 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
     total_sections_rewritten = 0
     skipped_sections = []
     failed_sections = []
+    removal_skipped = 0
     for s in reversed(sections):
         start = s["start"]
         end = s["end"]
@@ -1870,6 +1916,9 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
                 parent = old_elem.getparent()
                 if parent is not None:
                     parent.remove(old_elem)
+                else:
+                    #旧元素已被前一步移除，说明范围重叠；继续会留下两份内容。
+                    removal_skipped += 1
 
         total_sections_rewritten += 1
 
@@ -1879,9 +1928,18 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
     if failed_sections:
         print(f"【全局重塑】以下 {len(failed_sections)} 个大章节生成失败："
               + "、".join(failed_sections))
+        _restore_body(doc, body_snapshot)
         return 0, "全局重塑部分大章节生成失败，已放弃保存：" + "、".join(failed_sections)
     if total_sections_rewritten == 0:
         return 0, "全局重塑未能改写任何大章节（所有章节都含图片等无法表达的内容，或生成失败）"
+    result_issues = _rewrite_result_issues(doc, section_titles)
+    if removal_skipped:
+        result_issues.insert(0, f"removal_skipped:{removal_skipped}")
+    if result_issues:
+        _restore_body(doc, body_snapshot)
+        message = "全局重塑结果校验失败，已保留原稿：" + "；".join(result_issues)
+        print(f"【全局重塑】{message}")
+        return 0, message
     return total_sections_rewritten, ""
 
 
