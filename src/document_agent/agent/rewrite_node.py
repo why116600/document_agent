@@ -1716,6 +1716,50 @@ def _restore_body(doc: Document, snapshot: list) -> None:
         body.append(copy.deepcopy(child))
 
 
+def _normalize_heading_text(text: str) -> str:
+    return re.sub(r"[\s，。、；;：:（）()【】\[\]“”\"'《》]+", "", str(text or ""))
+
+
+def _is_document_title_section(section, nodes) -> bool:
+    """首段为 Word“Title/标题”样式时，该区是文档总标题，不参与章节重塑。
+
+    否则模型会把“重写标题区”理解成“重写整篇”，返回一份完整副本（CP-011）。
+    """
+    if section.get("start") != 0:
+        return False
+    try:
+        style = (nodes[0].style.name or "").strip().lower()
+    except Exception:
+        return False
+    return style in ("title", "标题")
+
+
+def _section_leak_issues(items, own_title: str, other_titles) -> str:
+    """检查模型是否为当前章节返回了其他章节的标题，或返回多个一级标题。"""
+    own = _normalize_heading_text(own_title)
+    others = {
+        normalized for normalized in (_normalize_heading_text(title) for title in other_titles or [])
+        if normalized and normalized != own
+    }
+    headings = []
+    for item in items or []:
+        paragraph = getattr(item, "Paragraph", None)
+        if not paragraph or not paragraph.heading_level:
+            continue
+        text = "".join(run.text for run in paragraph.runs).strip()
+        if text:
+            headings.append((paragraph.heading_level, text))
+    leaked = [
+        text for _, text in headings
+        if any(title in _normalize_heading_text(text) for title in others)
+    ]
+    if leaked:
+        return "返回了其他章节标题：" + "、".join(leaked[:2])
+    if sum(1 for level, _ in headings if level == 1) > 1:
+        return "返回了多个一级标题"
+    return ""
+
+
 def _rewrite_result_issues(doc: Document, section_titles) -> list:
     """改写落盘后的结构自检：重复标题或标题数量异常即判定失败。
 
@@ -1780,6 +1824,15 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
         print(f"【全局重塑】按步骤范围（下标 {low}~{high}）命中 {len(matched)} 个大章节")
         sections = matched
 
+    #文档总标题区不交给模型：否则会被当成“重写整篇”，返回一份完整副本（CP-011 根因）。
+    title_sections = [s for s in sections if _is_document_title_section(s, nodes)]
+    if title_sections:
+        names = "、".join(str(s.get("title") or "") for s in title_sections)
+        print(f"【全局重塑】总标题区保持原样，不参与重塑：{names}")
+        sections = [s for s in sections if s not in title_sections]
+    if not sections:
+        return 0, "全局重塑没有可改写的章节（仅包含文档总标题）"
+
     #改写前留快照：结构自检失败时回滚，避免把重复/残缺内容当成功保存。
     body_snapshot = _snapshot_body(doc)
     section_titles = [s.get("title", "") for s in sections]
@@ -1825,6 +1878,11 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
             print(f"大章节 {s['title']} 含图片/文本框等无法表达的内容，保留原内容")
             skipped_sections.append(s["title"])
             continue
+
+        other_titles = [
+            _normalize_heading_text(title) for title in section_titles
+            if title and title != s.get("title")
+        ]
 
         #构建子章节说明
         sub_list_str = ""
@@ -1885,6 +1943,22 @@ def run_global_rewrite(llm, dialog: str, retrieved_info: str, doc: Document, nod
             ]
             if not valid_items:
                 print(f"大章节 {s['title']}（下标 {chunk_start}~{chunk_end}）未生成可渲染内容，保留原内容")
+                chunk_failed = True
+                break
+
+            #诊断：记录模型本次返回的标题，便于发现“一次返回整篇”导致的重复。
+            returned_headings = [
+                ((item.Paragraph.heading_level if item.Paragraph else None),
+                 "".join(run.text for run in (item.Paragraph.runs if item.Paragraph else []))[:24])
+                for item in valid_items
+                if item.type == "paragraph" and item.Paragraph and item.Paragraph.heading_level
+            ]
+            if returned_headings:
+                print(f"【全局重塑】{s['title']} 返回标题：{returned_headings}")
+
+            leak = _section_leak_issues(valid_items, s["title"], other_titles)
+            if leak:
+                print(f"大章节 {s['title']} {leak}，保留原内容")
                 chunk_failed = True
                 break
 
